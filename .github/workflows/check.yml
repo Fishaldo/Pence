@@ -1,0 +1,82 @@
+name: Check Pence
+
+# Installs, tests, type-checks and builds Pence, then runs it (as a dev server
+# and as the built app) and walks through it in a phone-sized browser. The
+# logs and screenshots are pushed to the `ci-results` branch so they can be
+# read without signing in to GitHub. That branch can be deleted at any time.
+
+on:
+  push:
+    branches-ignore: [ci-results]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: check-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install, test, type check, lint, build
+        shell: bash
+        run: |
+          mkdir -p ci-out
+          row() { echo "| $1 | $( [ "$2" = 0 ] && echo passed || echo "FAILED ($2)" ) |" >> ci-out/summary.md; }
+          {
+            echo "# Pence check of ${GITHUB_SHA::7} on ${GITHUB_REF_NAME}"
+            echo
+            echo "| Step | Result |"
+            echo "| --- | --- |"
+          } > ci-out/summary.md
+          npm ci --no-audit --no-fund > ci-out/install.log 2>&1; row install $?
+          npm test > ci-out/test.log 2>&1; row tests $?
+          npm run typecheck > ci-out/typecheck.log 2>&1; row "type check" $?
+          npm run lint > ci-out/lint.log 2>&1; row lint $?
+          npm run build > ci-out/build.log 2>&1; row build $?
+
+      - name: Install the test browser
+        shell: bash
+        run: npx playwright install --with-deps chromium > ci-out/browser-install.log 2>&1 || echo "| browser install | FAILED |" >> ci-out/summary.md
+
+      - name: Run the app and walk through it
+        shell: bash
+        run: |
+          npm run dev > ci-out/dev-server.log 2>&1 &
+          for i in $(seq 1 90); do curl -sf -o /dev/null http://127.0.0.1:8080/ && break; sleep 2; done
+          node scripts/ci-walkthrough.mjs http://127.0.0.1:8080 ci-out/dev > ci-out/walkthrough-dev.log 2>&1
+          echo "| walkthrough, dev server | $(head -1 ci-out/walkthrough-dev.log) |" >> ci-out/summary.md
+
+      - name: Run the built app and walk through it
+        shell: bash
+        run: |
+          npm run preview:restart > ci-out/preview.log 2>&1 || true
+          for i in $(seq 1 60); do curl -sf -o /dev/null http://127.0.0.1:8081/ && break; sleep 2; done
+          node scripts/ci-walkthrough.mjs http://127.0.0.1:8081 ci-out/built > ci-out/walkthrough-built.log 2>&1
+          echo "| walkthrough, built app | $(head -1 ci-out/walkthrough-built.log) |" >> ci-out/summary.md
+
+      - name: Save the results to the ci-results branch
+        if: always()
+        shell: bash
+        env:
+          TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          mkdir -p ci-out
+          cd ci-out
+          git init -q
+          git checkout -q -b ci-results
+          git add -A
+          git -c user.name="pence-check" -c user.email="actions@users.noreply.github.com" \
+            commit -q -m "Check of ${GITHUB_SHA::7} on ${GITHUB_REF_NAME}"
+          git push -q -f "https://x-access-token:${TOKEN}@github.com/${GITHUB_REPOSITORY}.git" ci-results
