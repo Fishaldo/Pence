@@ -12,47 +12,68 @@ import {
   spanProgress,
   spendQueries,
   summarizeSpan,
+  todayISO,
 } from "@/lib/spend/model";
-import { mergeDeals } from "@/lib/spend/deals";
+import { whenText, type TasteProfile } from "@/lib/spend/habits";
+import type { PersonalDeal } from "@/server/for-you";
 import { hotDeals, type HotDeal } from "@/server/hotukdeals";
-import { publicDeals } from "@/server/public-deals";
 import { seedSamples } from "@/server/ledger";
-import { useLedger, useRefreshLedger } from "./data";
+import { useForYou, useLedger, useRefreshLedger } from "./data";
 import { errorText, Money, PageHead } from "./ui";
+
+/** Three picks: the next likely buys first, one per habit, near you and your shops first. */
+function picksFor(deals: PersonalDeal[], taste: TasteProfile | undefined): PersonalDeal[] {
+  if (!taste) return [];
+  const soon = new Set(taste.upcoming.flatMap((up) => [up.key, up.interestKey ?? ""]));
+  const sorted = [...deals].sort(
+    (a, b) =>
+      Number(soon.has(b.key)) - Number(soon.has(a.key)) ||
+      Number(b.local) - Number(a.local) ||
+      Number(b.yours) - Number(a.yours),
+  );
+  const picks: PersonalDeal[] = [];
+  const keys = new Set<string>();
+  for (const deal of sorted) {
+    if (picks.length >= 3) break;
+    if (keys.has(deal.key)) continue;
+    keys.add(deal.key);
+    picks.push(deal);
+  }
+  for (const deal of sorted) {
+    if (picks.length >= 3) break;
+    if (!picks.includes(deal)) picks.push(deal);
+  }
+  return picks;
+}
 
 export function HomeView() {
   const { profile, txs } = useLedger();
   const refresh = useRefreshLedger();
+  const mine = useForYou();
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
-  const [deals, setDeals] = useState<HotDeal[] | null>(null);
+  const [trending, setTrending] = useState<HotDeal[] | null>(null);
+  const picks = picksFor(mine.data?.deals ?? [], mine.data?.taste);
+  const needTrending = !mine.isPending && picks.length === 0;
   const kindKey = spendQueries(
     (txs.data ?? []).map((tx) => ({ category: tx.category, amountPence: tx.amountPence, isSample: tx.isSample })),
     3,
   ).join("|");
 
   useEffect(() => {
-    if (!kindKey) return;
+    if (!needTrending || !kindKey) return;
     let cancel = false;
-    const queries = kindKey.split("|");
-    void hotDeals({ data: { queries, limit: 3 } })
+    void hotDeals({ data: { queries: kindKey.split("|"), limit: 3 } })
       .then((found) => {
-        if (!cancel) setDeals((prev) => mergeDeals(found, prev ?? [], 3));
+        if (!cancel) setTrending(found);
       })
       .catch(() => {
-        if (!cancel) setDeals((prev) => prev ?? []);
-      });
-    void publicDeals({ data: { queries, limit: 3 } })
-      .then((found) => {
-        if (!cancel) setDeals((prev) => mergeDeals(prev ?? [], found, 3));
-      })
-      .catch(() => {
-        if (!cancel) setDeals((prev) => prev ?? []);
+        if (!cancel) setTrending([]);
       });
     return () => {
       cancel = true;
     };
-  }, [kindKey]);
+  }, [needTrending, kindKey]);
 
   if (txs.isPending || profile.isPending) {
     return (
@@ -84,6 +105,8 @@ export function HomeView() {
   const hasSample = rows.some((row) => row.isSample);
   const recent = rows.filter((row) => row.spentOn >= span.start && row.spentOn <= span.end).slice(0, 4);
   const cycle = payday ? "pay" : "month";
+  const upcoming = mine.data?.taste.upcoming ?? [];
+  const tasteToday = mine.data?.taste.today ?? todayISO(today);
 
   async function loadSample() {
     setBusy(true);
@@ -186,21 +209,59 @@ export function HomeView() {
         <p className="mt-4 text-sm text-muted">{pace}</p>
       </section>
 
+      {upcoming.length > 0 ? (
+        <section className="mt-4">
+          <div className="mb-2 flex items-baseline justify-between">
+            <h2 className="font-display text-2xl">Coming up</h2>
+            <Link to="/offers" className="text-sm text-forest">
+              Deals
+            </Link>
+          </div>
+          <ul className="panel divide-y divide-line">
+            {upcoming.slice(0, 2).map((up) => (
+              <li key={up.key} className="px-4 py-3">
+                <div className="flex items-baseline justify-between gap-3">
+                  <p className="min-w-0 truncate font-medium">{up.title}</p>
+                  <p className="shrink-0 text-sm text-forest">{whenText(up.nextOn, tasteToday)}</p>
+                </div>
+                <p className="text-sm text-muted">{up.line}</p>
+              </li>
+            ))}
+          </ul>
+        </section>
+      ) : null}
+
       {top ? (
         <section className="mt-4">
           <div className="mb-2 flex items-baseline justify-between">
-            <h2 className="font-display text-2xl">Hot deals</h2>
-            <Link to="/hot" className="text-sm text-forest">
+            <h2 className="font-display text-2xl">{picks.length > 0 ? "Picked for you" : "Hot deals"}</h2>
+            <Link to={picks.length > 0 ? "/offers" : "/hot"} className="text-sm text-forest">
               More
             </Link>
           </div>
-          {deals == null ? <div className="h-24 animate-pulse rounded-lg bg-sand" /> : null}
-          {deals && deals.length === 0 ? (
-            <p className="panel px-4 py-6 text-sm text-muted">Nothing trending for these habits just now.</p>
+          {mine.isPending || (needTrending && trending == null && kindKey) ? (
+            <div className="h-24 animate-pulse rounded-lg bg-sand" />
           ) : null}
-          {deals && deals.length > 0 ? (
+          {picks.length > 0 ? (
             <ul className="space-y-2">
-              {deals.map((deal) => (
+              {picks.map((deal) => (
+                <li key={deal.url} className="panel px-4 py-3">
+                  <p className="text-sm text-muted">
+                    {deal.merchant || deal.source}
+                    {deal.local ? " · near you" : ""}
+                  </p>
+                  <a href={deal.url} className="mt-1 block font-medium" target="_blank" rel="noreferrer">
+                    {deal.title}
+                  </a>
+                  {deal.saving ? <p className="mt-1 text-sm font-medium text-forest">{deal.saving}</p> : null}
+                  {deal.reason ? <p className="mt-1 text-sm text-muted">{deal.reason}</p> : null}
+                </li>
+              ))}
+            </ul>
+          ) : null}
+          {needTrending && trending && trending.length > 0 ? (
+            <ul className="space-y-2">
+              {trending.map((deal) => (
                 <li key={deal.url} className="panel px-4 py-3">
                   <p className="text-sm text-muted">{deal.source}</p>
                   <a href={deal.url} className="mt-1 block font-medium" target="_blank" rel="noreferrer">
@@ -209,6 +270,9 @@ export function HomeView() {
                 </li>
               ))}
             </ul>
+          ) : null}
+          {needTrending && (trending?.length === 0 || !kindKey) ? (
+            <p className="panel px-4 py-6 text-sm text-muted">Nothing current for your habits just now.</p>
           ) : null}
         </section>
       ) : (
