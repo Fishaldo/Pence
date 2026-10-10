@@ -6,7 +6,7 @@ from docx import Document
 from docx.enum.text import WD_ALIGN_PARAGRAPH
 from docx.shared import Cm, Pt, RGBColor
 
-OUT = Path("/workspace/docs/Pence-features.docx")
+OUT = Path(__file__).resolve().parent.parent / "docs" / "Pence-features.docx"
 
 SECTIONS = [
     (
@@ -35,6 +35,8 @@ SECTIONS = [
         [
             "Home shows how much of the current pay is already spent. If payday is the 25th, that pay starts on the 25th of the previous month and runs until the day before the next 25th. With no payday set, it stays a calendar month.",
             "How the month is pacing against last month.",
+            "Coming up shows the next two buys Pence expects from your own habits, such as a Saturday food shop or a Friday taxi, with the likely day and the usual spend.",
+            "Picked for you shows three deals for those habits, each with the reason it is shown. When there are none yet, it shows three posts trending across the UK instead.",
             "Activity on Home lists the latest spends. All Activity opens the full list.",
         ],
     ),
@@ -51,10 +53,22 @@ SECTIONS = [
             "Charts for where the month went, spending by day, and the past three months side by side.",
             "Each category as a share of take-home, and whether it is up or down.",
             "What to trim, from your own numbers, plus a closer written read when asked.",
-            "Offers leads with the places already used for everyday spending, then other shops in those same habits. About thirty at a time, then More for the next thirty when they exist.",
-            "Hot deals on Home are three posts trending across the UK. More opens the longer list, fifteen at a time, up to one hundred when that many exist.",
-            "The schemes named in the app are Tesco Clubcard, Nectar, Lidl Plus, Aldi Super 6, Too Good To Go, Boots Advantage Card, and a note to check the ride price before you confirm.",
             "Another shop lists other big chains actually near this phone, with the distance. A price or an online offer is shown only when a page states it.",
+        ],
+    ),
+    (
+        "Offers for you",
+        [
+            "Pence learns what you buy from every receipt line and every payment: the food shop, coffee, takeaways, clothes, shoes and trainers, perfume, beauty, toiletries, the pharmacy, the home, cleaning, the kids, pets, games, tickets, streaming, the gym, taxis, trains, fuel, flights, hotels, holidays, tech, gifts, and bills. Perfume bought at Boots counts as perfume, not as the pharmacy.",
+            "For each habit and each regular shop it works out how often you buy, which weekday, whether it is just after payday, the usual time of day when a receipt shows it, and the usual spend.",
+            "From that it expects the next buy, such as a food shop at Tesco on Saturday. Coming up lists those buys with deals for each one.",
+            "Deals are grouped by habit. Each one says why it is shown, for example: You buy perfume about every 6 weeks. Deals near your town come first, then the shops you already use, then other shops for the same thing. About thirty at a time, then More.",
+            "When a deal page states a percentage off, Pence shows what that is on your usual spend. It never guesses a saving.",
+            "A product bought more than once, such as the same perfume, gets a search of its own.",
+            "What Pence knows lists every habit. Not me hides one. Add something you buy tells Pence about a habit it has not seen yet, such as holidays. Hidden habits can be shown again.",
+            "Deal board results load first. A wider search of public pages follows once a day and is saved for the rest of the day.",
+            "Cards and apps for your shops lists the scheme for each shop you use, such as Tesco Clubcard, Nectar, Lidl Plus, Aldi Super 6, or Boots Advantage Card, and a note to check the ride price before you confirm.",
+            "Hot deals, opened from Home when there are no personal picks, is the UK trending list, fifteen at a time, up to one hundred when that many exist.",
         ],
     ),
     (
@@ -119,7 +133,7 @@ def main() -> None:
     sub_run.font.color.rgb = RGBColor(0x4A, 0x55, 0x4E)
 
     dated = doc.add_paragraph()
-    dated_run = dated.add_run("5 October 2026")
+    dated_run = dated.add_run("10 October 2026")
     dated_run.italic = True
     dated_run.font.size = Pt(11)
     dated_run.font.color.rgb = RGBColor(0x4A, 0x55, 0x4E)

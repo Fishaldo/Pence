@@ -1116,13 +1116,54 @@ const SAMPLE_PREV: {
   category: CategoryId;
   source: SpendSource;
   receipt: boolean;
+  items?: { name: string; pounds: string }[];
 }[] = [
-  { slug: "tesco-a", day: 2, merchant: "Tesco Extra", pounds: "86.40", category: "groceries", source: "receipt", receipt: true },
+  {
+    slug: "tesco-a",
+    day: 2,
+    merchant: "Tesco Extra",
+    pounds: "86.40",
+    category: "groceries",
+    source: "receipt",
+    receipt: true,
+    items: [
+      { name: "Semi Skimmed Milk 4 Pints", pounds: "1.65" },
+      { name: "Hovis Wholemeal Bread", pounds: "1.45" },
+      { name: "Persil Bio Liquid 1.4L", pounds: "7.00" },
+      { name: "Chicken Breast Fillets 650g", pounds: "4.95" },
+    ],
+  },
   { slug: "uber-a", day: 3, merchant: "Uber", pounds: "14.20", category: "transport", source: "wallet", receipt: false },
   { slug: "netflix", day: 5, merchant: "Netflix", pounds: "12.99", category: "subscriptions", source: "wallet", receipt: false },
   { slug: "spotify", day: 5, merchant: "Spotify", pounds: "11.99", category: "subscriptions", source: "wallet", receipt: false },
-  { slug: "primark", day: 7, merchant: "Primark", pounds: "32.00", category: "fashion", source: "receipt", receipt: true },
-  { slug: "boots", day: 8, merchant: "Boots", pounds: "14.50", category: "health", source: "receipt", receipt: true },
+  {
+    slug: "primark",
+    day: 7,
+    merchant: "Primark",
+    pounds: "32.00",
+    category: "fashion",
+    source: "receipt",
+    receipt: true,
+    items: [
+      { name: "Black Joggers", pounds: "14.00" },
+      { name: "White T-Shirt", pounds: "6.00" },
+      { name: "Hoodie", pounds: "12.00" },
+    ],
+  },
+  {
+    slug: "boots",
+    day: 8,
+    merchant: "Boots",
+    pounds: "14.50",
+    category: "health",
+    source: "receipt",
+    receipt: true,
+    items: [
+      { name: "Paracetamol 16 Tablets", pounds: "0.89" },
+      { name: "Colgate Toothpaste 75ml", pounds: "2.50" },
+      { name: "Vitamin D 90 Tablets", pounds: "11.11" },
+    ],
+  },
   { slug: "sains", day: 9, merchant: "Sainsbury's", pounds: "54.20", category: "groceries", source: "receipt", receipt: true },
   { slug: "nando", day: 11, merchant: "Nando's", pounds: "28.50", category: "dining", source: "wallet", receipt: false },
   { slug: "uber-b", day: 12, merchant: "Uber", pounds: "11.60", category: "transport", source: "wallet", receipt: false },
@@ -1181,12 +1222,13 @@ export const seedSamples = createServerFn({ method: "POST" })
       if (have.has(item.id)) continue;
       const amount = poundsToPence(item.row.pounds) ?? 0;
       const note = item.row.receipt ? "" : "Sample wallet alert — no paper receipt";
+      const items = (item.row.items ?? []).map((line) => ({ name: line.name, amountPence: poundsToPence(line.pounds) ?? 0 }));
       await sql`insert into transactions (
         id, user_id, merchant, amount_pence, category, spent_on, source, has_receipt,
         note, items_json, raw_alert, is_sample
       ) values (
         ${item.id}, ${context.userId}, ${item.row.merchant}, ${amount}, ${item.row.category},
-        ${item.spentOn}, ${item.row.source}, ${item.row.receipt}, ${note}, '[]', '', true
+        ${item.spentOn}, ${item.row.source}, ${item.row.receipt}, ${note}, ${JSON.stringify(items)}, '', true
       )`;
       added += 1;
     }

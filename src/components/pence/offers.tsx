@@ -1,10 +1,11 @@
-import { useEffect, useState } from "react";
-import { frequentShops, PROGRAMMES, spendQueries } from "@/lib/spend/model";
-import { mergeDeals } from "@/lib/spend/deals";
-import { shopOffers, type ShopOffer } from "@/server/offers";
-import { hotDeals, type HotDeal } from "@/server/hotukdeals";
-import { publicDeals } from "@/server/public-deals";
-import { useLedger } from "./data";
+import { Link } from "@tanstack/react-router";
+import { useQueryClient } from "@tanstack/react-query";
+import { useEffect, useMemo, useState } from "react";
+import { toast } from "sonner";
+import { PROGRAMMES } from "@/lib/spend/model";
+import { habitLine, interestOfKey, whenText, type TasteProfile, type Upcoming } from "@/lib/spend/habits";
+import { setHabit, type PersonalDeal } from "@/server/for-you";
+import { useForYou, useForYouWide } from "./data";
 import { errorText, PageHead } from "./ui";
 
 const SCHEMES: { test: RegExp; id: string }[] = [
@@ -16,6 +17,8 @@ const SCHEMES: { test: RegExp; id: string }[] = [
   { test: /uber|bolt/, id: "rides" },
 ];
 
+const PAGE = 30;
+
 function hostOf(url: string): string {
   try {
     return new URL(url).hostname.replace(/^www\./, "");
@@ -24,180 +27,405 @@ function hostOf(url: string): string {
   }
 }
 
-function OfferCard({ offer }: { offer: ShopOffer }) {
+/** Near you first, then the shops this person already uses. */
+function rank(a: PersonalDeal, b: PersonalDeal): number {
+  return Number(b.local) - Number(a.local) || Number(b.yours) - Number(a.yours);
+}
+
+export function DealCard({ deal, showReason = true }: { deal: PersonalDeal; showReason?: boolean }) {
   return (
     <li className="panel p-4">
-      <p className="text-sm text-muted">{offer.merchant}</p>
-      <p className="mt-1 font-medium">{offer.title}</p>
-      <p className="mt-1 text-sm">{offer.detail}</p>
-      {offer.code ? (
+      <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-sm text-muted">
+        <span>{deal.merchant || deal.source}</span>
+        {deal.local ? <span className="rounded-full bg-mist px-2 py-0.5 text-xs text-forest-deep">Near you</span> : null}
+        {deal.yours ? <span className="rounded-full bg-sand px-2 py-0.5 text-xs text-ink">Your shop</span> : null}
+      </div>
+      <p className="mt-1 font-medium">{deal.title}</p>
+      {deal.detail ? <p className="mt-1 text-sm">{deal.detail}</p> : null}
+      {deal.saving ? <p className="mt-1 text-sm font-medium text-forest">{deal.saving}</p> : null}
+      {deal.code ? (
         <p className="mt-2 text-sm">
-          Code <span className="font-medium tabular-nums">{offer.code}</span>
+          Code <span className="font-medium tabular-nums">{deal.code}</span>
         </p>
       ) : null}
-      <a href={offer.url} className="mt-2 inline-block text-sm font-medium text-forest" target="_blank" rel="noreferrer">
-        Open {hostOf(offer.url)}
+      {showReason && deal.reason ? <p className="mt-2 text-sm text-muted">{deal.reason}</p> : null}
+      <a href={deal.url} className="mt-2 inline-block text-sm font-medium text-forest" target="_blank" rel="noreferrer">
+        Open {hostOf(deal.url)}
       </a>
     </li>
   );
 }
 
-export function OffersView() {
-  const { txs } = useLedger();
-  const [yours, setYours] = useState<ShopOffer[] | null>(null);
-  const [other, setOther] = useState<ShopOffer[]>([]);
-  const [note, setNote] = useState("");
-  const [hot, setHot] = useState<HotDeal[]>([]);
-  const [error, setError] = useState("");
-  const [busy, setBusy] = useState(false);
+type Group = { id: string; label: string; line: string; deals: PersonalDeal[] };
 
-  const loaded = !txs.isPending;
-  const { shops } = frequentShops(
-    (txs.data ?? []).map((tx) => ({
-      merchant: tx.merchant,
-      amountPence: tx.amountPence,
-      isSample: tx.isSample,
-    })),
-  );
-  const schemes = PROGRAMMES.filter((programme) =>
-    shops.some((shop) => SCHEMES.some((rule) => rule.id === programme.id && rule.test.test(shop.name))),
-  );
-  const kinds = spendQueries(
-    (txs.data ?? []).map((tx) => ({ category: tx.category, amountPence: tx.amountPence, isSample: tx.isSample })),
-    4,
-  );
+function arrange(deals: PersonalDeal[], taste: TasteProfile) {
+  const used = new Set<string>();
+  const coming: { up: Upcoming; deals: PersonalDeal[] }[] = taste.upcoming.slice(0, 4).map((up) => {
+    const picks = deals
+      .filter((deal) => !used.has(deal.url) && (deal.key === up.key || deal.key === up.interestKey))
+      .sort(rank)
+      .slice(0, 2);
+    for (const deal of picks) used.add(deal.url);
+    return { up, deals: picks };
+  });
+
+  const groups = new Map<string, Group>();
+  for (const deal of deals) {
+    if (used.has(deal.url)) continue;
+    const def = interestOfKey(deal.key, taste);
+    const id = def?.id ?? deal.key;
+    let group = groups.get(id);
+    if (!group) {
+      const interest = taste.interests.find((row) => row.id === id);
+      const shop = taste.shops.find((row) => row.key === deal.key);
+      group = {
+        id,
+        label: def?.label ?? shop?.name ?? "More for you",
+        line: interest ? habitLine(interest) : shop ? habitLine(shop) : "",
+        deals: [],
+      };
+      groups.set(id, group);
+    }
+    group.deals.push(deal);
+  }
+  const order = taste.interests.map((row) => row.id);
+  const sorted = [...groups.values()].sort((a, b) => {
+    const ia = order.indexOf(a.id);
+    const ib = order.indexOf(b.id);
+    return (ia < 0 ? 99 : ia) - (ib < 0 ? 99 : ib);
+  });
+  for (const group of sorted) group.deals.sort(rank);
+  return { coming, groups: sorted };
+}
+
+export function OffersView() {
+  const client = useQueryClient();
+  const mine = useForYou();
+  const taste = mine.data?.taste;
+  const hasHabits = (taste?.interests.length ?? 0) > 0;
+  const wide = useForYouWide(hasHabits);
+  const [pages, setPages] = useState(1);
+  const [learnedOpen, setLearnedOpen] = useState(false);
+  const [adding, setAdding] = useState(false);
+  const [busyKey, setBusyKey] = useState("");
 
   useEffect(() => {
-    if (!loaded || shops.length === 0) return;
-    let cancel = false;
-    setBusy(true);
-    setError("");
-    setHot([]);
-    const queries = [...kinds, ...shops.slice(0, 4).map((shop) => shop.name)].slice(0, 6);
-    void hotDeals({ data: { queries, limit: 60 } })
-      .then((deals) => {
-        if (!cancel) setHot((prev) => mergeDeals(deals, prev, 60));
-      })
-      .catch(() => {
-        if (!cancel) setHot((prev) => prev);
-      });
-    void publicDeals({ data: { queries: queries.slice(0, 4), limit: 24 } })
-      .then((deals) => {
-        if (!cancel) setHot((prev) => mergeDeals(prev, deals, 60));
-      })
-      .catch(() => {
-        /* the open web can fail; shop and HotUKDeals results still show */
-      });
-    void shopOffers()
-      .then((result) => {
-        if (cancel) return;
-        setYours(result.yours);
-        setOther(result.other);
-        setNote(result.note);
-      })
-      .catch((err: unknown) => {
-        if (!cancel) setError(errorText(err, "Couldn’t check offers for your shops."));
-      })
-      .finally(() => {
-        if (!cancel) setBusy(false);
-      });
-    return () => {
-      cancel = true;
-    };
-  }, [loaded, shops.map((shop) => shop.name).join("|"), kinds.join("|")]);
+    if (!adding) return;
+    const onPop = () => setAdding(false);
+    window.addEventListener("popstate", onPop);
+    return () => window.removeEventListener("popstate", onPop);
+  }, [adding]);
 
-  const [pages, setPages] = useState(1);
-  const shopNames = shops.map((shop) => shop.name.toLowerCase());
-  const yoursDeals = hot.filter((deal) => shopNames.some((name) => name.length > 2 && deal.title.toLowerCase().includes(name)));
-  const otherDeals = hot.filter((deal) => !yoursDeals.includes(deal));
-  const primaryCount = (yours?.length ?? 0) + yoursDeals.length + schemes.length;
-  const secondaryCount = other.length + otherDeals.length;
-  const total = primaryCount + secondaryCount;
-  const shown = pages * 30;
-  let room = shown;
+  function openAdd() {
+    window.history.pushState({ penceAdd: 1 }, "");
+    setAdding(true);
+  }
+
+  function closeAdd() {
+    setAdding(false);
+    if ((window.history.state as { penceAdd?: number } | null)?.penceAdd) window.history.back();
+  }
+
+  async function change(key: string, mode: "muted" | "added" | "clear", label: string) {
+    setBusyKey(key);
+    try {
+      await setHabit({ data: { key, mode } });
+      await client.invalidateQueries({ queryKey: ["forYou"] });
+      toast(
+        mode === "muted"
+          ? `${label} is hidden. Pence won’t look for deals on it.`
+          : mode === "added"
+            ? `${label} added. Pence will look for deals on it.`
+            : `${label} is back.`,
+      );
+    } catch (err) {
+      toast(errorText(err, "Couldn’t change that just now."));
+    } finally {
+      setBusyKey("");
+    }
+  }
+
+  const deals = useMemo(() => {
+    if (!taste) return [];
+    const live = new Set([...taste.interests.map((row) => row.key), ...taste.shops.map((row) => row.key)]);
+    const seen = new Set<string>();
+    const merged: PersonalDeal[] = [];
+    for (const deal of [...(mine.data?.deals ?? []), ...(wide.data?.deals ?? [])]) {
+      if (seen.has(deal.url) || !live.has(deal.key)) continue;
+      seen.add(deal.url);
+      merged.push(deal);
+    }
+    return merged;
+  }, [taste, mine.data?.deals, wide.data?.deals]);
+
+  if (mine.isPending) {
+    return (
+      <div>
+        <PageHead kicker="Offers" title="For you" />
+        <div className="space-y-3">
+          <div className="h-24 animate-pulse rounded-lg bg-sand" />
+          <div className="h-40 animate-pulse rounded-lg bg-sand" />
+          <div className="h-40 animate-pulse rounded-lg bg-sand" />
+        </div>
+      </div>
+    );
+  }
+
+  if (mine.isError || !taste) {
+    return (
+      <div>
+        <PageHead kicker="Offers" title="For you" />
+        <p className="panel p-5 text-sm">{errorText(mine.error, "Couldn’t load your offers just now.")}</p>
+        <button type="button" className="btn btn-quiet mt-3" onClick={() => void mine.refetch()}>
+          Try again
+        </button>
+      </div>
+    );
+  }
+
+  const addable = (mine.data?.addable ?? []).filter(
+    (item) => !taste.interests.some((row) => row.key === item.key) && !taste.hidden.some((row) => row.key === item.key),
+  );
+  const { coming, groups } = arrange(deals, taste);
+  const shopNames = taste.shops.map((shop) => shop.name.toLowerCase());
+  const schemes = PROGRAMMES.filter((programme) =>
+    shopNames.some((name) => SCHEMES.some((rule) => rule.id === programme.id && rule.test.test(name))),
+  );
+  const learned = taste.interests.filter((row) => row.occasions > 0).slice(0, 4).map((row) => row.label);
+  const topShops = taste.shops.slice(0, 3).map((shop) => shop.name);
+  const groupTotal = groups.reduce((sum, group) => sum + group.deals.length, 0);
+  let room = pages * PAGE;
+
+  const addSheet = adding ? (
+    <div className="fixed inset-0 z-40 flex items-end">
+      <button type="button" className="absolute inset-0 bg-ink/40" aria-label="Close" onClick={closeAdd} />
+      <div className="relative max-h-[70dvh] w-full overflow-y-auto rounded-t-2xl bg-card px-4 pt-4 pb-[max(1rem,env(safe-area-inset-bottom))]">
+        <p className="font-medium">What else do you buy?</p>
+        <p className="mt-1 text-sm text-muted">Pence will look for deals on it.</p>
+        <ul className="mt-2 divide-y divide-line">
+          {addable.map((item) => (
+            <li key={item.key}>
+              <button
+                type="button"
+                className="flex min-h-12 w-full items-center text-left text-sm"
+                disabled={busyKey === item.key}
+                onClick={() => {
+                  closeAdd();
+                  void change(item.key, "added", item.label);
+                }}
+              >
+                {item.label}
+              </button>
+            </li>
+          ))}
+        </ul>
+      </div>
+    </div>
+  ) : null;
+
+  if (!hasHabits) {
+    return (
+      <div>
+        <PageHead kicker="Offers" title="For you" />
+        <section className="panel p-5">
+          <p className="font-medium">Pence learns what you buy</p>
+          <p className="mt-1 text-sm text-muted">
+            Add a few receipts or payments. Pence will see what you buy, where, and how often, then look for cheaper ways to buy it.
+          </p>
+          <div className="mt-4 flex flex-col gap-2 sm:flex-row">
+            <Link to="/capture" className="btn btn-primary sm:w-auto">
+              Add a spend
+            </Link>
+            <button type="button" className="btn btn-quiet sm:w-auto" onClick={openAdd}>
+              Tell Pence what you buy
+            </button>
+          </div>
+        </section>
+        {taste.hidden.length > 0 ? <HiddenList taste={taste} busyKey={busyKey} onShow={change} /> : null}
+        {addSheet}
+      </div>
+    );
+  }
 
   return (
     <div>
-      <PageHead kicker="Offers" title="Ahead of you" />
+      <PageHead kicker="Offers" title="For you" />
 
-      {!loaded ? <div className="h-40 animate-pulse rounded-lg bg-sand" /> : null}
-
-      {loaded && shops.length === 0 ? (
-        <p className="panel p-5 text-sm">Once a few regular spends are in, Pence can look ahead at what you tend to buy.</p>
-      ) : null}
-
-      {error ? <p className="mb-3 text-sm text-clay">{error}</p> : null}
-      {busy && !yours && hot.length === 0 ? <div className="h-28 animate-pulse rounded-lg bg-sand" /> : null}
-
-      {room > 0 && (primaryCount > 0 || (yours && yours.length === 0 && hot.length === 0 && !busy)) ? (
-        <section>
-          <h2 className="font-display text-2xl">The places you already go</h2>
-          {yours && yours.length === 0 && yoursDeals.length === 0 && schemes.length === 0 ? (
-            <p className="mt-2 text-sm text-muted">{note || "Nothing current at those shops just now."}</p>
-          ) : (
-            <ul className="mt-3 space-y-3">
-              {schemes.slice(0, room).map((item) => {
-                room -= 1;
-                return (
-                  <li key={item.id} className="panel p-4">
-                    <p className="font-medium">{item.name}</p>
-                    <p className="mt-1 text-sm">{item.detail}</p>
-                    <a href={item.href} className="mt-2 inline-block text-sm font-medium text-forest" target="_blank" rel="noreferrer">
-                      Open {item.name}
-                    </a>
-                  </li>
-                );
-              })}
-              {(yours ?? []).slice(0, Math.max(0, room)).map((offer) => {
-                room -= 1;
-                return <OfferCard key={`${offer.merchant}-${offer.url}`} offer={offer} />;
-              })}
-              {yoursDeals.slice(0, Math.max(0, room)).map((deal) => {
-                room -= 1;
-                return (
-                  <li key={deal.url} className="panel p-4">
-                    <p className="text-sm text-muted">{deal.source}</p>
-                    <p className="mt-1 font-medium">{deal.title}</p>
-                    <a href={deal.url} className="mt-2 inline-block text-sm font-medium text-forest" target="_blank" rel="noreferrer">
-                      Open {deal.source}
-                    </a>
-                  </li>
-                );
-              })}
-            </ul>
-          )}
-        </section>
-      ) : null}
-
-      {room > 0 && secondaryCount > 0 ? (
-        <section className="mt-6">
-          <h2 className="font-display text-2xl">Somewhere else, if it helps</h2>
-          <ul className="mt-3 space-y-3">
-            {other.slice(0, room).map((offer) => {
-              room -= 1;
-              return <OfferCard key={`${offer.merchant}-${offer.url}`} offer={offer} />;
-            })}
-            {otherDeals.slice(0, Math.max(0, room)).map((deal) => {
-              room -= 1;
-              return (
-                <li key={deal.url} className="panel p-4">
-                  <p className="text-sm text-muted">{deal.source}</p>
-                  <p className="mt-1 font-medium">{deal.title}</p>
-                  <a href={deal.url} className="mt-2 inline-block text-sm font-medium text-forest" target="_blank" rel="noreferrer">
-                    Open {deal.source}
-                  </a>
+      <section className="panel p-4">
+        <p className="text-sm text-muted">
+          {taste.usingSamples ? "Learned from the sample month" : `Learned from ${taste.basedOn} spends`}
+        </p>
+        <p className="mt-1 font-medium">
+          {learned.length > 0 ? `You buy: ${learned.join(", ")}` : "You told Pence what you buy"}
+        </p>
+        {topShops.length > 0 ? <p className="mt-1 text-sm text-muted">Mostly at {topShops.join(", ")}</p> : null}
+        <button
+          type="button"
+          className="mt-2 min-h-11 text-sm font-medium text-forest"
+          aria-expanded={learnedOpen}
+          onClick={() => setLearnedOpen((open) => !open)}
+        >
+          {learnedOpen ? "Close" : "What Pence knows"}
+        </button>
+        {learnedOpen ? (
+          <div className="mt-1">
+            <ul className="divide-y divide-line border-t border-line">
+              {taste.interests.map((row) => (
+                <li key={row.key} className="flex items-center justify-between gap-3 py-3">
+                  <div className="min-w-0">
+                    <p className="font-medium">{row.label}</p>
+                    <p className="text-sm text-muted">{habitLine(row)}</p>
+                  </div>
+                  <button
+                    type="button"
+                    className="shrink-0 rounded-md border border-line px-3 py-2 text-sm"
+                    disabled={busyKey === row.key}
+                    onClick={() =>
+                      void change(row.key, row.added && row.occasions === 0 ? "clear" : "muted", row.label)
+                    }
+                  >
+                    {row.added && row.occasions === 0 ? "Remove" : "Not me"}
+                  </button>
                 </li>
-              );
-            })}
+              ))}
+            </ul>
+            {addable.length > 0 ? (
+              <button type="button" className="btn btn-quiet mt-3" onClick={openAdd}>
+                Add something you buy
+              </button>
+            ) : null}
+            {taste.hidden.length > 0 ? <HiddenList taste={taste} busyKey={busyKey} onShow={change} /> : null}
+          </div>
+        ) : null}
+      </section>
+
+      {coming.length > 0 ? (
+        <section className="mt-6">
+          <h2 className="font-display text-2xl">Coming up</h2>
+          <ul className="mt-3 space-y-3">
+            {coming.map(({ up, deals: picks }) => (
+              <li key={up.key} className="panel p-4">
+                <div className="flex items-baseline justify-between gap-3">
+                  <p className="font-medium">
+                    {up.title}
+                    {up.kind && up.kind !== up.title ? <span className="font-normal text-muted"> · {up.kind}</span> : null}
+                  </p>
+                  <p className="shrink-0 text-sm text-forest">{whenText(up.nextOn, taste.today)}</p>
+                </div>
+                <p className="mt-1 text-sm text-muted">{up.line}</p>
+                {picks.length > 0 ? (
+                  <ul className="mt-3 space-y-2 border-t border-line pt-3">
+                    {picks.map((deal) => (
+                      <li key={deal.url}>
+                        <a href={deal.url} className="block font-medium" target="_blank" rel="noreferrer">
+                          {deal.title}
+                        </a>
+                        <p className="text-sm text-muted">
+                          {deal.merchant || deal.source}
+                          {deal.local ? " · near you" : ""}
+                          {deal.code ? ` · code ${deal.code}` : ""}
+                        </p>
+                        {deal.saving ? <p className="text-sm font-medium text-forest">{deal.saving}</p> : null}
+                      </li>
+                    ))}
+                  </ul>
+                ) : (
+                  <p className="mt-2 text-sm text-muted">
+                    {wide.isFetching ? "Looking for a deal before you go…" : "No deal found for this yet. Check the shop’s app before you pay."}
+                  </p>
+                )}
+              </li>
+            ))}
           </ul>
         </section>
       ) : null}
 
-      {total > shown ? (
+      {groups.map((group) => {
+        if (room <= 0) return null;
+        const shown = group.deals.slice(0, room);
+        room -= shown.length;
+        return (
+          <section key={group.id} className="mt-6">
+            <h2 className="font-display text-2xl">{group.label}</h2>
+            {group.line ? <p className="text-sm text-muted">{group.line}</p> : null}
+            <ul className="mt-3 space-y-3">
+              {shown.map((deal) => (
+                <DealCard key={deal.url} deal={deal} />
+              ))}
+            </ul>
+          </section>
+        );
+      })}
+
+      {groupTotal > pages * PAGE ? (
         <button type="button" className="btn btn-quiet mt-4" onClick={() => setPages((n) => n + 1)}>
           More
         </button>
       ) : null}
+
+      {wide.isFetching && !wide.data ? (
+        <div className="panel mt-6 p-4">
+          <p className="text-sm text-muted">Searching more of the web for your habits. The first look of the day can take a minute.</p>
+          <div className="mt-3 h-16 animate-pulse rounded-md bg-sand" />
+        </div>
+      ) : null}
+
+      {!wide.isFetching && deals.length === 0 ? (
+        <p className="panel mt-6 p-4 text-sm text-muted">
+          Nothing current turned up for your habits today. Check each shop’s own app before you pay.
+        </p>
+      ) : null}
+
+      {schemes.length > 0 ? (
+        <section className="mt-6">
+          <h2 className="font-display text-2xl">Cards and apps for your shops</h2>
+          <ul className="mt-3 space-y-3">
+            {schemes.map((item) => (
+              <li key={item.id} className="panel p-4">
+                <p className="font-medium">{item.name}</p>
+                <p className="mt-1 text-sm">{item.detail}</p>
+                <a href={item.href} className="mt-2 inline-block text-sm font-medium text-forest" target="_blank" rel="noreferrer">
+                  Open {item.name}
+                </a>
+              </li>
+            ))}
+          </ul>
+        </section>
+      ) : null}
+
+      {wide.data?.note && deals.length > 0 ? <p className="mt-4 text-sm text-muted">{wide.data.note}</p> : null}
+      {addSheet}
+    </div>
+  );
+}
+
+function HiddenList({
+  taste,
+  busyKey,
+  onShow,
+}: {
+  taste: TasteProfile;
+  busyKey: string;
+  onShow: (key: string, mode: "clear", label: string) => Promise<void>;
+}) {
+  return (
+    <div className="mt-4">
+      <p className="text-sm text-muted">Hidden</p>
+      <ul className="mt-1 divide-y divide-line">
+        {taste.hidden.map((row) => (
+          <li key={row.key} className="flex items-center justify-between gap-3 py-2">
+            <span className="text-sm">{row.label}</span>
+            <button
+              type="button"
+              className="shrink-0 rounded-md border border-line px-3 py-2 text-sm"
+              disabled={busyKey === row.key}
+              onClick={() => void onShow(row.key, "clear", row.label)}
+            >
+              Show again
+            </button>
+          </li>
+        ))}
+      </ul>
     </div>
   );
 }
