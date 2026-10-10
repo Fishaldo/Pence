@@ -1,0 +1,1 @@
+- Pence feature list lives at artifacts/pence-features.md. Update it whenever a feature is added or removed in this project. Do not invent features. Baseline was empty as of 2026-10-05.
