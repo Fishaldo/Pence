@@ -6,7 +6,8 @@ import { PROGRAMMES } from "@/lib/spend/model";
 import { habitLine, interestOfKey, whenText, type TasteProfile, type Upcoming } from "@/lib/spend/habits";
 import { setHabit, type PersonalDeal } from "@/server/for-you";
 import { useForYou, useForYouWide } from "./data";
-import { CodeChip, DealAction, goUrl } from "./deal-bits";
+import { CodeChip, DealAction } from "./deal-bits";
+import { goUrl } from "./deal-links";
 import { errorText, PageHead } from "./ui";
 import { WatchSummary } from "./watch";
 

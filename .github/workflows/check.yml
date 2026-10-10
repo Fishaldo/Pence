@@ -50,6 +50,20 @@ jobs:
           npm run lint > ci-out/lint.log 2>&1; row lint $?
           npm run build > ci-out/build.log 2>&1; row build $?
 
+      - name: Sample the deal board
+        shell: bash
+        run: |
+          set +e
+          mkdir -p ci-out/samples
+          get() {
+            curl -sS -m 20 -H "Accept: application/json" -H "User-Agent: Mozilla/5.0" -H "X-Requested-With: XMLHttpRequest" \
+              "https://www.hotukdeals.com/$1" -o "ci-out/samples/$2" -w "$2 %{http_code} %{size_download}\n" >> ci-out/samples/status.txt
+          }
+          get "search?q=iphone%2017%20pro&page=1&ajax=true" search-iphone.json
+          get "search?q=perfume&page=1&ajax=true" search-perfume.json
+          get "hot?page=1&ajax=true" hot.json
+          get "new?page=1&ajax=true" new.json
+
       - name: Install the test browser
         shell: bash
         run: npx playwright install --with-deps chromium > ci-out/browser-install.log 2>&1 || echo "| browser install | FAILED |" >> ci-out/summary.md
@@ -71,6 +85,7 @@ jobs:
           for i in $(seq 1 60); do curl -sf -o /dev/null http://127.0.0.1:8081/ && break; sleep 2; done
           node scripts/ci-walkthrough.mjs http://127.0.0.1:8081 ci-out/built > ci-out/walkthrough-built.log 2>&1
           echo "| walkthrough, built app | $(head -1 ci-out/walkthrough-built.log) |" >> ci-out/summary.md
+          cp .grok/preview.log ci-out/preview-server.log 2>/dev/null || true
 
       - name: Save the results to the ci-results branch
         if: always()

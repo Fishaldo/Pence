@@ -72,6 +72,8 @@ describe("prices in titles", () => {
     assert.equal(titlePrice("£100 off iPhone 17 Pro, now £899"), 89900);
     assert.equal(titlePrice("iPhone 17 Pro £30/month, no upfront"), null);
     assert.equal(titlePrice("Nike Air Max 90 for £64.99"), 6499);
+    assert.equal(titlePrice("Apple iPhone 17 Pro Max 256GB - £1019.98 (In-store)"), 101998);
+    assert.equal(titlePrice("MacBook Air £1,049 at John Lewis"), 104900);
     assert.equal(titlePrice("Free delivery this weekend"), null);
     assert.equal(isMonthly("SIM only 100GB £10 per month"), true);
   });

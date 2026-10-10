@@ -168,12 +168,13 @@ describe("taste profile", () => {
     assert.ok(titles.includes("Uber"));
     assert.equal(whenText(TODAY, TODAY), "Due about now");
     assert.match(reasonFor("i:taxis", taste), /^You take taxis most Fridays\./);
+    assert.match(reasonFor("s:uber", taste), /^You ride with Uber most Fridays, about £14 each time\./);
   });
 
   it("explains a deal in plain words", () => {
     assert.equal(
       reasonFor("s:tesco", taste),
-      "You go to Tesco most Saturdays, about £54 each time. The next one is due about now.",
+      "You do a food shop at Tesco most Saturdays, about £54 each time. The next one is due about now.",
     );
     assert.match(reasonFor("i:perfume", taste), /^You buy perfume about every 6 weeks\./);
     assert.equal(

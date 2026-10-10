@@ -88,7 +88,7 @@ await step("load the sample month", async () => {
 
 await step("open Offers", async () => {
   await page.goto(`${base}/offers`, { waitUntil: "domcontentloaded" });
-  await page.getByRole("heading", { name: "For you" }).waitFor();
+  await page.getByRole("heading", { name: "For you", exact: true }).waitFor();
   await settle(15_000);
   await shot("05-offers");
   const knows = page.getByRole("button", { name: "What Pence knows" });
@@ -124,7 +124,7 @@ await step("open Plan", async () => {
 
 await step("open Hot deals", async () => {
   await page.goto(`${base}/hot`, { waitUntil: "domcontentloaded" });
-  await page.getByRole("heading", { name: "Hot deals" }).waitFor();
+  await page.getByRole("heading", { name: "Hot deals", exact: true }).waitFor();
   await settle(8000);
   await shot("09-hot");
   return (await page.locator("main").innerText()).slice(0, 600);

@@ -37,7 +37,7 @@ export function isMonthly(text: string): boolean {
  */
 export function titlePrice(title: string): number | null {
   if (isMonthly(title)) return null;
-  for (const match of title.matchAll(/£\s?(\d{1,3}(?:,\d{3})*|\d+)(?:\.(\d{1,2}))?/g)) {
+  for (const match of title.matchAll(/£\s?(\d{1,3}(?:,\d{3})+|\d+)(?:\.(\d{1,2}))?/g)) {
     const before = title.slice(Math.max(0, (match.index ?? 0) - 12), match.index).toLowerCase();
     const after = title.slice((match.index ?? 0) + match[0].length, (match.index ?? 0) + match[0].length + 10).toLowerCase();
     if (/(save|saving|get|extra|up to)\s*$/.test(before) || /^\s*(off|cashback|credit|voucher|gift)/.test(after)) continue;
