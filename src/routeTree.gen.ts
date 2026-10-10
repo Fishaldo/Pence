@@ -20,6 +20,8 @@ import { Route as LoginRouteImport } from './routes/login'
 import { Route as OffersRouteImport } from './routes/offers'
 import { Route as PlanRouteImport } from './routes/plan'
 import { Route as SettingsRouteImport } from './routes/settings'
+import { Route as WatchRouteImport } from './routes/watch'
+import { Route as ApiWatchCheckRouteImport } from './routes/api/watch-check'
 import { Route as ApiAuthSplatRouteImport } from './routes/api/auth/$'
 
 const IndexRoute = IndexRouteImport.update({
@@ -77,6 +79,16 @@ const SettingsRoute = SettingsRouteImport.update({
   path: '/settings',
   getParentRoute: () => rootRouteImport,
 } as any)
+const WatchRoute = WatchRouteImport.update({
+  id: '/watch',
+  path: '/watch',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiWatchCheckRoute = ApiWatchCheckRouteImport.update({
+  id: '/api/watch-check',
+  path: '/api/watch-check',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ApiAuthSplatRoute = ApiAuthSplatRouteImport.update({
   id: '/api/auth/$',
   path: '/api/auth/$',
@@ -95,6 +107,8 @@ export interface FileRoutesByFullPath {
   '/offers': typeof OffersRoute
   '/plan': typeof PlanRoute
   '/settings': typeof SettingsRoute
+  '/watch': typeof WatchRoute
+  '/api/watch-check': typeof ApiWatchCheckRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
 }
 export interface FileRoutesByTo {
@@ -109,6 +123,8 @@ export interface FileRoutesByTo {
   '/offers': typeof OffersRoute
   '/plan': typeof PlanRoute
   '/settings': typeof SettingsRoute
+  '/watch': typeof WatchRoute
+  '/api/watch-check': typeof ApiWatchCheckRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
 }
 export interface FileRoutesById {
@@ -124,6 +140,8 @@ export interface FileRoutesById {
   '/offers': typeof OffersRoute
   '/plan': typeof PlanRoute
   '/settings': typeof SettingsRoute
+  '/watch': typeof WatchRoute
+  '/api/watch-check': typeof ApiWatchCheckRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
 }
 export interface FileRouteTypes {
@@ -140,6 +158,8 @@ export interface FileRouteTypes {
     | '/offers'
     | '/plan'
     | '/settings'
+    | '/watch'
+    | '/api/watch-check'
     | '/api/auth/$'
   fileRoutesByTo: FileRoutesByTo
   to:
@@ -154,6 +174,8 @@ export interface FileRouteTypes {
     | '/offers'
     | '/plan'
     | '/settings'
+    | '/watch'
+    | '/api/watch-check'
     | '/api/auth/$'
   id:
     | '__root__'
@@ -168,6 +190,8 @@ export interface FileRouteTypes {
     | '/offers'
     | '/plan'
     | '/settings'
+    | '/watch'
+    | '/api/watch-check'
     | '/api/auth/$'
   fileRoutesById: FileRoutesById
 }
@@ -183,6 +207,8 @@ export interface RootRouteChildren {
   OffersRoute: typeof OffersRoute
   PlanRoute: typeof PlanRoute
   SettingsRoute: typeof SettingsRoute
+  WatchRoute: typeof WatchRoute
+  ApiWatchCheckRoute: typeof ApiWatchCheckRoute
   ApiAuthSplatRoute: typeof ApiAuthSplatRoute
 }
 
@@ -265,6 +291,20 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof SettingsRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/watch': {
+      id: '/watch'
+      path: '/watch'
+      fullPath: '/watch'
+      preLoaderRoute: typeof WatchRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/watch-check': {
+      id: '/api/watch-check'
+      path: '/api/watch-check'
+      fullPath: '/api/watch-check'
+      preLoaderRoute: typeof ApiWatchCheckRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/api/auth/$': {
       id: '/api/auth/$'
       path: '/api/auth/$'
@@ -287,6 +327,8 @@ const rootRouteChildren: RootRouteChildren = {
   OffersRoute: OffersRoute,
   PlanRoute: PlanRoute,
   SettingsRoute: SettingsRoute,
+  WatchRoute: WatchRoute,
+  ApiWatchCheckRoute: ApiWatchCheckRoute,
   ApiAuthSplatRoute: ApiAuthSplatRoute,
 }
 export const routeTree = rootRouteImport

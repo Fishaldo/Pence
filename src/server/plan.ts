@@ -224,7 +224,7 @@ export const findOffers = createServerFn({ method: "POST" })
   .handler(async ({ context, data }): Promise<PlanResult> => {
     const today = new Date().toISOString().slice(0, 10);
     const pounds = data.budgetPence ? (data.budgetPence / 100).toFixed(2) : "";
-    const fingerprint = `plan6:${today}:${data.when}:${data.kind}:${slug(data.country)}:${slug(data.city)}:${slug(data.place)}:${data.budgetPence ?? 0}:${slug(data.items)}`;
+    const fingerprint = `plan7:${today}:${data.when}:${data.kind}:${slug(data.country)}:${slug(data.city)}:${slug(data.place)}:${data.budgetPence ?? 0}:${slug(data.items)}`;
     const sql = await getSql();
     const cached = await sql<{ body: string }>`
       select body from advice_cache
@@ -260,7 +260,7 @@ Rules:
 - Stay on this plan. Do not add a product that is not what they asked for.
 - If a town is named, list deals in that town first, then nationwide UK deals for the same thing. Do not drop the nationwide ones.
 - facet is a short label such as Stay, Food, Getting there, Getting around, Things to do, or Groceries.
-- url must be a page opened in this search.
+- url is the page where the person gets or uses the offer: the shop’s own page when one was opened. A deal board, Reddit, or a forum only when no shop page was opened. url must be a page opened in this search.
 - Do not return more than four offers from the same website.
 - code is a discount code only if that exact code is printed on the page. Otherwise "".
 - Do not invent a code, a price, a percentage, or an end date.

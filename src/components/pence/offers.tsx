@@ -6,7 +6,9 @@ import { PROGRAMMES } from "@/lib/spend/model";
 import { habitLine, interestOfKey, whenText, type TasteProfile, type Upcoming } from "@/lib/spend/habits";
 import { setHabit, type PersonalDeal } from "@/server/for-you";
 import { useForYou, useForYouWide } from "./data";
+import { CodeChip, DealAction, goUrl } from "./deal-bits";
 import { errorText, PageHead } from "./ui";
+import { WatchSummary } from "./watch";
 
 const SCHEMES: { test: RegExp; id: string }[] = [
   { test: /tesco/, id: "clubcard" },
@@ -18,14 +20,6 @@ const SCHEMES: { test: RegExp; id: string }[] = [
 ];
 
 const PAGE = 30;
-
-function hostOf(url: string): string {
-  try {
-    return new URL(url).hostname.replace(/^www\./, "");
-  } catch {
-    return url;
-  }
-}
 
 /** Near you first, then the shops this person already uses. */
 function rank(a: PersonalDeal, b: PersonalDeal): number {
@@ -43,15 +37,8 @@ export function DealCard({ deal, showReason = true }: { deal: PersonalDeal; show
       <p className="mt-1 font-medium">{deal.title}</p>
       {deal.detail ? <p className="mt-1 text-sm">{deal.detail}</p> : null}
       {deal.saving ? <p className="mt-1 text-sm font-medium text-forest">{deal.saving}</p> : null}
-      {deal.code ? (
-        <p className="mt-2 text-sm">
-          Code <span className="font-medium tabular-nums">{deal.code}</span>
-        </p>
-      ) : null}
       {showReason && deal.reason ? <p className="mt-2 text-sm text-muted">{deal.reason}</p> : null}
-      <a href={deal.url} className="mt-2 inline-block text-sm font-medium text-forest" target="_blank" rel="noreferrer">
-        Open {hostOf(deal.url)}
-      </a>
+      <DealAction deal={deal} />
     </li>
   );
 }
@@ -241,6 +228,7 @@ export function OffersView() {
             </button>
           </div>
         </section>
+        <WatchSummary invite />
         {taste.hidden.length > 0 ? <HiddenList taste={taste} busyKey={busyKey} onShow={change} /> : null}
         {addSheet}
       </div>
@@ -251,7 +239,9 @@ export function OffersView() {
     <div>
       <PageHead kicker="Offers" title="For you" />
 
-      <section className="panel p-4">
+      <WatchSummary invite className="" />
+
+      <section className="panel mt-4 p-4">
         <p className="text-sm text-muted">
           {taste.usingSamples ? "Learned from the sample month" : `Learned from ${taste.basedOn} spends`}
         </p>
@@ -317,15 +307,15 @@ export function OffersView() {
                   <ul className="mt-3 space-y-2 border-t border-line pt-3">
                     {picks.map((deal) => (
                       <li key={deal.url}>
-                        <a href={deal.url} className="block font-medium" target="_blank" rel="noreferrer">
+                        <a href={goUrl(deal)} className="block font-medium" target="_blank" rel="noreferrer">
                           {deal.title}
                         </a>
                         <p className="text-sm text-muted">
                           {deal.merchant || deal.source}
                           {deal.local ? " · near you" : ""}
-                          {deal.code ? ` · code ${deal.code}` : ""}
                         </p>
                         {deal.saving ? <p className="text-sm font-medium text-forest">{deal.saving}</p> : null}
+                        {deal.code ? <CodeChip code={deal.code} /> : null}
                       </li>
                     ))}
                   </ul>

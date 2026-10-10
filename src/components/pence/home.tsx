@@ -19,6 +19,8 @@ import type { PersonalDeal } from "@/server/for-you";
 import { hotDeals, type HotDeal } from "@/server/hotukdeals";
 import { seedSamples } from "@/server/ledger";
 import { useForYou, useLedger, useRefreshLedger } from "./data";
+import { CodeChip, goUrl } from "./deal-bits";
+import { WatchSummary } from "./watch";
 import { errorText, Money, PageHead } from "./ui";
 
 /** Three picks: the next likely buys first, one per habit, near you and your shops first. */
@@ -209,6 +211,8 @@ export function HomeView() {
         <p className="mt-4 text-sm text-muted">{pace}</p>
       </section>
 
+      <WatchSummary />
+
       {upcoming.length > 0 ? (
         <section className="mt-4">
           <div className="mb-2 flex items-baseline justify-between">
@@ -250,10 +254,11 @@ export function HomeView() {
                     {deal.merchant || deal.source}
                     {deal.local ? " · near you" : ""}
                   </p>
-                  <a href={deal.url} className="mt-1 block font-medium" target="_blank" rel="noreferrer">
+                  <a href={goUrl(deal)} className="mt-1 block font-medium" target="_blank" rel="noreferrer">
                     {deal.title}
                   </a>
                   {deal.saving ? <p className="mt-1 text-sm font-medium text-forest">{deal.saving}</p> : null}
+                  {deal.code ? <CodeChip code={deal.code} /> : null}
                   {deal.reason ? <p className="mt-1 text-sm text-muted">{deal.reason}</p> : null}
                 </li>
               ))}
@@ -263,10 +268,11 @@ export function HomeView() {
             <ul className="space-y-2">
               {trending.map((deal) => (
                 <li key={deal.url} className="panel px-4 py-3">
-                  <p className="text-sm text-muted">{deal.source}</p>
-                  <a href={deal.url} className="mt-1 block font-medium" target="_blank" rel="noreferrer">
+                  <p className="text-sm text-muted">{deal.merchant || deal.source}</p>
+                  <a href={goUrl(deal)} className="mt-1 block font-medium" target="_blank" rel="noreferrer">
                     {deal.title}
                   </a>
+                  {deal.code ? <CodeChip code={deal.code} /> : null}
                 </li>
               ))}
             </ul>

@@ -30,7 +30,10 @@ export type PersonalDeal = {
   key: string;
   title: string;
   detail: string;
+  /** The page the deal was found on. */
   url: string;
+  /** The shop's own page for the deal, when known. People are sent here. */
+  shopUrl: string;
   source: string;
   merchant: string;
   code: string;
@@ -55,6 +58,7 @@ type FoundDeal = {
   title: string;
   detail: string;
   url: string;
+  shopUrl?: string;
   source: string;
   merchant: string;
   code: string;
@@ -172,6 +176,7 @@ function explain(found: FoundDeal[], taste: TasteProfile): PersonalDeal[] {
       title: deal.title,
       detail: deal.detail,
       url: deal.url,
+      shopUrl: deal.shopUrl ?? "",
       source: deal.source,
       merchant: deal.merchant,
       code: deal.code,
@@ -213,7 +218,7 @@ export const forYou = createServerFn({ method: "POST" })
     const needs = searchNeeds(taste, 9);
     if (needs.length === 0) return { taste, deals: [], city, addable };
 
-    const fingerprint = `fy1:${today}:${hashText(needs.map((need) => `${need.key}=${need.query}`).join("|"))}`;
+    const fingerprint = `fy2:${today}:${hashText(needs.map((need) => `${need.key}=${need.query}`).join("|"))}`;
     let found = await readCache<FoundDeal[]>(context.userId, fingerprint);
     if (!Array.isArray(found)) {
       const batches = await Promise.all(needs.map((need) => searchHot(need.query, 20).catch(() => [])));
@@ -231,9 +236,10 @@ export const forYou = createServerFn({ method: "POST" })
             title: deal.title,
             detail: "",
             url: deal.url,
+            shopUrl: deal.shopUrl ?? "",
             source: deal.source,
-            merchant: titleShop(deal.title),
-            code: "",
+            merchant: deal.merchant || titleShop(deal.title),
+            code: deal.code ?? "",
             local: false,
             item: need.item ?? "",
           });
@@ -280,7 +286,7 @@ export const forYouWide = createServerFn({ method: "POST" })
     if (lines.length === 0) return { deals: [], note: "" };
 
     // Keyed on which habits and town, not their figures, so a new spend today reuses the search.
-    const fingerprint = `fyw1:${today}:${hashText(`${city}|${chosen.join("|")}`)}`;
+    const fingerprint = `fyw2:${today}:${hashText(`${city}|${chosen.join("|")}`)}`;
     const cached = await readCache<{ found?: FoundDeal[]; note?: string }>(context.userId, fingerprint);
     if (cached && Array.isArray(cached.found)) {
       return { deals: explain(cached.found, taste), note: cached.note ?? "" };
@@ -302,7 +308,7 @@ Reply with JSON only, no markdown:
 Rules:
 - for is the habit key exactly as given, such as "i:perfume" or "s:tesco".
 - Stay on the habit. A food shop habit gets food and household offers, never a TV or furniture.
-- url must be a page opened in this search.
+- url is the page where the person gets or uses the offer: the shop’s own page when one was opened. A deal board, Reddit, or a forum only when no shop page was opened. url must be a page opened in this search.
 - code only if that exact code is printed on the page, otherwise "".
 - Do not invent a code, a price, a percentage, or an end date.
 ${localRule}

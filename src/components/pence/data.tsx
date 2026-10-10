@@ -1,6 +1,7 @@
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { getProfile, listAlerts, listPlaces, listTransactions } from "@/server/ledger";
 import { forYou, forYouWide } from "@/server/for-you";
+import { listWatches } from "@/server/watch";
 
 export function useLedger() {
   const profile = useQuery({ queryKey: ["profile"], queryFn: () => getProfile() });
@@ -24,6 +25,11 @@ export function useForYouWide(enabled: boolean) {
     staleTime: 30 * 60_000,
     retry: 0,
   });
+}
+
+/** Everything on the price watch. Small and cheap, so the tab bar can show a dot from it. */
+export function useWatches() {
+  return useQuery({ queryKey: ["watches"], queryFn: () => listWatches(), staleTime: 60_000 });
 }
 
 export function useRefreshLedger() {

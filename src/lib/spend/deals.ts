@@ -1,8 +1,8 @@
 export type ListedDeal = { title: string; url: string; source: string };
 
-export function mergeDeals(first: ListedDeal[], rest: ListedDeal[], limit: number): ListedDeal[] {
+export function mergeDeals<T extends ListedDeal>(first: T[], rest: T[], limit: number): T[] {
   const seen = new Set<string>();
-  const found: ListedDeal[] = [];
+  const found: T[] = [];
   for (const deal of [...first, ...rest]) {
     if (!deal.url || seen.has(deal.url)) continue;
     seen.add(deal.url);
