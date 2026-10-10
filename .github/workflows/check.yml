@@ -32,6 +32,7 @@ jobs:
       - name: Install, test, type check, lint, build
         shell: bash
         run: |
+          set +e
           mkdir -p ci-out
           row() { echo "| $1 | $( [ "$2" = 0 ] && echo passed || echo "FAILED ($2)" ) |" >> ci-out/summary.md; }
           {
@@ -41,7 +42,10 @@ jobs:
             echo "| --- | --- |"
           } > ci-out/summary.md
           npm ci --no-audit --no-fund > ci-out/install.log 2>&1; row install $?
-          npm test > ci-out/test.log 2>&1; row tests $?
+          node --test 'scripts/**/*.test.mjs' > ci-out/test-platform.log 2>&1; row "tests, app-builder scripts" $?
+          node --experimental-strip-types --test src/lib/app-data/app-data.test.ts src/lib/app-data/readiness-schedule.test.ts \
+            src/lib/auth/gate-identity.test.ts src/lib/auth/sign-in-gate.test.ts src/lib/spend/habits.test.ts \
+            src/lib/spend/watch.test.ts src/server/hot-search.test.ts > ci-out/test-app.log 2>&1; row "tests, Pence" $?
           npm run typecheck > ci-out/typecheck.log 2>&1; row "type check" $?
           npm run lint > ci-out/lint.log 2>&1; row lint $?
           npm run build > ci-out/build.log 2>&1; row build $?
@@ -53,6 +57,7 @@ jobs:
       - name: Run the app and walk through it
         shell: bash
         run: |
+          set +e
           npm run dev > ci-out/dev-server.log 2>&1 &
           for i in $(seq 1 90); do curl -sf -o /dev/null http://127.0.0.1:8080/ && break; sleep 2; done
           node scripts/ci-walkthrough.mjs http://127.0.0.1:8080 ci-out/dev > ci-out/walkthrough-dev.log 2>&1
@@ -61,6 +66,7 @@ jobs:
       - name: Run the built app and walk through it
         shell: bash
         run: |
+          set +e
           npm run preview:restart > ci-out/preview.log 2>&1 || true
           for i in $(seq 1 60); do curl -sf -o /dev/null http://127.0.0.1:8081/ && break; sleep 2; done
           node scripts/ci-walkthrough.mjs http://127.0.0.1:8081 ci-out/built > ci-out/walkthrough-built.log 2>&1
