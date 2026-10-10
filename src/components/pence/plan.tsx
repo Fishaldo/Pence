@@ -4,6 +4,7 @@ import { hotDeals, type HotDeal } from "@/server/hotukdeals";
 import { publicDeals } from "@/server/public-deals";
 import { mergeDeals } from "@/lib/spend/deals";
 import { useLedger } from "./data";
+import { DealAction } from "./deal-bits";
 import { errorText, PageHead } from "./ui";
 
 function placeWords(town: string): string[] {
@@ -109,14 +110,6 @@ const GROUPS: { label: string; kinds: [string, string][] }[] = [
 
 type KindId = (typeof GROUPS)[number]["kinds"][number][0];
 
-function hostOf(url: string): string {
-  try {
-    return new URL(url).hostname.replace(/^www\./, "");
-  } catch {
-    return url;
-  }
-}
-
 export function PlanView() {
   const { profile, places } = useLedger();
   const saved = places.data ?? [];
@@ -208,6 +201,8 @@ export function PlanView() {
       title: offer.title,
       detail: offer.detail,
       url: offer.url,
+      shopUrl: "",
+      merchant: "",
       code: offer.code,
       text: `${offer.title} ${offer.detail} ${offer.facet}`,
     })),
@@ -217,7 +212,9 @@ export function PlanView() {
       title: deal.title,
       detail: "",
       url: deal.url,
-      code: "",
+      shopUrl: deal.shopUrl ?? "",
+      merchant: deal.merchant ?? "",
+      code: deal.code ?? "",
       text: `${deal.title} ${deal.source}`,
     })),
   ];
@@ -319,14 +316,7 @@ export function PlanView() {
                 {row.source ? <p className="text-sm text-muted">{row.source}</p> : null}
                 <p className={row.source ? "mt-1 font-medium" : "font-medium"}>{row.title}</p>
                 {row.detail ? <p className="mt-1 text-sm">{row.detail}</p> : null}
-                {row.code ? (
-                  <p className="mt-2 text-sm">
-                    Code <span className="font-medium tabular-nums">{row.code}</span>
-                  </p>
-                ) : null}
-                <a href={row.url} className="mt-2 inline-block text-sm font-medium text-forest" target="_blank" rel="noreferrer">
-                  Open {row.detail ? hostOf(row.url) : row.source || hostOf(row.url)}
-                </a>
+                <DealAction deal={row} />
               </li>
             ))}
           </ul>
@@ -339,6 +329,18 @@ export function PlanView() {
         </section>
       ) : null}
       {!busy && offers && listed.length === 0 ? <p className="panel mt-6 p-4 text-sm">{note}</p> : null}
+      {offers && !busy ? (
+        <a
+          href={`/watch?what=${encodeURIComponent((items.trim() || place.trim() || whatLabel).slice(0, 120))}${
+            budget.trim() ? `&most=${encodeURIComponent(budget.trim())}` : ""
+          }`}
+          className="panel mt-6 block p-4"
+        >
+          <p className="font-medium">Not the price you want?</p>
+          <p className="mt-1 text-sm text-muted">Pence can watch it and tell you when a better offer turns up.</p>
+          <p className="mt-2 text-sm font-medium text-forest">Watch the price</p>
+        </a>
+      ) : null}
       {whatOpen ? (
         <div className="fixed inset-0 z-40 flex items-end">
           <button type="button" className="absolute inset-0 bg-ink/40" aria-label="Close" onClick={closeWhat} />

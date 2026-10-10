@@ -4,6 +4,7 @@ import { mergeDeals } from "@/lib/spend/deals";
 import { hotDeals, type HotDeal } from "@/server/hotukdeals";
 import { publicDeals } from "@/server/public-deals";
 import { useLedger } from "./data";
+import { DealAction } from "./deal-bits";
 import { PageHead } from "./ui";
 
 export function HotView() {
@@ -48,11 +49,9 @@ export function HotView() {
         <ul className="space-y-3">
           {deals.slice(0, shown).map((deal) => (
             <li key={deal.url} className="panel p-4">
-              <p className="text-sm text-muted">{deal.source}</p>
+              <p className="text-sm text-muted">{deal.merchant || deal.source}</p>
               <p className="mt-1 font-medium">{deal.title}</p>
-              <a href={deal.url} className="mt-2 inline-block text-sm font-medium text-forest" target="_blank" rel="noreferrer">
-                Open {deal.source}
-              </a>
+              <DealAction deal={deal} />
             </li>
           ))}
         </ul>

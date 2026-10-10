@@ -1,5 +1,6 @@
 import { Link, useRouterState } from "@tanstack/react-router";
 import {
+  BellRing,
   Calendar,
   House,
   PieChart,
@@ -10,7 +11,7 @@ import {
 import type { ReactNode } from "react";
 import { cn } from "@/lib/cn";
 import { formatGBP } from "@/lib/spend/model";
-import { useLedger } from "./data";
+import { useLedger, useWatches } from "./data";
 
 export function Mark({ className }: { className?: string }) {
   return (
@@ -66,7 +67,9 @@ const NAV = [
 export function Shell({ children }: { children: ReactNode }) {
   const path = useRouterState({ select: (s) => s.location.pathname });
   const { profile } = useLedger();
+  const watches = useWatches();
   const income = profile.data?.monthlyIncomePence ?? 0;
+  const priceFound = (watches.data ?? []).some((item) => item.status === "found");
 
   return (
     <div className="min-h-dvh bg-paper text-ink">
@@ -94,6 +97,17 @@ export function Shell({ children }: { children: ReactNode }) {
                 </Link>
               );
             })}
+            <Link
+              to="/watch"
+              className={cn(
+                "flex h-11 items-center gap-3 rounded-md px-3 text-sm",
+                path === "/watch" ? "bg-mist font-medium text-forest-deep" : "text-ink hover:bg-sand",
+              )}
+            >
+              <BellRing className="size-4" strokeWidth={1.75} />
+              <span className="flex-1">Price watch</span>
+              {priceFound ? <span className="size-2.5 rounded-full bg-clay" aria-label="Pence found a price" /> : null}
+            </Link>
           </nav>
           <Link
             to="/settings"
@@ -140,6 +154,12 @@ export function Shell({ children }: { children: ReactNode }) {
                     )}
                   >
                     <Icon className={add ? "size-6" : "size-5"} strokeWidth={1.75} />
+                    {item.to === "/offers" && priceFound ? (
+                      <span
+                        className="absolute -top-0.5 -right-1 size-2.5 rounded-full bg-clay ring-2 ring-card"
+                        aria-label="Pence found a price"
+                      />
+                    ) : null}
                   </span>
                   {add ? null : item.label}
                 </Link>

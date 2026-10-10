@@ -72,12 +72,32 @@ SECTIONS = [
         ],
     ),
     (
+        "Price watch",
+        [
+            "For something you want but not at today’s price: a phone, trainers, a hotel, a meal out, any product or service. Type what it is, and if you like the most you would pay and a town.",
+            "Pence looks straight away, then every day: HotUKDeals and a wider search of public UK pages. It keeps to the same model and size, leaves out accessories, skips expired deals, and never takes a monthly contract price for the full price.",
+            "When an offer turns up, Pence asks whether the price is right for you. Happy with this price ends the watch and keeps the offer under Done. Still too much keeps watching, and from then on only a lower price than the one turned down counts.",
+            "A watch can be checked now, its price changed, or stopped at any time. Raising the price shows any offer Pence already saw that now fits.",
+            "Home shows a card when Pence finds a price, and the Offers tab shows a dot. Phone alerts can be turned on at the bottom of Price watch. On iPhone, Pence must be added to the Home Screen first.",
+            "Price watch opens from Offers, from the sidebar on a computer, and from the end of a Plan search.",
+        ],
+    ),
+    (
+        "Codes and links",
+        [
+            "A discount code is shown in full with a Copy button, on every list of deals.",
+            "The link goes to the shop where the deal is used. A deal board, Reddit, or a forum is only linked when no shop page is known.",
+            "Expired HotUKDeals posts are left out.",
+        ],
+    ),
+    (
         "Plan",
         [
             "The What list on Plan stays on the lower part of the screen. Tap the dim area above it, or the phone’s back button, to close it.",
             "What it is, grouped as Food, Home, Getting around, Shopping, You, and Life. That includes rent, gas and electricity, water, broadband, a mobile contract, TV, council tax, insurance, repairs, furniture, the garden, fuel, parking, a car, a bike, driving lessons, a phone, fashion, gifts, health, personal care, a gym, sport such as a pitch or court, entertainment, hobbies, kids, childcare, pets, education, subscriptions, a wedding or party, moving house, charity, and something else.",
             "A UK plan stays on what was asked for. Deals in the named town come first, then nationwide deals for the same thing. More continues until that list runs out.",
             "A wider search of public pages follows. It is slow the first time. The same plan on the same day is saved and returns faster. A code or a price is shown only when that page prints it.",
+            "Not the price you want? opens Price watch with the item and budget filled in.",
         ],
     ),
     (
@@ -105,7 +125,7 @@ SECTIONS = [
     (
         "How you move around",
         [
-            "The bottom bar is Home, Plan, Add, Insights, and Offers.",
+            "The bottom bar is Home, Plan, Add, Insights, and Offers. Price watch opens from Offers.",
             "Activity on Home is the latest spends, with All Activity opening the full list. Settings is on Home. Bank import is in Settings.",
         ],
     ),
@@ -133,7 +153,7 @@ def main() -> None:
     sub_run.font.color.rgb = RGBColor(0x4A, 0x55, 0x4E)
 
     dated = doc.add_paragraph()
-    dated_run = dated.add_run("10 October 2026")
+    dated_run = dated.add_run("11 October 2026")
     dated_run.italic = True
     dated_run.font.size = Pt(11)
     dated_run.font.color.rgb = RGBColor(0x4A, 0x55, 0x4E)

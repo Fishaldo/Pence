@@ -132,7 +132,7 @@ export const nearbyAdvice = createServerFn({ method: "POST" })
 
     const today = new Date().toISOString().slice(0, 10);
     const placeKey = hasPlace ? `${lat!.toFixed(2)},${lng!.toFixed(2)}` : city.toLowerCase();
-    const fingerprint = `near:${today}:${placeKey}:${uniqueUsual.join(".")}`.slice(0, 280);
+    const fingerprint = `near2:${today}:${placeKey}:${uniqueUsual.join(".")}`.slice(0, 280);
     const cached = await sql<{ body: string }>`
       select body from advice_cache where user_id = ${context.userId} and fingerprint = ${fingerprint}`;
     if (cached[0]?.body) {
@@ -163,7 +163,7 @@ Reply with JSON only:
 {"offers":[{"shop":"","title":"","detail":"","url":"","code":""}],"note":""}
 Rules:
 - shop is the chain name. Prefer chains that are nearby when distances were given.
-- url must be a page opened in this search.
+- url is the page where the person gets or uses the offer: the shop’s own page when one was opened. A deal board, Reddit, or a forum only when no shop page was opened. url must be a page opened in this search.
 - code only if printed on that page, otherwise "".
 - Do not invent a price, a distance, or a saving.
 - At most 4 offers. detail is one sentence.

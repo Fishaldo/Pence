@@ -1,13 +1,124 @@
 export type HotDeal = {
   title: string;
+  /** The deal page. Stable, so it is also the deal's id. */
   url: string;
   source: string;
+  /** The shop's own page for this deal, when the board gives one. People go here, not to the board. */
+  shopUrl?: string;
+  merchant?: string;
+  /** A discount code, only when the board prints one. */
+  code?: string;
+  /** The price on the board, in pence, or null when none is given. */
+  pricePence?: number | null;
+  /** The price is per month (a contract or plan), not the full price. */
+  monthly?: boolean;
 };
 
 /*
  * Reading HotUKDeals' public search and listing pages. Shared by the
- * trending list and the personal offer search.
+ * trending list, the personal offer search and the price watch.
+ *
+ * Each deal card carries its thread as JSON in a data-vue3 attribute: the
+ * title, the price, any voucher code, the shop's own link, and whether the
+ * deal has expired. That is read first. If the page ever stops carrying it,
+ * the plain links are read instead, as before.
  */
+
+const MONTHLY = /(?:\/\s?(?:mo|mth|month)\b|\bper month\b|\ba month\b|\bp\/?m\b|\bmonthly\b)/i;
+
+/** True when a price in this text is a monthly payment, not the price of the thing. */
+export function isMonthly(text: string): boolean {
+  return MONTHLY.test(text);
+}
+
+/**
+ * The price printed in a deal title, in pence. Skips amounts that are a saving
+ * ("£50 off", "save £50") and gives up on monthly prices.
+ */
+export function titlePrice(title: string): number | null {
+  if (isMonthly(title)) return null;
+  for (const match of title.matchAll(/£\s?(\d{1,3}(?:,\d{3})*|\d+)(?:\.(\d{1,2}))?/g)) {
+    const before = title.slice(Math.max(0, (match.index ?? 0) - 12), match.index).toLowerCase();
+    const after = title.slice((match.index ?? 0) + match[0].length, (match.index ?? 0) + match[0].length + 10).toLowerCase();
+    if (/(save|saving|get|extra|up to)\s*$/.test(before) || /^\s*(off|cashback|credit|voucher|gift)/.test(after)) continue;
+    const pounds = Number(match[1].replace(/,/g, ""));
+    const pence = Math.round(pounds * 100 + Number((match[2] ?? "0").padEnd(2, "0")));
+    if (pence > 0) return pence;
+  }
+  return null;
+}
+
+function cleanCode(value: unknown): string {
+  const code = typeof value === "string" ? value.trim() : "";
+  return /^[A-Za-z0-9-]{3,24}$/.test(code) ? code : "";
+}
+
+function findThread(value: unknown, depth = 0): Record<string, unknown> | null {
+  if (!value || typeof value !== "object" || depth > 6) return null;
+  const row = value as Record<string, unknown>;
+  const id = row.threadId;
+  if ((typeof id === "string" || typeof id === "number") && typeof row.title === "string") return row;
+  for (const child of Object.values(row)) {
+    const hit = findThread(child, depth + 1);
+    if (hit) return hit;
+  }
+  return null;
+}
+
+/** Deals from the thread JSON on a HotUKDeals page. Expired deals are left out. */
+export function readThreads(html: string, limit: number): HotDeal[] {
+  const deals: HotDeal[] = [];
+  const seen = new Set<string>();
+  for (const match of html.matchAll(/data-vue3=(?:"([^"]*)"|'([^']*)')/g)) {
+    let data: unknown;
+    try {
+      data = JSON.parse(decode(match[1] ?? match[2] ?? ""));
+    } catch {
+      continue;
+    }
+    const thread = findThread(data);
+    if (!thread || thread.isExpired === true) continue;
+    const id = String(thread.threadId);
+    const title = decode(String(thread.title)).replace(/\s+/g, " ").trim().slice(0, 140);
+    const slug = typeof thread.titleSlug === "string" ? thread.titleSlug : "";
+    const share = typeof thread.shareableLink === "string" ? thread.shareableLink.split("?")[0] : "";
+    const url = share.startsWith("https://www.hotukdeals.com/")
+      ? share
+      : `https://www.hotukdeals.com/deals/${slug ? `${slug}-` : ""}${id}`;
+    if (!title || seen.has(url)) continue;
+    seen.add(url);
+    let shopUrl = "";
+    if (typeof thread.link === "string") {
+      try {
+        const link = new URL(thread.link);
+        if (link.protocol === "https:" && !/hotukdeals\.com$/.test(link.hostname)) shopUrl = link.href;
+      } catch {
+        /* no shop link */
+      }
+    }
+    const merchantRow = thread.merchant && typeof thread.merchant === "object" ? (thread.merchant as Record<string, unknown>) : null;
+    const merchant =
+      typeof merchantRow?.merchantName === "string"
+        ? merchantRow.merchantName
+        : typeof thread.merchantName === "string"
+          ? thread.merchantName
+          : "";
+    const monthly = isMonthly(title);
+    const price = typeof thread.price === "number" ? thread.price : Number(thread.price);
+    deals.push({
+      title,
+      url,
+      source: "HotUKDeals",
+      shopUrl,
+      merchant: merchant.trim().slice(0, 60),
+      code: cleanCode(thread.voucherCode),
+      pricePence: !monthly && Number.isFinite(price) && price > 0 ? Math.round(price * 100) : titlePrice(title),
+      monthly,
+    });
+    if (deals.length >= limit) break;
+  }
+  return deals;
+}
 
 export function decode(value: string): string {
   let text = value.replace(/<!\[CDATA\[|\]\]>/g, "");
@@ -24,6 +135,8 @@ export function decode(value: string): string {
 }
 
 export function readHot(html: string, limit: number): HotDeal[] {
+  const threads = readThreads(html, limit);
+  if (threads.length > 0) return threads;
   const deals: HotDeal[] = [];
   const seen = new Set<string>();
   const pattern = /href="(https:\/\/www\.hotukdeals\.com\/deals\/[^"]+)"[^>]*>([^<]+)<\/a>/g;
@@ -32,7 +145,7 @@ export function readHot(html: string, limit: number): HotDeal[] {
     const title = decode(match[2]).replace(/\s+/g, " ").trim().slice(0, 140);
     if (!title || seen.has(url)) continue;
     seen.add(url);
-    deals.push({ title, url, source: "HotUKDeals" });
+    deals.push({ title, url, source: "HotUKDeals", pricePence: titlePrice(title), monthly: isMonthly(title) });
     if (deals.length >= limit) break;
   }
   return deals;

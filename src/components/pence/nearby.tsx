@@ -2,15 +2,8 @@ import { Link } from "@tanstack/react-router";
 import { useState } from "react";
 import { nearbyAdvice, type NearbyOffer, type NearbyShop } from "@/server/nearby";
 import { useLedger } from "./data";
+import { DealAction } from "./deal-bits";
 import { errorText } from "./ui";
-
-function hostOf(url: string): string {
-  try {
-    return new URL(url).hostname.replace(/^www\./, "");
-  } catch {
-    return url;
-  }
-}
 
 export function NearbyPanel() {
   const { places } = useLedger();
@@ -85,14 +78,7 @@ export function NearbyPanel() {
               <p className="text-sm text-muted">{offer.shop}</p>
               <p className="mt-1 font-medium">{offer.title}</p>
               <p className="mt-1 text-sm">{offer.detail}</p>
-              {offer.code ? (
-                <p className="mt-2 text-sm">
-                  Code <span className="font-medium tabular-nums">{offer.code}</span>
-                </p>
-              ) : null}
-              <a href={offer.url} className="mt-2 inline-block text-sm font-medium text-forest" target="_blank" rel="noreferrer">
-                Open {hostOf(offer.url)}
-              </a>
+              <DealAction deal={{ url: offer.url, merchant: offer.shop, code: offer.code }} />
             </li>
           ))}
         </ul>
