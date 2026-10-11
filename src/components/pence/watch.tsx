@@ -13,6 +13,7 @@ import {
   type WatchItem,
   type WatchOffer,
 } from "@/server/watch";
+import { learnMyShops } from "@/server/for-you";
 import { useWatches } from "./data";
 import { DealAction } from "./deal-bits";
 import { PhoneAlerts } from "./phone-alerts-panel";
@@ -28,6 +29,15 @@ function useDailyLook() {
     lookedThisVisit = true;
     // If the morning check missed a day, this visit runs it, so reminders still go out.
     void dailyCatchUp().catch(() => undefined);
+    // Find out what any new shops on the statement really are, then refresh the offers for them.
+    void learnMyShops()
+      .then((result) => {
+        if (result.learned > 0) {
+          void client.invalidateQueries({ queryKey: ["forYou"] });
+          void client.invalidateQueries({ queryKey: ["forYouWide"] });
+        }
+      })
+      .catch(() => undefined);
     void checkMyWatches()
       .then((result) => {
         if (result.checked > 0) void client.invalidateQueries({ queryKey: ["watches"] });

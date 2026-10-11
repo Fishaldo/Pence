@@ -2,6 +2,8 @@ import { createServerFn } from "@tanstack/react-start";
 import { authMiddleware } from "@/lib/auth/middleware";
 import { getSql } from "@/lib/db";
 import { isCategory, type LineItem } from "@/lib/spend/model";
+import { judgeTerms, termsFromOffer } from "@/lib/spend/terms";
+import { onlyFarAway } from "@/lib/spend/towns";
 import {
   addableInterests,
   atKnownShop,
@@ -20,11 +22,14 @@ import {
   shortDay,
   titleShop,
   usualFor,
+  usedNearHome,
   type HabitPrefs,
   type SpendInput,
   type TasteProfile,
 } from "@/lib/spend/habits";
 import { searchHot } from "@/server/hot-search";
+import { vetOffers } from "@/server/offer-terms";
+import { learnShops, shopBookFor } from "@/server/shop-kinds";
 import { citedPage, parseModelObject, searchWebText, tidyCode } from "@/server/search";
 
 /** One offer, tied to the habit it could make cheaper and the reason it is shown. */
@@ -45,6 +50,12 @@ export type PersonalDeal = {
   elsewhere: boolean;
   reason: string;
   saving: string;
+  /** What Pence read in the terms: "Works in Birmingham, the deal page says." or what to check first. */
+  check: string;
+  /** The terms name the person's own area. */
+  works: boolean;
+  /** The end date the deal page prints, YYYY-MM-DD, or "". */
+  endsOn: string;
 };
 
 export type ForYou = {
@@ -69,6 +80,9 @@ type FoundDeal = {
   local: boolean;
   item: string;
   elsewhere?: boolean;
+  check?: string;
+  works?: boolean;
+  endsOn?: string;
 };
 
 function asInt(value: unknown): number {
@@ -122,13 +136,16 @@ function hostOf(url: string): string {
   }
 }
 
-async function loadTaste(userId: string): Promise<{ taste: TasteProfile; city: string; today: string }> {
+async function loadTaste(
+  userId: string,
+): Promise<{ taste: TasteProfile; city: string; today: string; spends: SpendInput[] }> {
   const sql = await getSql();
   const today = londonToday();
   const since = isoOf(dayNum(today) - 400);
   const [rows, profile, prefs] = await Promise.all([
     sql<{
       merchant: string;
+      description: string | null;
       amount_pence: number | string;
       category: string;
       spent_on: unknown;
@@ -137,7 +154,7 @@ async function loadTaste(userId: string): Promise<{ taste: TasteProfile; city: s
       items_json: string;
       raw_alert: string;
       is_sample: unknown;
-    }>`select merchant, amount_pence, category, spent_on, source, note, items_json, raw_alert, is_sample
+    }>`select merchant, description, amount_pence, category, spent_on, source, note, items_json, raw_alert, is_sample
        from transactions
        where user_id = ${userId} and spent_on >= ${since}
        order by spent_on desc
@@ -149,6 +166,7 @@ async function loadTaste(userId: string): Promise<{ taste: TasteProfile; city: s
   ]);
   const spends: SpendInput[] = rows.map((row) => ({
     merchant: row.merchant ?? "",
+    description: row.description ?? "",
     amountPence: asInt(row.amount_pence),
     category: isCategory(row.category) ? row.category : "other",
     spentOn: String(row.spent_on).slice(0, 10),
@@ -164,12 +182,19 @@ async function loadTaste(userId: string): Promise<{ taste: TasteProfile; city: s
     muted: prefs.filter((row) => row.mode === "muted").map((row) => row.habit_key),
     added: prefs.filter((row) => row.mode === "added").map((row) => row.habit_key),
   };
+  const city = profile[0]?.city?.trim() ?? "";
+  // What each shop really is, found on the web earlier: Pizza & Co, a pizza takeaway near Birmingham.
+  const book = await shopBookFor(
+    spends.filter((spend) => !spend.isSample),
+    city,
+  );
   const taste = buildTaste(spends, {
+    book,
     today,
     payday: payday && payday >= 1 && payday <= 31 ? payday : null,
     prefs: habitPrefs,
   });
-  return { taste, city: profile[0]?.city?.trim() ?? "", today };
+  return { taste, city, today, spends };
 }
 
 function explain(found: FoundDeal[], taste: TasteProfile): PersonalDeal[] {
@@ -193,6 +218,9 @@ function explain(found: FoundDeal[], taste: TasteProfile): PersonalDeal[] {
         elsewhere,
         reason: elsewhere ? elsewhereReason(deal.key, taste, deal.merchant) : reasonFor(deal.key, taste, deal.item || undefined),
         saving: savingLine(deal.title, usualFor(deal.key, taste)),
+        check: deal.check ?? "",
+        works: deal.works === true,
+        endsOn: deal.endsOn ?? "",
       };
     });
 }
@@ -228,17 +256,20 @@ export const forYou = createServerFn({ method: "POST" })
     const needs = [...searchNeeds(taste, 9), ...rivalNeeds(taste, 5)];
     if (needs.length === 0) return { taste, deals: [], city, addable };
 
-    const fingerprint = `fy4:${today}:${hashText(needs.map((need) => `${need.key}=${need.query}`).join("|"))}`;
+    const fingerprint = `fy5:${today}:${hashText(`${city}|${needs.map((need) => `${need.key}=${need.query}`).join("|")}`)}`;
     let found = await readCache<FoundDeal[]>(context.userId, fingerprint);
     if (!Array.isArray(found)) {
       const batches = await Promise.all(needs.map((need) => searchHot(need.query, need.limit ?? 20).catch(() => [])));
       const seen = new Set<string>();
-      const list: FoundDeal[] = [];
+      const list: (FoundDeal & { inStore: boolean; usesShop: boolean })[] = [];
       needs.forEach((need, index) => {
         let kept = 0;
         for (const deal of batches[index] ?? []) {
           if (kept >= 8) break;
           if (seen.has(deal.url) || !dealFits(deal.title, need, deal.merchant ?? "")) continue;
+          // A restaurant voucher in Scarborough is no use to someone in Birmingham.
+          if (usedNearHome(need.key, taste) && onlyFarAway(deal.title, city)) continue;
+          const merchant = deal.merchant || titleShop(deal.title);
           seen.add(deal.url);
           kept += 1;
           list.push({
@@ -248,17 +279,25 @@ export const forYou = createServerFn({ method: "POST" })
             url: deal.url,
             shopUrl: deal.shopUrl ?? "",
             source: deal.source,
-            merchant: deal.merchant || titleShop(deal.title),
+            merchant,
             code: deal.code ?? "",
             local: false,
             item: need.item ?? "",
             elsewhere: need.elsewhere === true,
+            endsOn: deal.endsOn ?? "",
+            inStore: deal.inStore === true,
+            usesShop: !need.elsewhere && atKnownShop(`${merchant} ${deal.title}`, taste),
           });
         }
       });
-      found = list;
+      // Read the small print, and the deal page when it may limit where or who, before passing it on.
+      const vetted = await vetOffers(list, { city, usesShop: (item) => item.usesShop });
+      found = vetted.map(({ inStore: _inStore, usesShop: _usesShop, ...deal }) => ({
+        ...deal,
+        local: deal.local || deal.works,
+      }));
       // An empty answer is usually the deal board being slow: try again next time.
-      if (list.length > 0) await writeCache(context.userId, fingerprint, list);
+      if (list.length > 0) await writeCache(context.userId, fingerprint, found);
     }
     return { taste, deals: explain(found, taste), city, addable };
   });
@@ -276,8 +315,10 @@ function habitBrief(key: string, taste: TasteProfile): string {
     return `- key "${key}": ${interest.label}. ${habitLine(interest)}.${shops}${items}${when}`;
   }
   if (shop) {
-    const kind = shop.interestId ? interestDef(shop.interestId)?.label.toLowerCase() : "";
-    return `- key "${key}": ${shop.name}${kind ? ` (${kind})` : ""}. ${habitLine(shop)}.${when}`;
+    const kind = shop.about || (shop.interestId ? interestDef(shop.interestId)?.label.toLowerCase() : "");
+    const site = shop.site ? ` Its site: ${shop.site}.` : "";
+    const local = shop.local ? " A local business, not a chain: look for offers at this shop itself, and nearby places for the same thing." : "";
+    return `- key "${key}": ${shop.name}${kind ? ` (${kind})` : ""}. ${habitLine(shop)}.${site}${local}${when}`;
   }
   return "";
 }
@@ -297,7 +338,7 @@ export const forYouWide = createServerFn({ method: "POST" })
     if (lines.length === 0) return { deals: [], note: "" };
 
     // Keyed on which habits and town, not their figures, so a new spend today reuses the search.
-    const fingerprint = `fyw4:${today}:${hashText(`${city}|${chosen.join("|")}`)}`;
+    const fingerprint = `fyw5:${today}:${hashText(`${city}|${chosen.join("|")}`)}`;
     const cached = await readCache<{ found?: FoundDeal[]; note?: string }>(context.userId, fingerprint);
     if (cached && Array.isArray(cached.found)) {
       return { deals: explain(cached.found, taste), note: cached.note ?? "" };
@@ -315,7 +356,7 @@ ${lines.join("\n")}
 
 Search public pages for current offers, discount codes, loyalty prices, and cheaper options that would cut the cost of the NEXT purchase in each habit. For each habit, first offers at the shops they already use. Then, separately, other UK shops or services for the same thing that could cost less${city ? ` near ${city} or online` : " online"}: a cheaper supermarket, a cheaper cinema chain, a cheaper gym, and for a subscription or service a cheaper or free alternative that does the same job. Look anywhere a person in Britain can use: shop sites, Google results, Reddit, forums, HotUKDeals, and other UK deal pages. Skip US-only boards such as Slickdeals. Only legal public pages. No leaked, stolen, or private codes.
 Reply with JSON only, no markdown:
-{"offers":[{"for":"","type":"deal","merchant":"","title":"","detail":"","url":"","code":"","local":false}],"note":""}
+{"offers":[{"for":"","type":"deal","merchant":"","title":"","detail":"","url":"","code":"","local":false,"where":"nationwide","who":"anyone"}],"note":""}
 Rules:
 - for is the habit key exactly as given, such as "i:perfume" or "s:tesco".
 - type is "deal" for an offer at a shop they already use, "switch" for another shop or service that could cost less.
@@ -324,6 +365,9 @@ Rules:
 - url is the page where the person gets or uses the offer: the shop’s own page when one was opened. A deal board, Reddit, or a forum only when no shop page was opened. url must be a page opened in this search.
 - code only if that exact code is printed on the page, otherwise "".
 - Do not invent a code, a price, a percentage, or an end date.
+- Read each offer's terms on its page before you pick it. where is "nationwide", or the list of towns, cities or areas the terms name, such as ["London","Manchester"], or "some areas" when the terms say selected areas without naming them. who is "anyone", "new customers", "selected accounts" or "members".
+${city ? `- Skip an offer whose terms name places that do not include ${city} or somewhere near it. When the terms say selected cities or regions, open the terms and list them.
+` : ""}- Skip an offer only for new customers at a shop they already use (the shops in their habits).
 ${localRule}
 - title is the offer in the page’s own words, shortened.
 - detail is one plain sentence on how it cuts their usual spend, and says in store or online when the page does.
@@ -354,6 +398,11 @@ ${localRule}
       if (!allowed.has(key) || !title || !merchant || seen.has(url)) continue;
       if (!citedPage(url, result.sources) || /slickdeals\.net/i.test(url)) continue;
       if (offTopic(`${title} ${detail}`, key, taste)) continue;
+      if (usedNearHome(key, taste) && onlyFarAway(`${title} ${detail}`, city)) continue;
+      // Check the terms the search read: not for this town, or new customers only at a shop they use, is left out.
+      const usesShop = row.type !== "switch" && atKnownShop(`${merchant} ${title}`, taste);
+      const verdict = judgeTerms(termsFromOffer(`${title}\n${detail}`, row.where, row.who), { city, usesShop });
+      if (!verdict.show) continue;
       const host = hostOf(url);
       if ((perKey.get(key) ?? 0) >= 6 || (perHost.get(host) ?? 0) >= 3) continue;
       perKey.set(key, (perKey.get(key) ?? 0) + 1);
@@ -367,9 +416,11 @@ ${localRule}
         source: host,
         merchant,
         code: tidyCode(row.code),
-        local: Boolean(city) && row.local === true,
+        local: (Boolean(city) && row.local === true) || verdict.works,
         item: "",
         elsewhere: row.type === "switch",
+        check: verdict.note,
+        works: verdict.works,
       });
       if (found.length >= 30) break;
     }
@@ -407,4 +458,20 @@ export const setHabit = createServerFn({ method: "POST" })
                 on conflict (user_id, habit_key) do update set mode = excluded.mode, created_at = now()`;
     }
     return { ok: true as const };
+  });
+
+/**
+ * Look up, on the web, shops Pence knows nothing about yet, a few at a time.
+ * Run in the background after a visit; the offers refresh when it learned something.
+ */
+export const learnMyShops = createServerFn({ method: "POST" })
+  .middleware([authMiddleware])
+  .handler(async ({ context }): Promise<{ learned: number }> => {
+    try {
+      const { spends, city } = await loadTaste(context.userId);
+      const real = spends.filter((spend) => !spend.isSample);
+      return { learned: await learnShops(real, city) };
+    } catch {
+      return { learned: 0 };
+    }
   });

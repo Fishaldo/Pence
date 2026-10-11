@@ -21,18 +21,22 @@ import { seedSamples } from "@/server/ledger";
 import { useForYou, useLedger, useRefreshLedger } from "./data";
 import { CodeChip } from "./deal-bits";
 import { goUrl } from "./deal-links";
+import { DealTerms } from "./offers";
 import { ComingOut } from "./regular";
 import { WatchSummary } from "./watch";
 import { errorText, Money, PageHead } from "./ui";
 
-/** Three picks: the next likely buys first, one per habit, near you and your shops first. */
+/** Three picks: the next likely buys first, one per habit, ones that work where you live and at your shops first. */
 function picksFor(deals: PersonalDeal[], taste: TasteProfile | undefined): PersonalDeal[] {
   if (!taste) return [];
   const soon = new Set(taste.upcoming.flatMap((up) => [up.key, up.interestKey ?? ""]));
   const sorted = [...deals].sort(
     (a, b) =>
       Number(soon.has(b.key)) - Number(soon.has(a.key)) ||
+      Number(b.works) - Number(a.works) ||
       Number(b.local) - Number(a.local) ||
+      // A deal with something to check first is not one of the three on Home.
+      Number(Boolean(a.check) && !a.works) - Number(Boolean(b.check) && !b.works) ||
       Number(b.yours) - Number(a.yours),
   );
   const picks: PersonalDeal[] = [];
@@ -266,6 +270,7 @@ export function HomeView() {
                     {deal.title}
                   </a>
                   {deal.saving ? <p className="mt-1 text-sm font-medium text-forest">{deal.saving}</p> : null}
+                  <DealTerms deal={deal} />
                   {deal.code ? <CodeChip code={deal.code} /> : null}
                   {deal.reason ? <p className="mt-1 text-sm text-muted">{deal.reason}</p> : null}
                 </li>

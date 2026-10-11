@@ -1,6 +1,6 @@
 import { describe, it } from "node:test";
 import assert from "node:assert/strict";
-import { isMonthly, readHot, titlePrice } from "./hot-search.ts";
+import { isMonthly, readDealText, readHot, titlePrice } from "./hot-search.ts";
 
 /** A card as HotUKDeals sends it: JSON in single-quoted data-vue3 attributes, entity-encoded. */
 function card(thread: Record<string, unknown>): string {
@@ -88,5 +88,30 @@ describe("prices in titles", () => {
     assert.equal(isMonthly("Pizza Express: kids eat free until 9pm"), false);
     assert.equal(isMonthly("iPhone 17 128GB £21.99/m, 100GB data"), true);
     assert.equal(isMonthly("iPhone 17 £30 x24"), true);
+  });
+});
+
+describe("deal pages and dates", () => {
+  it("reads the words of a deal post from its page", () => {
+    const description =
+      '<img src="x.jpg" /> apply code in advance via App/Website <br />Use code: Large10<br />Definitely works in Leeds &amp; Birmingham <br />Cannot be used with any other offer';
+    const html = `<script>window.__INITIAL_STATE__ = {"threadDetail":{"threadDetails":{"preparedHtmlDescription":${JSON.stringify(description)}}}};</script>`;
+    const text = readDealText(html);
+    assert.match(text, /Use code: Large10/);
+    assert.match(text, /Definitely works in Leeds & Birmingham/);
+    assert.doesNotMatch(text, /<img/);
+    assert.equal(readDealText("<html>no state</html>"), "");
+  });
+
+  it("keeps the end date the board prints, drops deals past it, and marks in-store deals", () => {
+    const soon = Math.floor(Date.now() / 1000) + 5 * 86_400;
+    const gone = Math.floor(Date.now() / 1000) - 86_400;
+    const html =
+      card({ threadId: 1, title: "Free doughnut instore", titleSlug: "free-doughnut", endDate: { timestamp: soon }, isLocal: true, selectedLocations: { isNational: false } }) +
+      card({ threadId: 2, title: "Old voucher", titleSlug: "old-voucher", endDate: { timestamp: gone } });
+    const deals = readHot(html, 10);
+    assert.equal(deals.length, 1);
+    assert.match(deals[0].endsOn ?? "", /^\d{4}-\d{2}-\d{2}$/);
+    assert.equal(deals[0].inStore, true);
   });
 });
