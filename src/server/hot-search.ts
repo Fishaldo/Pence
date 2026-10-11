@@ -24,7 +24,8 @@ export type HotDeal = {
  * the plain links are read instead, as before.
  */
 
-const MONTHLY = /(?:\/\s?(?:mo|mth|month)\b|\bper month\b|\ba month\b|\bp\/?m\b|\bmonthly\b)/i;
+const MONTHLY =
+  /(?:\/\s?(?:mo|mth|month)\b|\bper month\b|\ba month\b|\bp\/?m\b|£\s?\d+(?:\.\d{1,2})?\s?p\/?m\b|\bmonthly\b)/i;
 
 /** True when a price in this text is a monthly payment, not the price of the thing. */
 export function isMonthly(text: string): boolean {
@@ -65,10 +66,17 @@ function findThread(value: unknown, depth = 0): Record<string, unknown> | null {
   return null;
 }
 
-/** Deals from the thread JSON on a HotUKDeals page. Expired deals are left out. */
+/**
+ * Deals from the thread JSON on a HotUKDeals page. Expired deals are left out.
+ *
+ * Each card carries two pieces: the thread itself (title, price, voucher code,
+ * merchant, the shop's host, expiry) and the "Get deal" button, whose link
+ * goes through HotUKDeals straight on to the shop. That button link is used as
+ * the shop link, so people land on the shop, not on the deal board.
+ */
 export function readThreads(html: string, limit: number): HotDeal[] {
-  const deals: HotDeal[] = [];
-  const seen = new Set<string>();
+  const threads: Record<string, unknown>[] = [];
+  const buttons = new Map<string, string>();
   for (const match of html.matchAll(/data-vue3=(?:"([^"]*)"|'([^']*)')/g)) {
     let data: unknown;
     try {
@@ -76,27 +84,43 @@ export function readThreads(html: string, limit: number): HotDeal[] {
     } catch {
       continue;
     }
+    const row = data && typeof data === "object" ? (data as Record<string, unknown>) : null;
+    const props = row?.props && typeof row.props === "object" ? (row.props as Record<string, unknown>) : null;
+    if (row?.name === "ThreadListItemMainButton" && props) {
+      const id = props.threadId;
+      const link = props.link;
+      if ((typeof id === "string" || typeof id === "number") && typeof link === "string") {
+        if (/^https:\/\/www\.hotukdeals\.com\/visit\//.test(link)) buttons.set(String(id), link);
+      }
+      continue;
+    }
     const thread = findThread(data);
-    if (!thread || thread.isExpired === true) continue;
+    if (thread) threads.push(thread);
+  }
+
+  const deals: HotDeal[] = [];
+  const seen = new Set<string>();
+  for (const thread of threads) {
+    if (thread.isExpired === true) continue;
     const id = String(thread.threadId);
     const title = decode(String(thread.title)).replace(/\s+/g, " ").trim().slice(0, 140);
     const slug = typeof thread.titleSlug === "string" ? thread.titleSlug : "";
-    const share = typeof thread.shareableLink === "string" ? thread.shareableLink.split("?")[0] : "";
-    const url = share.startsWith("https://www.hotukdeals.com/")
-      ? share
-      : `https://www.hotukdeals.com/deals/${slug ? `${slug}-` : ""}${id}`;
+    const url = `https://www.hotukdeals.com/deals/${slug ? `${slug}-` : ""}${id}`;
     if (!title || seen.has(url)) continue;
     seen.add(url);
     let shopUrl = "";
-    if (typeof thread.link === "string") {
+    if (typeof thread.link === "string" && thread.link) {
       try {
         const link = new URL(thread.link);
         if (link.protocol === "https:" && !/hotukdeals\.com$/.test(link.hostname)) shopUrl = link.href;
       } catch {
-        /* no shop link */
+        /* no direct shop link */
       }
     }
-    const merchantRow = thread.merchant && typeof thread.merchant === "object" ? (thread.merchant as Record<string, unknown>) : null;
+    const hasShop = typeof thread.linkHost === "string" && thread.linkHost.trim() !== "";
+    if (!shopUrl && hasShop) shopUrl = buttons.get(id) ?? `https://www.hotukdeals.com/visit/thread/${id}`;
+    const merchantRow =
+      thread.merchant && typeof thread.merchant === "object" ? (thread.merchant as Record<string, unknown>) : null;
     const merchant =
       typeof merchantRow?.merchantName === "string"
         ? merchantRow.merchantName
@@ -220,6 +244,24 @@ export async function listing(page: number): Promise<HotDeal[]> {
 }
 
 export async function trending(limit: number): Promise<HotDeal[]> {
+  // The hot page carries codes and shop links; the RSS feed is the fallback.
+  try {
+    const res = await fetch("https://www.hotukdeals.com/hot?page=1&ajax=true", {
+      headers: {
+        Accept: "application/json",
+        "User-Agent": "Mozilla/5.0",
+        "X-Requested-With": "XMLHttpRequest",
+      },
+      signal: AbortSignal.timeout(12_000),
+    });
+    if (res.ok) {
+      const body = (await res.json()) as { data?: { content?: string } };
+      const deals = readHot(body.data?.content ?? "", limit);
+      if (deals.length > 0) return deals;
+    }
+  } catch {
+    /* fall back to the feed */
+  }
   const res = await fetch("https://www.hotukdeals.com/rss/trending", {
     headers: { "User-Agent": "Pence/1.0", Accept: "application/rss+xml, text/xml" },
     signal: AbortSignal.timeout(12_000),

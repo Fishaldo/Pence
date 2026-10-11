@@ -25,7 +25,10 @@ export function goUrl(deal: Linkable): string {
 export function goLabel(deal: Linkable): string {
   const target = goUrl(deal);
   const host = hostOf(target);
-  if (BOARDS.test(host)) return deal.code ? `Where to use it, on ${host}` : `See the deal on ${host}`;
+  // HotUKDeals' /visit/ links forward straight to the shop, like their "Get deal" button.
+  const forwards = /hotukdeals\.com$/.test(host) && /\/visit\//.test(target);
+  if (BOARDS.test(host) && !forwards) return deal.code ? `Where to use it, on ${host}` : `See the deal on ${host}`;
+  if (forwards && !deal.merchant) return deal.code ? "Use it at the shop" : "Go to the shop";
   const name = deal.merchant || host || "the shop";
   return deal.code ? `Use it at ${name}` : `Get it at ${name}`;
 }

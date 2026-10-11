@@ -21,6 +21,21 @@ jobs:
   check:
     runs-on: ubuntu-latest
     timeout-minutes: 30
+    # A real Postgres for the built app, as on the live site. The dev run uses
+    # the built-in PGLite instead.
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_PASSWORD: pence
+          POSTGRES_DB: pence
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 12
     steps:
       - uses: actions/checkout@v4
 
@@ -79,8 +94,12 @@ jobs:
 
       - name: Run the built app and walk through it
         shell: bash
+        env:
+          DATABASE_URL: postgres://postgres:pence@127.0.0.1:5432/pence
+          BETTER_AUTH_SECRET: ci-only-secret-not-used-anywhere-else-0123456789
         run: |
           set +e
+          npm run db:migrate > ci-out/migrate.log 2>&1; echo "| database migrations | $( [ $? = 0 ] && echo passed || echo FAILED ) |" >> ci-out/summary.md
           npm run preview:restart > ci-out/preview.log 2>&1 || true
           for i in $(seq 1 60); do curl -sf -o /dev/null http://127.0.0.1:8081/ && break; sleep 2; done
           node scripts/ci-walkthrough.mjs http://127.0.0.1:8081 ci-out/built > ci-out/walkthrough-built.log 2>&1
