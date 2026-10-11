@@ -228,7 +228,7 @@ export const forYou = createServerFn({ method: "POST" })
     const needs = [...searchNeeds(taste, 9), ...rivalNeeds(taste, 5)];
     if (needs.length === 0) return { taste, deals: [], city, addable };
 
-    const fingerprint = `fy3:${today}:${hashText(needs.map((need) => `${need.key}=${need.query}`).join("|"))}`;
+    const fingerprint = `fy4:${today}:${hashText(needs.map((need) => `${need.key}=${need.query}`).join("|"))}`;
     let found = await readCache<FoundDeal[]>(context.userId, fingerprint);
     if (!Array.isArray(found)) {
       const batches = await Promise.all(needs.map((need) => searchHot(need.query, need.limit ?? 20).catch(() => [])));
@@ -297,7 +297,7 @@ export const forYouWide = createServerFn({ method: "POST" })
     if (lines.length === 0) return { deals: [], note: "" };
 
     // Keyed on which habits and town, not their figures, so a new spend today reuses the search.
-    const fingerprint = `fyw3:${today}:${hashText(`${city}|${chosen.join("|")}`)}`;
+    const fingerprint = `fyw4:${today}:${hashText(`${city}|${chosen.join("|")}`)}`;
     const cached = await readCache<{ found?: FoundDeal[]; note?: string }>(context.userId, fingerprint);
     if (cached && Array.isArray(cached.found)) {
       return { deals: explain(cached.found, taste), note: cached.note ?? "" };

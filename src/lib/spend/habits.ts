@@ -857,7 +857,16 @@ export function searchNeeds(taste: TasteProfile, max = 9): Need[] {
   const interestNeed = (interest: InterestHabit) => {
     const def = interestDef(interest.id);
     if (!def?.query) return;
-    push({ key: interest.key, query: def.query, match: def.match, avoid: def.avoid, shopWords: [], usualPence: interest.avgPence });
+    push({
+      key: interest.key,
+      query: def.query,
+      match: def.match,
+      avoid: def.avoid,
+      shopWords: [],
+      // "ASDA screenwash" names a food shop but is not food, so a broad habit also needs a word for what is bought.
+      kindWords: def.broad ? kindWordsOf(def) : undefined,
+      usualPence: interest.avgPence,
+    });
   };
   const itemNeed = (interest: InterestHabit) => {
     const def = interestDef(interest.id);
@@ -949,7 +958,9 @@ export function dealFits(title: string, need: Need, merchant = ""): boolean {
   }
   if (need.match.length === 0) return true;
   if (need.item) return need.match.filter((word) => hasWord(hay, word)).length >= Math.min(2, need.match.length);
-  return need.match.some((word) => hasWord(hay, word));
+  if (!need.match.some((word) => hasWord(hay, word))) return false;
+  if (need.kindWords && !isStoreWide(title) && !need.kindWords.some((word) => hasWord(hay, word))) return false;
+  return true;
 }
 
 /** The interest a habit key belongs to: an interest itself, or the main interest of a shop. */

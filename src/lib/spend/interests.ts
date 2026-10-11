@@ -74,6 +74,32 @@ export const BIG_TICKET = [
   "mower",
 ];
 
+/** Things a supermarket sells that are not the food shop. */
+const NOT_FOOD = [
+  ...BIG_TICKET,
+  "toy",
+  "toys",
+  "train set",
+  "food truck",
+  "screenwash",
+  "de-icer",
+  "step stool",
+  "stool",
+  "kettle",
+  "toaster",
+  "duvet",
+  "pillow",
+  "towels",
+  "curtains",
+  "rug",
+  "lamp",
+  "storage box",
+  "jeans",
+  "dress",
+  "trainers",
+  "school uniform",
+];
+
 export const INTERESTS: InterestDef[] = [
   {
     id: "food-shop",
@@ -206,7 +232,7 @@ export const INTERESTS: InterestDef[] = [
       "multipack",
       "meal deal",
     ],
-    avoid: BIG_TICKET,
+    avoid: NOT_FOOD,
     broad: true,
   },
   {
