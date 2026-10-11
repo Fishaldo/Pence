@@ -9,7 +9,10 @@ import {
   habitLine,
   isoOf,
   itemInterest,
+  itemInterestAt,
   merchantInterest,
+  nameHint,
+  unknownShop,
   paydayAfter,
   paydayOnOrBefore,
   reasonFor,
@@ -335,5 +338,67 @@ describe("savings", () => {
     assert.equal(savingLine("Up to 70% off in the sale", 7000), "");
     assert.equal(savingLine("Persil 2 for £10", 1200), "");
     assert.equal(savingLine("10% off", 200), "");
+  });
+});
+
+describe("what a shop sells", () => {
+  it("knows Cake Box sells cakes, even written as one word", () => {
+    assert.equal(merchantInterest("CAKEBOX", "dining").id, "cakes");
+    assert.equal(merchantInterest("CAKEBOX", "dining").brand, "Cake Box");
+    assert.equal(merchantInterest("Cake Box Birmingham", "dining").id, "cakes");
+    assert.equal(merchantInterest("Krispy Kreme", "dining").id, "cakes");
+  });
+
+  it("reads what a shop sells from its name when Pence has no rule for it", () => {
+    assert.equal(merchantInterest("MAMASCAKES LTD", "dining").id, "cakes");
+    assert.equal(merchantInterest("JOLLOF REPUBLIC", "dining").id, "eating-out");
+    assert.equal(merchantInterest("PIZZALAND 22", "dining").id, "takeaway");
+    assert.equal(merchantInterest("BOBSBARBERS", "personal").id, "hair");
+    // A name hint must fit the category: a kitchen shop filed under Household is not a restaurant.
+    assert.equal(nameHint("KITCHEN DEPOT", "household"), null);
+    assert.equal(merchantInterest("KITCHEN DEPOT", "household").id, "home");
+  });
+
+  it("asks about a shop only when nothing else tells", () => {
+    assert.equal(unknownShop("ZXQ TRADING", "dining"), true);
+    assert.equal(unknownShop("CAKEBOX", "dining"), false);
+    assert.equal(unknownShop("MAMASCAKES", "dining"), false);
+    assert.equal(unknownShop("ZXQ TRADING", "dining", { "zxq trading": "cakes" }), false);
+    assert.equal(merchantInterest("ZXQ TRADING", "dining", { "zxq trading": "cakes" }).id, "cakes");
+    assert.equal(merchantInterest("ZXQ TRADING", "dining").id, "eating-out");
+  });
+
+  it("files a cake from Cake Box as a cake-shop buy, and from Tesco as the food shop", () => {
+    assert.equal(itemInterestAt("Chocolate Fudge Cake", "cakes"), "cakes");
+    assert.equal(itemInterestAt("Chocolate Fudge Cake", "food-shop"), itemInterest("Chocolate Fudge Cake"));
+  });
+
+  const cakes = buildTaste(
+    [49, 42, 35, 28, 21, 14, 7].map((n) => spend(n, "CAKEBOX", 14, "dining")),
+    { today: TODAY, payday: null },
+  );
+
+  it("puts Cake Box visits under cakes, not eating out", () => {
+    assert.equal(cakes.interests[0]?.id, "cakes");
+    assert.equal(cakes.interests.some((row) => row.id === "eating-out"), false);
+  });
+
+  it("shows cheaper cakes elsewhere, never burgers", () => {
+    const rivals = rivalNeeds(cakes);
+    const krispy = rivals.find((need) => need.query === "Krispy Kreme");
+    const tesco = rivals.find((need) => need.query === "Tesco");
+    if (!krispy || !tesco) throw new Error(`expected Krispy Kreme and Tesco, got ${rivals.map((row) => row.query).join(", ")}`);
+    assert.equal(dealFits("Burger King Buy One Get One Free", krispy, "Burger King"), false);
+    assert.equal(dealFits("Krispy Kreme Original Glazed Dozen - £12 instore", krispy, "Krispy Kreme"), true);
+    assert.equal(dealFits("Tesco Finest Celebration Cake - Clubcard Price", tesco, "Tesco"), true);
+    assert.equal(dealFits("Tesco Large Whole Chicken - Clubcard Price", tesco, "Tesco"), false);
+    const shop = searchNeeds(cakes).find((need) => need.key === "i:cakes");
+    if (!shop) throw new Error("expected a cake search");
+    assert.equal(dealFits("Buy One Chicken Royale, Get One Free - Participating Restaurants", shop, "Burger King"), false);
+    assert.equal(dealFits("£30 Restaurant Voucher (Sheffield)", shop, "Planet Offers"), false);
+  });
+
+  it("explains the cheaper place in plain words", () => {
+    assert.equal(elsewhereReason("i:cakes", cakes, "Krispy Kreme"), "You usually use Cake Box for this. This one is at Krispy Kreme.");
   });
 });

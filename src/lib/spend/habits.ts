@@ -6,6 +6,7 @@ import {
   GENERIC_SHOP_WORDS,
   INTERESTS,
   interestDef,
+  NAME_HINTS,
   type InterestDef,
 } from "./interests.ts";
 import { isStoreWide } from "./promo.ts";
@@ -111,8 +112,36 @@ function matchShop(merchant: string): ShopMatch[] {
   return found.sort((a, b) => b.word.replace(/^=/, "").length - a.word.replace(/^=/, "").length);
 }
 
+/**
+ * What a shop sells, learned once from its name by a wider lookup and kept for
+ * everyone: merchant core ("cakebox") → interest id ("cakes").
+ */
+export type ShopKinds = Record<string, string>;
+
+/** What a shop's name says it sells, even run together: CAKEBOX → cakes. Null when the name says nothing. */
+export function nameHint(merchant: string, category: CategoryId): string | null {
+  const compact = merchantCore(merchant).replace(/[^a-z]/g, "");
+  if (compact.length < 3) return null;
+  for (const [stem, id] of NAME_HINTS) {
+    if (!compact.includes(stem.replace(/[^a-z]/g, ""))) continue;
+    const def = interestDef(id);
+    if (def && (category === "other" || def.category === category)) return id;
+  }
+  return null;
+}
+
+/** True when nothing in Pence knows this shop: no chain, no telling word in its name. Worth a lookup. */
+export function unknownShop(merchant: string, category: CategoryId, kinds?: ShopKinds): boolean {
+  if (kinds?.[merchantCore(merchant)]) return false;
+  return matchShop(merchant).length === 0 && nameHint(merchant, category) == null;
+}
+
 /** Which interest a merchant belongs to, honouring the category the person chose. */
-export function merchantInterest(merchant: string, category: CategoryId): { id: string | null; brand: string | null } {
+export function merchantInterest(
+  merchant: string,
+  category: CategoryId,
+  kinds?: ShopKinds,
+): { id: string | null; brand: string | null } {
   const hits = matchShop(merchant);
   const named = hits.find((hit) => !GENERIC_SHOP_WORDS.has(hit.word));
   const brand = named ? brandName(named.word) : null;
@@ -120,10 +149,28 @@ export function merchantInterest(merchant: string, category: CategoryId): { id: 
   if (sameCategory) return { id: sameCategory.interest.id, brand };
   // A shop that sells one kind of thing tells us more than the category does.
   if (named && !named.interest.broad) return { id: named.interest.id, brand };
+  // Learned from the shop's name and what it is known for: Cake Box sells cakes, not meals.
+  const learned = kinds?.[merchantCore(merchant)];
+  if (learned && interestDef(learned)) return { id: learned, brand };
+  const hinted = hits.length === 0 ? nameHint(merchant, category) : null;
+  if (hinted) return { id: hinted, brand };
   // A supermarket filed under Household is a household spend: keep the person's choice.
   const home = CATEGORY_HOME[category];
   if (home) return { id: home, brand };
   return { id: hits[0]?.interest.id ?? null, brand };
+}
+
+/**
+ * Which interest a receipt line belongs to at this shop. A cake from Cake Box
+ * is a cake-shop buy; the same word on a Tesco receipt is the food shop.
+ */
+export function itemInterestAt(name: string, shopInterest: string | null): string | null {
+  const def = shopInterest ? interestDef(shopInterest) : undefined;
+  if (def && !def.broad) {
+    const hay = norm(name);
+    if (def.items.some((word) => hasWord(hay, word))) return def.id;
+  }
+  return itemInterest(name);
 }
 
 /** Which interest a receipt line belongs to, or null. */
@@ -433,7 +480,7 @@ function rankScore(r: Rhythm): number {
 
 export function buildTaste(
   spends: SpendInput[],
-  options: { today: string; payday: number | null; prefs?: HabitPrefs },
+  options: { today: string; payday: number | null; prefs?: HabitPrefs; kinds?: ShopKinds },
 ): TasteProfile {
   const today = dayNum(options.today);
   const muted = new Set(options.prefs?.muted ?? []);
@@ -452,7 +499,7 @@ export function buildTaste(
   for (const tx of source) {
     const day = dayNum(tx.spentOn);
     const minutes = tx.source === "bank" ? null : timeOf(tx.note, tx.rawAlert);
-    const { id: mainId, brand } = merchantInterest(tx.merchant, tx.category);
+    const { id: mainId, brand } = merchantInterest(tx.merchant, tx.category, options.kinds);
     const shopName = brand ?? tx.merchant.trim();
     const items = tx.items ?? [];
     // Each item goes to what it is: nappies to the kids, perfume to perfume, bread to the food shop.
@@ -462,7 +509,7 @@ export function buildTaste(
     const unpriced = new Map<string, number>();
     let pricedTotal = 0;
     for (const item of items) {
-      const id = itemInterest(item.name) ?? mainId;
+      const id = itemInterestAt(item.name, mainId) ?? mainId;
       if (!id) continue;
       if (item.amountPence > 0) {
         priced.set(id, (priced.get(id) ?? 0) + item.amountPence);
@@ -486,7 +533,7 @@ export function buildTaste(
       interests.set(id, b);
     }
     for (const item of items) {
-      const id = itemInterest(item.name) ?? mainId;
+      const id = itemInterestAt(item.name, mainId) ?? mainId;
       if (!id) continue;
       const def = interestDef(id);
       if (!def?.products) continue;
@@ -696,6 +743,7 @@ const SHOP_VERB: Record<string, string> = {
   "food-shop": "do a food shop at",
   coffee: "get coffee at",
   lunch: "get lunch at",
+  cakes: "buy cakes at",
   takeaway: "order from",
   "eating-out": "eat at",
   drinks: "buy drinks at",
@@ -713,7 +761,7 @@ const SHOP_VERB: Record<string, string> = {
 };
 
 /** Shops people walk into, as opposed to services they use. */
-const VISITED = new Set(["food-shop", "coffee", "lunch", "eating-out", "drinks", "hair", "clothes", "shoes", "perfume", "beauty", "pharmacy", "home", "kids", "pets", "gifts", "tech", "car"]);
+const VISITED = new Set(["food-shop", "coffee", "lunch", "cakes", "eating-out", "drinks", "hair", "clothes", "shoes", "perfume", "beauty", "pharmacy", "home", "kids", "pets", "gifts", "tech", "car"]);
 
 /** Why a deal is shown: "You buy perfume about every 6 weeks. Next one likely Sat 17 Oct." */
 export function reasonFor(key: string, taste: TasteProfile, itemName?: string): string {
@@ -906,6 +954,11 @@ export function searchNeeds(taste: TasteProfile, max = 9): Need[] {
   return needs;
 }
 
+/** True when this shop sells mainly this kind of thing, like Krispy Kreme for cakes. */
+function specialistOf(shop: string, def: InterestDef): boolean {
+  return matchShop(shop).some((hit) => hit.interest.id === def.id && !GENERIC_SHOP_WORDS.has(hit.word));
+}
+
 /**
  * Rival shops for the habits that matter most: where the same spend could cost
  * less. Someone at ASDA every week also gets Aldi and Iceland deals; someone
@@ -930,8 +983,9 @@ export function rivalNeeds(taste: TasteProfile, max = 5): Need[] {
         match: [],
         avoid: def.avoid,
         shopWords: names,
-        // A specialist rival (Vue for a Cineworld habit) is on topic by name; a supermarket needs the kind check.
-        kindWords: def.broad ? kindWordsOf(def) : undefined,
+        // A specialist rival (Vue for a Cineworld habit) is on topic by name. Any other shop must be
+        // selling the same kind of thing: Tesco counts for a cake habit only on its cakes.
+        kindWords: def.broad || !specialistOf(rival, def) ? kindWordsOf(def) : undefined,
         elsewhere: true,
         limit: 8,
         usualPence: interest.avgPence,
@@ -968,6 +1022,15 @@ export function interestOfKey(key: string, taste: TasteProfile): InterestDef | u
   if (key.startsWith("i:")) return interestDef(key.slice(2));
   const shop = taste.shops.find((row) => row.key === key);
   return shop?.interestId ? interestDef(shop.interestId) : undefined;
+}
+
+/** Habits where a far-away town is the point: a hotel in Scarborough, a train to Leeds. */
+const TRAVEL = new Set(["flights", "hotels", "holidays", "trains"]);
+
+/** True when a deal for this habit is only any use near where the person lives. */
+export function usedNearHome(key: string, taste: TasteProfile): boolean {
+  const def = interestOfKey(key, taste);
+  return !def || !TRAVEL.has(def.id);
 }
 
 /** True when a deal is plainly about something else than this habit. */

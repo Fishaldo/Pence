@@ -2,6 +2,7 @@ import { createServerFn } from "@tanstack/react-start";
 import { authMiddleware } from "@/lib/auth/middleware";
 import { getSql } from "@/lib/db";
 import { isCategory, type LineItem } from "@/lib/spend/model";
+import { onlyFarAway } from "@/lib/spend/towns";
 import {
   addableInterests,
   atKnownShop,
@@ -20,11 +21,13 @@ import {
   shortDay,
   titleShop,
   usualFor,
+  usedNearHome,
   type HabitPrefs,
   type SpendInput,
   type TasteProfile,
 } from "@/lib/spend/habits";
 import { searchHot } from "@/server/hot-search";
+import { shopKindsFor } from "@/server/shop-kinds";
 import { citedPage, parseModelObject, searchWebText, tidyCode } from "@/server/search";
 
 /** One offer, tied to the habit it could make cheaper and the reason it is shown. */
@@ -164,7 +167,10 @@ async function loadTaste(userId: string): Promise<{ taste: TasteProfile; city: s
     muted: prefs.filter((row) => row.mode === "muted").map((row) => row.habit_key),
     added: prefs.filter((row) => row.mode === "added").map((row) => row.habit_key),
   };
+  // Shops with no rule (CAKEBOX) are looked up once by name, so their deals fit what they sell.
+  const kinds = await shopKindsFor(spends.filter((spend) => !spend.isSample));
   const taste = buildTaste(spends, {
+    kinds,
     today,
     payday: payday && payday >= 1 && payday <= 31 ? payday : null,
     prefs: habitPrefs,
@@ -228,7 +234,7 @@ export const forYou = createServerFn({ method: "POST" })
     const needs = [...searchNeeds(taste, 9), ...rivalNeeds(taste, 5)];
     if (needs.length === 0) return { taste, deals: [], city, addable };
 
-    const fingerprint = `fy4:${today}:${hashText(needs.map((need) => `${need.key}=${need.query}`).join("|"))}`;
+    const fingerprint = `fy5:${today}:${hashText(`${city}|${needs.map((need) => `${need.key}=${need.query}`).join("|")}`)}`;
     let found = await readCache<FoundDeal[]>(context.userId, fingerprint);
     if (!Array.isArray(found)) {
       const batches = await Promise.all(needs.map((need) => searchHot(need.query, need.limit ?? 20).catch(() => [])));
@@ -239,6 +245,8 @@ export const forYou = createServerFn({ method: "POST" })
         for (const deal of batches[index] ?? []) {
           if (kept >= 8) break;
           if (seen.has(deal.url) || !dealFits(deal.title, need, deal.merchant ?? "")) continue;
+          // A restaurant voucher in Scarborough is no use to someone in Birmingham.
+          if (usedNearHome(need.key, taste) && onlyFarAway(deal.title, city)) continue;
           seen.add(deal.url);
           kept += 1;
           list.push({
@@ -297,7 +305,7 @@ export const forYouWide = createServerFn({ method: "POST" })
     if (lines.length === 0) return { deals: [], note: "" };
 
     // Keyed on which habits and town, not their figures, so a new spend today reuses the search.
-    const fingerprint = `fyw4:${today}:${hashText(`${city}|${chosen.join("|")}`)}`;
+    const fingerprint = `fyw5:${today}:${hashText(`${city}|${chosen.join("|")}`)}`;
     const cached = await readCache<{ found?: FoundDeal[]; note?: string }>(context.userId, fingerprint);
     if (cached && Array.isArray(cached.found)) {
       return { deals: explain(cached.found, taste), note: cached.note ?? "" };
@@ -354,6 +362,7 @@ ${localRule}
       if (!allowed.has(key) || !title || !merchant || seen.has(url)) continue;
       if (!citedPage(url, result.sources) || /slickdeals\.net/i.test(url)) continue;
       if (offTopic(`${title} ${detail}`, key, taste)) continue;
+      if (usedNearHome(key, taste) && onlyFarAway(`${title} ${detail}`, city)) continue;
       const host = hostOf(url);
       if ((perKey.get(key) ?? 0) >= 6 || (perHost.get(host) ?? 0) >= 3) continue;
       perKey.set(key, (perKey.get(key) ?? 0) + 1);
