@@ -97,6 +97,7 @@ jobs:
         env:
           DATABASE_URL: postgres://postgres:pence@127.0.0.1:5432/pence
           BETTER_AUTH_SECRET: ci-only-secret-not-used-anywhere-else-0123456789
+          BETTER_AUTH_URL: http://127.0.0.1:8081
         run: |
           set +e
           npm run db:migrate > ci-out/migrate.log 2>&1; echo "| database migrations | $( [ $? = 0 ] && echo passed || echo FAILED ) |" >> ci-out/summary.md
