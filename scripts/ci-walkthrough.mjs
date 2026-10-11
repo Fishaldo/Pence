@@ -31,7 +31,12 @@ async function step(name, run) {
   }
 }
 
-const browser = await chromium.launch({ headless: true, args: ["--no-sandbox", "--disable-dev-shm-usage"] });
+// PENCE_CHROMIUM points at a browser that is already installed, when the one Playwright expects is not.
+const browser = await chromium.launch({
+  headless: true,
+  args: ["--no-sandbox", "--disable-dev-shm-usage"],
+  ...(process.env.PENCE_CHROMIUM ? { executablePath: process.env.PENCE_CHROMIUM } : {}),
+});
 const context = await browser.newContext({ viewport: { width: 390, height: 844 }, deviceScaleFactor: 2 });
 const page = await context.newPage();
 page.setDefaultTimeout(30_000);
