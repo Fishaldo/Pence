@@ -1,6 +1,20 @@
 import { describe, it } from "node:test";
 import assert from "node:assert/strict";
-import { cleanWhat, fitsWatch, floorAfter, judge, offerStatus, watchTerms } from "./watch.ts";
+import {
+  cleanWhat,
+  fitsTarget,
+  fitsWatch,
+  floorAfter,
+  isPromotion,
+  judge,
+  namesShop,
+  offerStatus,
+  offerStatusFor,
+  isStoreWide,
+  shopDealFits,
+  watchLabel,
+  watchTerms,
+} from "./watch.ts";
 
 describe("what is being watched", () => {
   it("keeps names and model numbers, drops filler", () => {
@@ -55,5 +69,58 @@ describe("whether an offer is good enough", () => {
     assert.equal(offerStatus({ pricePence: null, monthly: false }, after), "quiet");
     assert.equal(floorAfter(86000, [88000]), 86000);
     assert.equal(floorAfter(null, [null]), null);
+  });
+});
+
+describe("watching a shop or place", () => {
+  it("reads as the item, the shop, or both", () => {
+    assert.equal(watchLabel({ item: "iPhone 17 Pro", shop: "Argos" }), "iPhone 17 Pro at Argos");
+    assert.equal(watchLabel({ item: "", shop: "ASDA" }), "ASDA");
+    assert.equal(watchLabel({ item: "Dyson V15", shop: "" }), "Dyson V15");
+  });
+
+  it("finds the shop by name, however it is written", () => {
+    assert.equal(namesShop("Half price groceries every Tuesday at ASDA", "ASDA"), true);
+    assert.equal(namesShop("PureGym: no joining fee this week", "Pure Gym"), true);
+    assert.equal(namesShop("Nando's: free starter with the app", "Nandos"), true);
+    assert.equal(namesShop("Tesco Clubcard prices on fruit", "ASDA"), false);
+  });
+
+  it("needs both the item and the shop when both are given", () => {
+    const target = { item: "iPhone 17 Pro", shop: "Argos" };
+    assert.equal(fitsTarget("Apple iPhone 17 Pro 256GB £899", "Argos", target), true);
+    assert.equal(fitsTarget("Apple iPhone 17 Pro 256GB £899", "Currys", target), false);
+    assert.equal(fitsTarget("50% off groceries on Tuesday", "ASDA", { item: "", shop: "ASDA" }), true);
+  });
+
+  it("calls about any promotion at a watched shop, whatever the price", () => {
+    const limits = { targetPence: 2000, floorPence: null, declines: 2 };
+    assert.equal(offerStatusFor({ pricePence: 5000, monthly: false }, limits, { item: "", shop: "ASDA" }), "new");
+    assert.equal(offerStatusFor({ pricePence: 5000, monthly: false }, limits, { item: "Air fryer", shop: "ASDA" }), "above");
+    assert.equal(isPromotion("50% off groceries every Tuesday"), true);
+    assert.equal(isPromotion("Exceptional by ASDA Extra Large Onions 3pk"), false);
+  });
+});
+
+describe("which deals at a watched shop are worth a call", () => {
+  it("always counts a promotion across the shop", () => {
+    assert.equal(isStoreWide("50% off groceries every Tuesday at ASDA"), true);
+    assert.equal(isStoreWide("£10 off when you spend £60 on your shop"), true);
+    assert.equal(isStoreWide("Scoville 6L Digital Air Fryer £32 - Free C&C"), false);
+  });
+
+  it("keeps a supermarket to what it was picked for", () => {
+    assert.equal(shopDealFits("Scoville 6L Digital Air Fryer £32 - Free C&C", "groceries", "ASDA"), false);
+    assert.equal(shopDealFits("Exceptional by ASDA Extra Large Onions 3pk", "groceries", "ASDA"), true);
+    assert.equal(shopDealFits("Persil Bio 1.4L half price", "groceries", "ASDA"), true);
+    assert.equal(shopDealFits("Black Regular Fit Active Waist Trousers", "fashion", "ASDA"), true);
+    assert.equal(shopDealFits("Asda All Seasons Screenwash 5L", "groceries", "ASDA"), false);
+    assert.equal(shopDealFits("Asda Folding Step Stool", "groceries", "ASDA"), false);
+    assert.equal(isStoreWide("Halloween Sale - Up To 50% Off On Home Furnishings, Furniture, Toys"), true);
+  });
+
+  it("keeps a specialist to what it sells, whatever was picked", () => {
+    assert.equal(shopDealFits("PureGym: no joining fee this week", "groceries", "PureGym"), true);
+    assert.equal(shopDealFits("Mama Ngozi's Kitchen: 2 for 1 mains", "dining", "Mama Ngozi's Kitchen"), true);
   });
 });

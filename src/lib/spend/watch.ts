@@ -1,3 +1,5 @@
+import { hasWord, interestDef, merchantInterest } from "./habits.ts";
+
 /*
  * Price watch rules, kept pure so they are tested on their own.
  *
@@ -137,6 +139,121 @@ export function floorAfter(current: number | null, declinedPrices: (number | nul
   const prices = declinedPrices.filter((price): price is number => price != null && price > 0);
   if (current != null) prices.push(current);
   return prices.length > 0 ? Math.min(...prices) : null;
+}
+
+/** What is being watched: an item, a shop or place, or an item at a shop. */
+export type WatchTarget = { item: string; shop: string };
+
+/** How a watch reads: "iPhone 17 Pro at Argos", "ASDA", or "Nike Air Max 90". */
+export function watchLabel(target: WatchTarget): string {
+  const item = cleanWhat(target.item);
+  const shop = cleanWhat(target.shop);
+  if (item && shop) return `${item} at ${shop}`.slice(0, 120);
+  return item || shop;
+}
+
+/** Whether a deal names this shop or place: every word of its name, in the title or the shop field. */
+export function namesShop(text: string, shop: string): boolean {
+  const words = [...tokensOf(shop)].filter((word) => !STOP.has(word) || tokensOf(shop).size === 1);
+  if (words.length === 0) return false;
+  const tokens = tokensOf(text);
+  const joined = ` ${[...tokens].join(" ")} `;
+  // "Pure Gym" is often written "PureGym", and "Nando's" as "Nandos".
+  return words.every((word) => tokens.has(word)) || joined.includes(` ${words.join("")} `);
+}
+
+/** Whether a deal fits a watch: the item, the shop, or both when both were given. */
+export function fitsTarget(text: string, merchant: string, target: WatchTarget): boolean {
+  const item = cleanWhat(target.item);
+  const shop = cleanWhat(target.shop);
+  if (!item && !shop) return false;
+  if (item && !fitsWatch(text, item)) return false;
+  if (shop && !namesShop(`${text} ${merchant}`, shop)) return false;
+  return true;
+}
+
+const PROMO =
+  /(\d{1,2}\s?% off|half price|\bfree\b|voucher|\bcode\b|cashback|discount|\bsale\b|points|double|rollback|clearance|price drop|reduced|£\d+(?:\.\d{2})? off|buy one get|\bbogof\b|\d for £|\b\d for \d\b|meal deal|members|app only|kids eat)/i;
+
+/** True when a deal reads like a promotion at a shop, rather than one product. Used to rank shop watches. */
+export function isPromotion(text: string): boolean {
+  return PROMO.test(text);
+}
+
+const STORE_WIDE =
+  /(spend £|when you spend|off (your|the|an?) (shop|order|basket|bill|meal)|site-?wide|store-?wide|\beverything\b|all (orders|items|products|food|groceries|fashion|clothing|menu)|\bon all\b|whole (shop|store|order)|app (offer|only|users|exclusive)|\bmembers?\b|loyalty|rewards|clubcard|nectar|student|\bnhs\b|blue light|kids eat|free delivery|delivery pass|discount (day|code)|every (mon|tues|wednes|thurs|fri|satur|sun)day|(mon|tues|wednes|thurs|fri|satur|sun)days?\b|\bsale\b.*\bup to\b|\bup to \d{1,2}\s?% off)/i;
+
+/** True when a deal is for the whole shop or a whole department, not one product. */
+export function isStoreWide(text: string): boolean {
+  return STORE_WIDE.test(text) && isPromotion(text);
+}
+
+/** Plan's "What" choices, in words, and the kinds of thing each one covers. */
+export const KIND_WORDS: Record<string, { words: string; interests: string[] }> = {
+  groceries: { words: "groceries", interests: ["food-shop", "drinks", "cleaning", "toiletries", "kids", "pets"] },
+  dining: { words: "eating out", interests: ["eating-out", "takeaway", "coffee", "lunch"] },
+  pub: { words: "the pub", interests: ["eating-out", "drinks"] },
+  fashion: { words: "clothes and shoes", interests: ["clothes", "shoes"] },
+  tech: { words: "phones and tech", interests: ["tech", "gaming"] },
+  health: { words: "health and pharmacy", interests: ["pharmacy"] },
+  personal: { words: "beauty and personal care", interests: ["beauty", "toiletries", "hair", "perfume"] },
+  fitness: { words: "the gym", interests: ["fitness"] },
+  household: { words: "household things", interests: ["home", "cleaning"] },
+  furniture: { words: "furniture and appliances", interests: ["home"] },
+  garden: { words: "the garden", interests: ["home"] },
+  kids: { words: "kids and baby", interests: ["kids"] },
+  pets: { words: "pets", interests: ["pets"] },
+  entertainment: { words: "days out and entertainment", interests: ["going-out", "gaming"] },
+  holiday: { words: "holidays", interests: ["hotels", "flights", "holidays"] },
+  travel: { words: "travel", interests: ["hotels", "flights", "holidays", "trains"] },
+  transport: { words: "fuel and transport", interests: ["car", "trains", "getting-around", "taxis"] },
+  car: { words: "the car", interests: ["car"] },
+  gifts: { words: "gifts", interests: ["gifts"] },
+  subscriptions: { words: "subscriptions", interests: ["streaming", "memberships", "career"] },
+  energy: { words: "gas and electricity", interests: ["energy"] },
+  broadband: { words: "broadband", interests: ["phone-broadband"] },
+  mobile: { words: "mobile", interests: ["phone-broadband"] },
+  insurance: { words: "insurance", interests: ["insurance"] },
+};
+
+/**
+ * For a watched shop or place, which deals are worth a call. Promotions across
+ * the whole shop always count. Single products count when they are the kind of
+ * thing the person goes there for: a big shop goes by what was picked in Plan
+ * (ASDA for groceries skips its air fryers), while a specialist such as a gym,
+ * or a place Pence does not know, takes anything naming it.
+ */
+export function shopDealFits(text: string, kind: string): boolean;
+export function shopDealFits(text: string, kind: string, shop: string): boolean;
+export function shopDealFits(text: string, kind: string, shop = ""): boolean {
+  if (isStoreWide(text)) return true;
+  const own = shop ? merchantInterest(shop, "other").id : null;
+  const ownDef = own ? interestDef(own) : undefined;
+  const fromKind = KIND_WORDS[kind]?.interests ?? [];
+  // A place Pence does not know, such as a local restaurant, is rare on deal pages: anything naming it counts.
+  if (!own || !ownDef) return true;
+  // A specialist only sells one kind of thing, so a deal naming it is already on topic.
+  if (!ownDef.broad) return true;
+  const allowed = fromKind.length > 0 ? fromKind : [own];
+  const hay = text.toLowerCase();
+  return allowed.some((id) => {
+    const def = interestDef(id);
+    if (!def) return false;
+    if (def.avoid.some((word) => hasWord(hay, word))) return false;
+    // A shop's own name is in most of its deals, so it says nothing about what the deal is for.
+    const shops = new Set(def.shops.map((word) => word.replace(/^=/, "")));
+    const words = [...def.match.filter((word) => !shops.has(word)), ...def.items];
+    return words.some((word) => hasWord(hay, word));
+  });
+}
+
+/**
+ * What a newly found offer becomes for this watch. A watch on a shop or place
+ * alone is waiting for any promotion there, so price does not decide it.
+ */
+export function offerStatusFor(offer: PricedOffer, watch: WatchLimits, target: WatchTarget): OfferStatus {
+  if (!cleanWhat(target.item) && cleanWhat(target.shop)) return "new";
+  return offerStatus(offer, watch);
 }
 
 /** What the person typed, on one line and not too long. */

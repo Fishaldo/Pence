@@ -104,47 +104,107 @@ await step("open Offers", async () => {
   return (await page.locator("main").innerText()).slice(0, 1200);
 });
 
-await step("add a price watch", async () => {
-  await page.goto(`${base}/watch`, { waitUntil: "domcontentloaded" });
-  await page.getByRole("heading", { name: "Wait for a better price" }).waitFor();
-  await page.getByLabel("What do you want?").fill("iPhone 17 Pro 256GB");
-  await page.getByLabel("The most you’d pay (£), if you know").fill("800");
-  await page.getByRole("button", { name: "Watch the price" }).click();
-  await page.getByText("iPhone 17 Pro 256GB").first().waitFor();
-  await page.waitForTimeout(2000);
+await step("Plan: place picker", async () => {
+  await page.goto(`${base}/plan`, { waitUntil: "domcontentloaded" });
+  await page.getByRole("heading", { name: "Before you spend" }).waitFor();
+  const where = page.getByLabel("Saved place");
+  await where.waitFor();
+  const options = await where.locator("option").allInnerTexts();
+  if (await page.getByLabel("Country").count()) throw new Error("Country shows before Type a place is picked");
+  await where.selectOption("manual");
+  await page.getByLabel("Country").waitFor();
+  await page.getByLabel("Town or city").waitFor();
+  await shot("07-plan-type-a-place");
+  return options.join(" | ");
+});
+
+await step("Plan: Watchlist needs an item or a shop", async () => {
+  await page.goto(`${base}/plan`, { waitUntil: "domcontentloaded" });
+  await page.getByRole("button", { name: "Add to Watchlist" }).first().click();
+  await page.getByText("To add to your Watchlist, fill in the item, or the shop or place.").waitFor();
+});
+
+await step("Plan: add an item to the Watchlist", async () => {
+  await page.getByLabel("Item, if you have one").fill("iPhone 17 Pro 256GB");
+  await page.getByLabel("Budget (£), if you have one").fill("800");
+  await page.getByRole("button", { name: "Add to Watchlist" }).first().click();
+  await page.getByText("Added to your Watchlist").waitFor();
+  await shot("08-plan-added");
+});
+
+await step("Plan: add a shop to the Watchlist", async () => {
+  await page.goto(`${base}/plan`, { waitUntil: "domcontentloaded" });
+  await page.getByLabel("Shop or place, if you have one").fill("ASDA");
+  await page.getByRole("button", { name: "Add to Watchlist" }).first().click();
+  await page.getByText("Added to your Watchlist").waitFor();
+});
+
+await step("Offers: the Watchlist", async () => {
+  await page.goto(`${base}/offers#watchlist`, { waitUntil: "domcontentloaded" });
+  await page.getByRole("heading", { name: "Watchlist", exact: true }).waitFor();
+  await page.waitForTimeout(3000);
   await page
     .getByText("Looking now…")
     .waitFor({ state: "detached", timeout: 90_000 })
     .catch(() => undefined);
-  await settle(2000);
-  await shot("07-watch");
-  return (await page.locator("main").innerText()).slice(0, 1200);
+  await settle(5000);
+  await page.reload({ waitUntil: "domcontentloaded" });
+  await page.getByRole("heading", { name: "Watchlist", exact: true }).waitFor();
+  await settle(3000);
+  await page.locator("#watchlist").screenshot({ path: join(out, "09-watchlist.png") });
+  return (await page.locator("#watchlist").innerText()).slice(0, 1500);
 });
 
-await step("open Plan", async () => {
-  await page.goto(`${base}/plan`, { waitUntil: "domcontentloaded" });
-  await page.getByRole("heading", { name: "Before you spend" }).waitFor();
-  await shot("08-plan");
+await step("Activity: rename a payee for every payment like it", async () => {
+  await page.goto(`${base}/activity`, { waitUntil: "domcontentloaded" });
+  await page.getByRole("heading", { name: "Activity", exact: true }).waitFor();
+  await page.getByRole("button", { name: /^Uber/ }).first().click();
+  await page.getByRole("dialog").waitFor();
+  await page.getByLabel("Shop or payee").fill("Uber rides");
+  await page.getByText(/Also change the \d+ other payments? like this/).waitFor();
+  await page.getByRole("dialog").screenshot({ path: join(out, "10-edit-rename.png") });
+  await page.getByRole("button", { name: "Save changes" }).click();
+  await page.getByText(/other payments? changed too/).waitFor();
+  await settle(1500);
+  const renamed = await page.getByRole("button", { name: /^Uber rides/ }).count();
+  const all = await page.getByRole("button", { name: /^Uber/ }).count();
+  if (renamed < 2 || renamed !== all) throw new Error(`${renamed} of ${all} renamed`);
+  return `all ${renamed} Uber payments now read Uber rides`;
+});
+
+await step("Activity: add what was bought to a payment", async () => {
+  await page.getByRole("button", { name: /^Greggs/ }).first().click();
+  await page.getByRole("dialog").waitFor();
+  await page.getByLabel("Add an item").fill("Nappies, bread, milk");
+  await page.getByRole("button", { name: "Add", exact: true }).click();
+  await page.getByLabel("Item 3", { exact: true }).waitFor();
+  await page.getByRole("dialog").screenshot({ path: join(out, "11-edit-items.png") });
+  await page.getByRole("button", { name: "Save changes" }).click();
+  await page.getByText("Spend updated").waitFor();
+  await settle(1000);
+  const row = await page.getByRole("button", { name: /^Greggs/ }).first().innerText();
+  if (!/3 items/.test(row)) throw new Error(`row reads: ${row}`);
+  return row.replace(/\s+/g, " ");
 });
 
 await step("open Hot deals", async () => {
   await page.goto(`${base}/hot`, { waitUntil: "domcontentloaded" });
   await page.getByRole("heading", { name: "Hot deals", exact: true }).waitFor();
   await settle(8000);
-  await shot("09-hot");
+  await shot("12-hot");
   return (await page.locator("main").innerText()).slice(0, 600);
 });
 
 await step("open Insights", async () => {
   await page.goto(`${base}/insights`, { waitUntil: "domcontentloaded" });
   await settle(3000);
-  await shot("10-insights");
+  await shot("13-insights");
 });
 
 await step("open Activity", async () => {
   await page.goto(`${base}/activity`, { waitUntil: "domcontentloaded" });
   await settle(2000);
-  await shot("11-activity");
+  await shot("14-activity");
 });
 
 await step("home on a computer screen", async () => {
@@ -152,12 +212,12 @@ await step("home on a computer screen", async () => {
   await page.goto(`${base}/`, { waitUntil: "domcontentloaded" });
   await page.getByText("Spent so far").waitFor();
   await settle(4000);
-  await shot("12-home-desktop");
+  await shot("15-home-desktop");
   await page.setViewportSize({ width: 390, height: 844 });
 });
 
 await step("phone width has no sideways scroll", async () => {
-  for (const path of ["/", "/offers", "/watch", "/plan"]) {
+  for (const path of ["/", "/offers", "/plan", "/activity"]) {
     await page.goto(`${base}${path}`, { waitUntil: "domcontentloaded" });
     await settle(1500);
     const wide = await page.evaluate(() => document.documentElement.scrollWidth > window.innerWidth + 1);

@@ -2,9 +2,18 @@ import { createServerFn } from "@tanstack/react-start";
 import { authMiddleware } from "@/lib/auth/middleware";
 import { getSql } from "@/lib/db";
 import { poundsToPence } from "@/lib/spend/model";
-import { cleanWhat, floorAfter, offerStatus, type OfferStatus, type WatchStatus } from "@/lib/spend/watch";
+import {
+  cleanWhat,
+  floorAfter,
+  isStoreWide,
+  KIND_WORDS,
+  offerStatusFor,
+  watchLabel,
+  type OfferStatus,
+  type WatchStatus,
+} from "@/lib/spend/watch";
 import { isPushEndpoint, vapidPublicKey } from "@/server/push";
-import { checkDue, checkWatch, WEB_EVERY_HOURS, type WatchRow } from "@/server/watch-check";
+import { checkDue, checkWatch, targetOf, WEB_EVERY_HOURS, type WatchRow } from "@/server/watch-check";
 
 export type WatchOffer = {
   id: string;
@@ -24,6 +33,10 @@ export type WatchOffer = {
 export type WatchItem = {
   id: string;
   what: string;
+  item: string;
+  shop: string;
+  /** Watching a shop or place for any promotion, rather than an item for a lower price. */
+  shopOnly: boolean;
   town: string;
   targetPence: number | null;
   floorPence: number | null;
@@ -111,7 +124,7 @@ function readMost(raw: unknown): number | null {
 async function ownWatch(userId: string, id: string): Promise<WatchRow> {
   const sql = await getSql();
   const rows = await sql<WatchRow>`
-    select id, user_id, what, town, target_pence, floor_pence, declines, status, checked_at, web_checked_at
+    select id, user_id, what, item, shop, kind, town, target_pence, floor_pence, declines, status, checked_at, web_checked_at
     from watches where id = ${id} and user_id = ${userId}`;
   if (!rows[0]) throw new Error("That watch isn’t here any more.");
   return rows[0];
@@ -126,6 +139,8 @@ export const listWatches = createServerFn({ method: "GET" })
       sql<{
         id: string;
         what: string;
+        item: string;
+        shop: string;
         town: string;
         target_pence: number | string | null;
         floor_pence: number | string | null;
@@ -133,7 +148,7 @@ export const listWatches = createServerFn({ method: "GET" })
         checked_at: unknown;
         created_at: unknown;
         closed_at: unknown;
-      }>`select id, what, town, target_pence, floor_pence, status, checked_at, created_at, closed_at
+      }>`select id, what, item, shop, town, target_pence, floor_pence, status, checked_at, created_at, closed_at
          from watches
          where user_id = ${context.userId}
            and (status in ('watching', 'found') or (status = 'accepted' and closed_at > now() - interval '30 days'))
@@ -155,9 +170,15 @@ export const listWatches = createServerFn({ method: "GET" })
     const items = watches.map((row): WatchItem => {
       const all = byWatch.get(row.id) ?? [];
       const status = WATCH_STATUSES.has(row.status as WatchStatus) ? (row.status as WatchStatus) : "watching";
+      const target = targetOf(row);
+      const shopOnly = !target.item && Boolean(target.shop);
       const shown = all
         .filter((offer) => (status === "accepted" ? offer.status === "accepted" : offer.status === "new"))
-        .sort((a, b) => (a.pricePence ?? Infinity) - (b.pricePence ?? Infinity));
+        .sort((a, b) =>
+          shopOnly
+            ? Number(isStoreWide(b.title)) - Number(isStoreWide(a.title))
+            : (a.pricePence ?? Infinity) - (b.pricePence ?? Infinity),
+        );
       const priced = all.filter(
         (offer) => offer.status !== "new" && offer.status !== "accepted" && offer.pricePence != null && !offer.monthly,
       );
@@ -165,6 +186,9 @@ export const listWatches = createServerFn({ method: "GET" })
       return {
         id: row.id,
         what: row.what,
+        item: target.item,
+        shop: target.shop,
+        shopOnly,
         town: row.town ?? "",
         targetPence: num(row.target_pence),
         floorPence: num(row.floor_pence),
@@ -181,26 +205,33 @@ export const listWatches = createServerFn({ method: "GET" })
     return items.sort((a, b) => rank(a) - rank(b));
   });
 
-/** Start watching something. The first look happens straight after, from the screen. */
+/** Add to the Watchlist: an item, a shop or place, or both. The first look happens straight after. */
 export const addWatch = createServerFn({ method: "POST" })
   .middleware([authMiddleware])
   .validator((input: unknown) => {
     const row = (input && typeof input === "object" ? input : {}) as Record<string, unknown>;
-    const what = cleanWhat(typeof row.what === "string" ? row.what : "");
-    if (what.length < 2) throw new Error("Say what you want, like iPhone 17 Pro 256GB.");
+    // Older screens sent one "what" box; it is an item.
+    const item = cleanWhat(typeof row.item === "string" ? row.item : typeof row.what === "string" ? row.what : "");
+    const shop = cleanWhat(typeof row.shop === "string" ? row.shop : "").slice(0, 80);
+    if (item.length < 2 && shop.length < 2) throw new Error("Add an item, or a shop or place, to watch.");
     const town = typeof row.town === "string" ? cleanWhat(row.town).slice(0, 60) : "";
-    return { what, town, most: readMost(row.most) };
+    const kindRaw = typeof row.kind === "string" ? row.kind.trim() : "";
+    const kind = KIND_WORDS[kindRaw] ? kindRaw : "";
+    return { item: item.length >= 2 ? item : "", shop: shop.length >= 2 ? shop : "", town, kind, most: readMost(row.most) };
   })
   .handler(async ({ context, data }): Promise<{ id: string; existing: boolean }> => {
     const sql = await getSql();
+    const what = watchLabel({ item: data.item, shop: data.shop });
     const active = await sql<{ id: string; what: string }>`
       select id, what from watches where user_id = ${context.userId} and status in ('watching', 'found')`;
-    const same = active.find((row) => row.what.toLowerCase() === data.what.toLowerCase());
+    const same = active.find((row) => row.what.toLowerCase() === what.toLowerCase());
     if (same) return { id: same.id, existing: true };
-    if (active.length >= ACTIVE_LIMIT) throw new Error(`You’re watching ${ACTIVE_LIMIT} things. Stop one first.`);
+    if (active.length >= ACTIVE_LIMIT) throw new Error(`Your Watchlist has ${ACTIVE_LIMIT} things. Stop one first.`);
     const id = crypto.randomUUID();
-    await sql`insert into watches (id, user_id, what, town, target_pence)
-              values (${id}, ${context.userId}, ${data.what}, ${data.town}, ${data.most})`;
+    // A budget means nothing for "any promotion at ASDA", so a shop on its own keeps no price.
+    const most = data.item ? data.most : null;
+    await sql`insert into watches (id, user_id, what, item, shop, kind, town, target_pence)
+              values (${id}, ${context.userId}, ${what}, ${data.item}, ${data.shop}, ${data.kind}, ${data.town}, ${most})`;
     return { id, existing: false };
   });
 
@@ -255,10 +286,14 @@ export const answerWatch = createServerFn({ method: "POST" })
       update watch_offers set status = 'declined'
       where watch_id = ${watch.id} and status = 'new'
       returning price_pence, monthly`;
-    const floor = floorAfter(
-      num(watch.floor_pence),
-      declined.map((row) => (asBool(row.monthly) ? null : num(row.price_pence))),
-    );
+    const goal = targetOf(watch);
+    // "Not this one" on a watched shop just waits for the next promotion; only items wait for a lower price.
+    const floor = goal.item
+      ? floorAfter(
+          num(watch.floor_pence),
+          declined.map((row) => (asBool(row.monthly) ? null : num(row.price_pence))),
+        )
+      : null;
     await sql`update watches set status = 'watching', floor_pence = ${floor}, declines = declines + 1
               where id = ${watch.id}`;
     return { ok: true as const };
@@ -286,7 +321,7 @@ export const changeWatchPrice = createServerFn({ method: "POST" })
       where watch_id = ${watch.id} and status in ('above', 'quiet')`;
     let found = 0;
     for (const row of waiting) {
-      const status = offerStatus({ pricePence: num(row.price_pence), monthly: asBool(row.monthly) }, limits);
+      const status = offerStatusFor({ pricePence: num(row.price_pence), monthly: asBool(row.monthly) }, limits, targetOf(watch));
       if (status !== "new") continue;
       await sql`update watch_offers set status = 'new' where id = ${row.id}`;
       found += 1;

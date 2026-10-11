@@ -14,6 +14,7 @@ import {
   type WalletAlert,
 } from "@/lib/spend/model";
 import { samePayment } from "@/lib/spend/duplicate";
+import { descKey } from "@/lib/spend/payee";
 import type { StatementRow } from "@/lib/spend/statement";
 
 type SqlClient = Awaited<ReturnType<typeof getSql>>;
@@ -56,6 +57,7 @@ function asItems(raw: string): LineItem[] {
 function mapTx(row: {
   id: string;
   merchant: string;
+  description?: string | null;
   amount_pence: number | string;
   category: string;
   spent_on: string;
@@ -74,6 +76,7 @@ function mapTx(row: {
   return {
     id: row.id,
     merchant: row.merchant,
+    description: row.description || row.merchant,
     amountPence: asInt(row.amount_pence),
     category: isCategory(row.category) ? row.category : "other",
     spentOn: String(row.spent_on).slice(0, 10),
@@ -116,6 +119,7 @@ function mapAlert(row: {
   id: string;
   raw_text: string;
   merchant: string;
+  description?: string | null;
   amount_pence: number | string | null;
   suggested_category: string;
   confidence: number | string;
@@ -125,6 +129,7 @@ function mapAlert(row: {
     id: row.id,
     rawText: row.raw_text,
     merchant: row.merchant || "Card payment",
+    description: row.description || row.merchant || "Card payment",
     amountPence: row.amount_pence == null ? null : asInt(row.amount_pence),
     category: isCategory(row.suggested_category) ? row.suggested_category : "other",
     confidence: Number(row.confidence) || 0,
@@ -394,6 +399,7 @@ export const listTransactions = createServerFn({ method: "GET" })
     const rows = await sql<{
       id: string;
       merchant: string;
+      description: string;
       amount_pence: number;
       category: string;
       spent_on: string;
@@ -404,7 +410,7 @@ export const listTransactions = createServerFn({ method: "GET" })
       raw_alert: string;
       is_sample: unknown;
       created_at: unknown;
-    }>`select id, merchant, amount_pence, category, spent_on, source, has_receipt, note,
+    }>`select id, merchant, description, amount_pence, category, spent_on, source, has_receipt, note,
               items_json, raw_alert, is_sample, created_at
        from transactions
        where user_id = ${context.userId}
@@ -425,7 +431,7 @@ export const listAlerts = createServerFn({ method: "GET" })
       suggested_category: string;
       confidence: number;
       created_at: unknown;
-    }>`select id, raw_text, merchant, amount_pence, suggested_category, confidence, created_at
+    }>`select id, raw_text, merchant, description, amount_pence, suggested_category, confidence, created_at
        from wallet_alerts
        where user_id = ${context.userId} and status = 'pending'
        order by created_at desc
@@ -497,6 +503,8 @@ const CATEGORY_LIST = [
 
 export type ReceiptRead = {
   merchant: string;
+  /** The shop name as printed, before any of the person's fixes. */
+  description: string;
   amountPence: number | null;
   spentOn: string | null;
   category: CategoryId;
@@ -519,7 +527,7 @@ function receiptDate(value: unknown): string | null {
   if (typeof value !== "string") return null;
   const v = value.trim();
   if (validDate(v)) return v;
-  const slash = v.match(/^(\d{1,2})[\/\-.](\d{1,2})[\/\-.](\d{2,4})$/);
+  const slash = v.match(/^(\d{1,2})[/.-](\d{1,2})[/.-](\d{2,4})$/);
   if (!slash) return null;
   const day = slash[1].padStart(2, "0");
   const month = slash[2].padStart(2, "0");
@@ -612,6 +620,33 @@ function outgoingRows(parsed: Record<string, unknown>, today: string): { spends:
   return { spends, skippedIn };
 }
 
+type Rule = { merchant: string; category: CategoryId };
+
+/** The person's own fixes, by description. */
+async function loadRules(sql: SqlClient, userId: string): Promise<Map<string, Rule>> {
+  const rows = await sql<{ desc_key: string; merchant: string; category: string }>`
+    select desc_key, merchant, category from payee_rules where user_id = ${userId}`;
+  const rules = new Map<string, Rule>();
+  for (const row of rows) {
+    if (row.desc_key && row.merchant) {
+      rules.set(row.desc_key, { merchant: row.merchant, category: isCategory(row.category) ? row.category : "other" });
+    }
+  }
+  return rules;
+}
+
+/** Name and file a payment the way the person did last time, if they fixed one like it. */
+function applyRule(
+  rules: Map<string, Rule>,
+  description: string,
+  merchant: string,
+  category: CategoryId,
+): { merchant: string; category: CategoryId; description: string } {
+  const rule = rules.get(descKey(description));
+  if (!rule) return { merchant, category, description };
+  return { merchant: rule.merchant, category: rule.category, description };
+}
+
 export const readReceipt = createServerFn({ method: "POST" })
   .middleware([authMiddleware])
   .validator((input: unknown) => {
@@ -623,10 +658,11 @@ export const readReceipt = createServerFn({ method: "POST" })
     if (image.length > 2_400_000) throw new Error("That photo is too large. Try another shot, closer in.");
     return { imageDataUrl: image };
   })
-  .handler(async ({ data }): Promise<ReceiptRead> => {
+  .handler(async ({ data, context }): Promise<ReceiptRead> => {
     const today = new Date().toISOString().slice(0, 10);
     const empty: ReceiptRead = {
       merchant: "",
+      description: "",
       amountPence: null,
       spentOn: null,
       category: "other",
@@ -721,11 +757,15 @@ Rules:
                 : modelNote || "No money going out on this screen.",
           };
         }
+        const rules = await loadRules(await getSql(), context.userId);
         return {
           ...empty,
           isSpend: true,
           kind: "statement",
-          spends,
+          spends: spends.map((row) => {
+            const fixed = applyRule(rules, row.merchant, row.merchant, row.category);
+            return { ...row, merchant: fixed.merchant, category: fixed.category, description: row.merchant };
+          }),
           skippedIn,
           confidence,
           note: skippedIn > 0 ? "Money coming in was left out." : "",
@@ -738,11 +778,15 @@ Rules:
           isSpend: false,
         };
       }
+      const fixed = merchant
+        ? applyRule(await loadRules(await getSql(), context.userId), merchant, merchant, category)
+        : { merchant, category, description: merchant };
       return {
-        merchant,
+        merchant: fixed.merchant,
+        description: merchant,
         amountPence: amountPence && amountPence > 0 ? amountPence : null,
         spentOn,
-        category,
+        category: fixed.category,
         items,
         confidence,
         note,
@@ -806,28 +850,31 @@ export const createAlert = createServerFn({ method: "POST" })
     const base = parseAlert(data.rawText);
     const parsed = await refineAlert(data.rawText, base);
     const sql = await getSql();
+    const fixed = applyRule(await loadRules(sql, context.userId), parsed.merchant, parsed.merchant, parsed.category);
     const id = crypto.randomUUID();
     const rows = await sql<{
       id: string;
       raw_text: string;
       merchant: string;
+      description: string;
       amount_pence: number | null;
       suggested_category: string;
       confidence: number;
       created_at: unknown;
     }>`insert into wallet_alerts (
-         id, user_id, raw_text, merchant, amount_pence, suggested_category, confidence, status
+         id, user_id, raw_text, merchant, description, amount_pence, suggested_category, confidence, status
        ) values (
-         ${id}, ${context.userId}, ${data.rawText}, ${parsed.merchant}, ${parsed.amountPence},
-         ${parsed.category}, ${parsed.confidence}, 'pending'
+         ${id}, ${context.userId}, ${data.rawText}, ${fixed.merchant}, ${parsed.merchant}, ${parsed.amountPence},
+         ${fixed.category}, ${fixed.merchant !== parsed.merchant ? Math.max(parsed.confidence, 0.9) : parsed.confidence}, 'pending'
        )
-       returning id, raw_text, merchant, amount_pence, suggested_category, confidence, created_at`;
+       returning id, raw_text, merchant, description, amount_pence, suggested_category, confidence, created_at`;
     return mapAlert(rows[0]);
   });
 
 type SpendInput = {
   id?: string;
   merchant: string;
+  description: string;
   amountPence: number;
   category: CategoryId;
   spentOn: string;
@@ -865,9 +912,11 @@ function readSpend(input: unknown, withImage: boolean): SpendInput {
   }
   const alertId = typeof row.alertId === "string" && row.alertId.length < 80 ? row.alertId : null;
   const id = typeof row.id === "string" ? row.id : undefined;
+  const description = typeof row.description === "string" ? row.description.trim().slice(0, 120) : "";
   return {
     id,
     merchant,
+    description: description || merchant,
     amountPence,
     category,
     spentOn,
@@ -896,6 +945,7 @@ export const saveSpend = createServerFn({ method: "POST" })
     const rows = await sql<{
       id: string;
       merchant: string;
+      description: string;
       amount_pence: number;
       category: string;
       spent_on: string;
@@ -907,14 +957,14 @@ export const saveSpend = createServerFn({ method: "POST" })
       is_sample: unknown;
       created_at: unknown;
     }>`insert into transactions (
-         id, user_id, merchant, amount_pence, category, spent_on, source, has_receipt,
+         id, user_id, merchant, description, amount_pence, category, spent_on, source, has_receipt,
          note, items_json, image_data, raw_alert, is_sample
        ) values (
-         ${id}, ${context.userId}, ${data.merchant}, ${data.amountPence}, ${data.category},
+         ${id}, ${context.userId}, ${data.merchant}, ${data.description}, ${data.amountPence}, ${data.category},
          ${data.spentOn}, ${data.source}, ${data.hasReceipt}, ${data.note},
          ${JSON.stringify(data.items)}, ${data.imageDataUrl}, ${data.rawAlert}, false
        )
-       returning id, merchant, amount_pence, category, spent_on, source, has_receipt,
+       returning id, merchant, description, amount_pence, category, spent_on, source, has_receipt,
                  note, items_json, raw_alert, is_sample, created_at`;
     await closeAlert(sql, context.userId, data.alertId);
     return mapTx(rows[0]);
@@ -932,8 +982,9 @@ function readBankRows(input: unknown): StatementRow[] {
     const spentOn = typeof row.spentOn === "string" ? row.spentOn : "";
     const amountPence = asInt(row.amountPence);
     const category = typeof row.category === "string" && isCategory(row.category) ? row.category : "other";
+    const description = typeof row.description === "string" ? row.description.trim().slice(0, 120) : "";
     if (!merchant || amountPence <= 0 || !validDate(spentOn)) continue;
-    rows.push({ merchant, spentOn, amountPence, category });
+    rows.push({ merchant, spentOn, amountPence, category, description: description || merchant });
   }
   if (rows.length === 0) throw new Error("No outgoing spends in that file.");
   return rows;
@@ -1015,14 +1066,19 @@ export const importBank = createServerFn({ method: "POST" })
   .validator((input: unknown) => ({ rows: readBankRows(input) }))
   .handler(async ({ context, data }): Promise<{ added: number; skipped: number }> => {
     const sql = await getSql();
+    const rules = await loadRules(sql, context.userId);
     let added = 0;
     for (const row of data.rows) {
       const id = crypto.randomUUID();
+      const description = row.description || row.merchant;
+      // A line still showing its printed name has not been touched in review, so the person's fix applies.
+      const fixed =
+        row.merchant === description ? applyRule(rules, description, row.merchant, row.category) : { ...row, description };
       await sql`insert into transactions (
-        id, user_id, merchant, amount_pence, category, spent_on, source, has_receipt,
+        id, user_id, merchant, description, amount_pence, category, spent_on, source, has_receipt,
         note, items_json, image_data, raw_alert, is_sample
       ) values (
-        ${id}, ${context.userId}, ${row.merchant}, ${row.amountPence}, ${row.category},
+        ${id}, ${context.userId}, ${fixed.merchant}, ${description}, ${row.amountPence}, ${fixed.category},
         ${row.spentOn}, 'bank', false, 'From your bank — no receipt', '[]', null, '', false
       )`;
       added += 1;
@@ -1030,18 +1086,30 @@ export const importBank = createServerFn({ method: "POST" })
     return { added, skipped: 0 };
   });
 
+export type UpdateResult = { tx: Tx; alsoChanged: number };
+
+/**
+ * Save an edited payment. With applyToSame, a new name or category also goes to
+ * every other payment with the same description, and Pence keeps the fix so
+ * future payments like it come in named and filed.
+ */
 export const updateSpend = createServerFn({ method: "POST" })
   .middleware([authMiddleware])
   .validator((input: unknown) => {
     const spend = readSpend(input, false);
     if (!spend.id) throw new Error("Missing spend.");
-    return spend;
+    const applyToSame = !!input && typeof input === "object" && (input as { applyToSame?: unknown }).applyToSame === true;
+    return { ...spend, applyToSame };
   })
-  .handler(async ({ context, data }): Promise<Tx> => {
+  .handler(async ({ context, data }): Promise<UpdateResult> => {
     const sql = await getSql();
+    const before = await sql<{ merchant: string; description: string; category: string }>`
+      select merchant, description, category from transactions where id = ${data.id} and user_id = ${context.userId}`;
+    if (!before[0]) throw new Error("That spend is no longer here.");
     const rows = await sql<{
       id: string;
       merchant: string;
+      description: string;
       amount_pence: number;
       category: string;
       spent_on: string;
@@ -1053,6 +1121,7 @@ export const updateSpend = createServerFn({ method: "POST" })
       is_sample: unknown;
       created_at: unknown;
     }>`update transactions set
+         description = case when description = '' then merchant else description end,
          merchant = ${data.merchant},
          amount_pence = ${data.amountPence},
          category = ${data.category},
@@ -1060,10 +1129,41 @@ export const updateSpend = createServerFn({ method: "POST" })
          note = ${data.note},
          items_json = ${JSON.stringify(data.items)}
        where id = ${data.id} and user_id = ${context.userId}
-       returning id, merchant, amount_pence, category, spent_on, source, has_receipt,
+       returning id, merchant, description, amount_pence, category, spent_on, source, has_receipt,
                  note, items_json, raw_alert, is_sample, created_at`;
     if (!rows[0]) throw new Error("That spend is no longer here.");
-    return mapTx(rows[0]);
+
+    let alsoChanged = 0;
+    const renamed = before[0].merchant !== data.merchant;
+    const refiled = before[0].category !== data.category;
+    const key = descKey(before[0].description || before[0].merchant);
+    if (data.applyToSame && key && (renamed || refiled)) {
+      const others = await sql<{ id: string; description: string; merchant: string }>`
+        select id, description, merchant from transactions
+        where user_id = ${context.userId} and id <> ${data.id}`;
+      for (const other of others) {
+        if (descKey(other.description || other.merchant) !== key) continue;
+        if (renamed && refiled) {
+          await sql`update transactions set
+                      description = case when description = '' then merchant else description end,
+                      merchant = ${data.merchant}, category = ${data.category}
+                    where id = ${other.id} and user_id = ${context.userId}`;
+        } else if (renamed) {
+          await sql`update transactions set
+                      description = case when description = '' then merchant else description end,
+                      merchant = ${data.merchant}
+                    where id = ${other.id} and user_id = ${context.userId}`;
+        } else {
+          await sql`update transactions set category = ${data.category} where id = ${other.id} and user_id = ${context.userId}`;
+        }
+        alsoChanged += 1;
+      }
+      await sql`insert into payee_rules (user_id, desc_key, merchant, category)
+                values (${context.userId}, ${key}, ${data.merchant}, ${data.category})
+                on conflict (user_id, desc_key) do update set
+                  merchant = excluded.merchant, category = excluded.category, created_at = now()`;
+    }
+    return { tx: mapTx(rows[0]), alsoChanged };
   });
 
 export const deleteSpend = createServerFn({ method: "POST" })
@@ -1224,10 +1324,10 @@ export const seedSamples = createServerFn({ method: "POST" })
       const note = item.row.receipt ? "" : "Sample wallet alert — no paper receipt";
       const items = (item.row.items ?? []).map((line) => ({ name: line.name, amountPence: poundsToPence(line.pounds) ?? 0 }));
       await sql`insert into transactions (
-        id, user_id, merchant, amount_pence, category, spent_on, source, has_receipt,
+        id, user_id, merchant, description, amount_pence, category, spent_on, source, has_receipt,
         note, items_json, raw_alert, is_sample
       ) values (
-        ${item.id}, ${context.userId}, ${item.row.merchant}, ${amount}, ${item.row.category},
+        ${item.id}, ${context.userId}, ${item.row.merchant}, ${item.row.merchant}, ${amount}, ${item.row.category},
         ${item.spentOn}, ${item.row.source}, ${item.row.receipt}, ${note}, ${JSON.stringify(items)}, '', true
       )`;
       added += 1;

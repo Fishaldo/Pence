@@ -1,8 +1,13 @@
+import { Link } from "@tanstack/react-router";
+import { useQueryClient } from "@tanstack/react-query";
 import { useEffect, useState } from "react";
+import { toast } from "sonner";
 import { findOffers, type Offer } from "@/server/plan";
 import { hotDeals, type HotDeal } from "@/server/hotukdeals";
 import { publicDeals } from "@/server/public-deals";
 import { mergeDeals } from "@/lib/spend/deals";
+import { savePhonePlace } from "@/server/ledger";
+import { addWatch, checkWatchNow } from "@/server/watch";
 import { useLedger } from "./data";
 import { DealAction } from "./deal-bits";
 import { errorText, PageHead } from "./ui";
@@ -111,6 +116,7 @@ const GROUPS: { label: string; kinds: [string, string][] }[] = [
 type KindId = (typeof GROUPS)[number]["kinds"][number][0];
 
 export function PlanView() {
+  const client = useQueryClient();
   const { profile, places } = useLedger();
   const saved = places.data ?? [];
   const cityDefault = profile.data?.city ?? "";
@@ -120,7 +126,11 @@ export function PlanView() {
   const [items, setItems] = useState("");
   const [country, setCountry] = useState("United Kingdom");
   const [city, setCity] = useState("");
-  const [cityTouched, setCityTouched] = useState(false);
+  // Where: "home" (the town from setup), "place:<id>" (a saved place), or "manual".
+  const [where, setWhere] = useState<string>("");
+  const [locating, setLocating] = useState(false);
+  const [watching, setWatching] = useState(false);
+  const [watched, setWatched] = useState<{ label: string; existing: boolean } | null>(null);
   const [when, setWhen] = useState("");
   const [offers, setOffers] = useState<Offer[] | null>(null);
   const [hot, setHot] = useState<HotDeal[] | null>(null);
@@ -129,7 +139,12 @@ export function PlanView() {
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
   const [whatOpen, setWhatOpen] = useState(false);
-  const town = cityTouched ? city : city || cityDefault;
+  const firstChoice = cityDefault ? "home" : saved[0] ? `place:${saved[0].id}` : "manual";
+  const choice = where || firstChoice;
+  const chosenPlace = choice.startsWith("place:") ? saved.find((item) => `place:${item.id}` === choice) : undefined;
+  const manual = choice === "manual" || (choice.startsWith("place:") && !chosenPlace);
+  const town = manual ? city : choice === "home" ? cityDefault : chosenPlace?.town || chosenPlace?.label || "";
+  const placeCountry = manual ? country : "United Kingdom";
   const trip = kind === "holiday" || kind === "travel";
   const whatLabel = GROUPS.flatMap((group) => group.kinds).find(([id]) => id === kind)?.[1] ?? "Choose";
 
@@ -150,6 +165,75 @@ export function PlanView() {
     if ((window.history.state as { penceWhat?: number } | null)?.penceWhat) window.history.back();
   }
 
+  function pickWhere(value: string) {
+    if (value === "phone-now") {
+      void locateMe();
+      return;
+    }
+    setWhere(value);
+  }
+
+  async function locateMe() {
+    if (typeof navigator === "undefined" || !navigator.geolocation) {
+      setError("This phone can’t share its location. Pick a saved place or type one.");
+      return;
+    }
+    setLocating(true);
+    setError("");
+    try {
+      const position = await new Promise<GeolocationPosition>((resolve, reject) =>
+        navigator.geolocation.getCurrentPosition(resolve, reject, { enableHighAccuracy: false, timeout: 15_000, maximumAge: 600_000 }),
+      );
+      const found = await savePhonePlace({ data: { lat: position.coords.latitude, lng: position.coords.longitude } });
+      await client.invalidateQueries({ queryKey: ["places"] });
+      setWhere(`place:${found.id}`);
+      toast(found.town ? `Using your location: ${found.town}` : "Using your location");
+    } catch (err) {
+      const denied = typeof err === "object" && err != null && "code" in err && (err as { code: number }).code === 1;
+      setError(
+        denied
+          ? "Location is off for Pence. Allow it in your phone’s settings, or pick a saved place."
+          : errorText(err, "Couldn’t find your location. Pick a saved place or type one."),
+      );
+    } finally {
+      setLocating(false);
+    }
+  }
+
+  async function addToWatchlist() {
+    setError("");
+    if (items.trim().length < 2 && place.trim().length < 2) {
+      setError("To add to your Watchlist, fill in the item, or the shop or place.");
+      return;
+    }
+    setWatching(true);
+    try {
+      const result = await addWatch({
+        data: {
+          item: items.trim(),
+          shop: place.trim(),
+          town: town.trim(),
+          most: budget.trim(),
+          kind,
+        },
+      });
+      await client.invalidateQueries({ queryKey: ["watches"] });
+      setWatched({
+        label: items.trim() && place.trim() ? `${items.trim()} at ${place.trim()}` : items.trim() || place.trim(),
+        existing: result.existing,
+      });
+      if (!result.existing) {
+        void checkWatchNow({ data: { id: result.id } })
+          .then(() => client.invalidateQueries({ queryKey: ["watches"] }))
+          .catch(() => undefined);
+      }
+    } catch (err) {
+      setError(errorText(err, "Couldn’t add that to your Watchlist."));
+    } finally {
+      setWatching(false);
+    }
+  }
+
   async function search(event: React.FormEvent) {
     event.preventDefault();
     setBusy(true);
@@ -158,7 +242,8 @@ export function PlanView() {
     setHot(null);
     setHotShown(15);
     const label = GROUPS.flatMap((group) => group.kinds).find(([id]) => id === kind)?.[1] ?? "";
-    const inBritain = /united kingdom|\buk\b|england|scotland|wales|britain/i.test(country);
+    setWatched(null);
+    const inBritain = /united kingdom|\buk\b|england|scotland|wales|britain/i.test(placeCountry);
     if (inBritain) {
       const focus = items.trim();
       const category = BOARD[kind] || label;
@@ -182,7 +267,7 @@ export function PlanView() {
     }
     try {
       const result = await findOffers({
-        data: { kind, place, budget, country, city: town, when, items },
+        data: { kind, place, budget, country: placeCountry, city: town, when, items },
       });
       setOffers(result.offers);
       setNote(result.note);
@@ -233,44 +318,41 @@ export function PlanView() {
           </button>
         </div>
         <label className="field">
-          <span className="field-label">Country</span>
-          <input className="control" value={country} placeholder="China" onChange={(event) => setCountry(event.target.value)} />
-        </label>
-        {saved.length > 0 ? (
-          <label className="field">
-            <span className="field-label">Saved place</span>
-            <select
-              className="control"
-              value=""
-              onChange={(event) => {
-                const found = saved.find((item) => item.id === event.target.value);
-                if (!found) return;
-                setCityTouched(true);
-                setCity(found.town || found.label);
-              }}
-            >
-              <option value="">Pick a saved place, or type a town</option>
-              {saved.map((item) => (
-                <option key={item.id} value={item.id}>
-                  {item.label}
-                  {item.town ? ` · ${item.town}` : ""}
-                </option>
-              ))}
-            </select>
-          </label>
-        ) : null}
-        <label className="field">
-          <span className="field-label">Town or city</span>
-          <input
+          <span className="field-label">Saved place</span>
+          <select
             className="control"
-            placeholder={trip ? "Beijing" : "Liverpool"}
-            value={town}
-            onChange={(event) => {
-              setCityTouched(true);
-              setCity(event.target.value);
-            }}
-          />
+            value={locating ? "phone-now" : choice}
+            disabled={locating}
+            onChange={(event) => pickWhere(event.target.value)}
+          >
+            {cityDefault ? <option value="home">Your town · {cityDefault}</option> : null}
+            {saved.map((item) => (
+              <option key={item.id} value={`place:${item.id}`}>
+                {item.label}
+                {item.town ? ` · ${item.town}` : ""}
+              </option>
+            ))}
+            <option value="phone-now">{locating ? "Finding you…" : "Use my location now"}</option>
+            <option value="manual">Type a place</option>
+          </select>
         </label>
+        {manual ? (
+          <>
+            <label className="field">
+              <span className="field-label">Country</span>
+              <input className="control" value={country} placeholder="China" onChange={(event) => setCountry(event.target.value)} />
+            </label>
+            <label className="field">
+              <span className="field-label">Town or city</span>
+              <input
+                className="control"
+                placeholder={trip ? "Beijing" : "Liverpool"}
+                value={city}
+                onChange={(event) => setCity(event.target.value)}
+              />
+            </label>
+          </>
+        ) : null}
         <label className="field">
           <span className="field-label">Item, if you have one</span>
           <input
@@ -278,6 +360,15 @@ export function PlanView() {
             value={items}
             placeholder="Latest iPhone"
             onChange={(event) => setItems(event.target.value)}
+          />
+        </label>
+        <label className="field">
+          <span className="field-label">Shop or place, if you have one</span>
+          <input
+            className="control"
+            value={place}
+            placeholder={trip ? "Optional" : "ASDA, a restaurant, a gym"}
+            onChange={(event) => setPlace(event.target.value)}
           />
         </label>
         <label className="field">
@@ -294,20 +385,27 @@ export function PlanView() {
             onChange={(event) => setBudget(event.target.value)}
           />
         </label>
-        <label className="field">
-          <span className="field-label">Shop, if you have one</span>
-          <input
-            className="control"
-            value={place}
-            placeholder={trip ? "Optional" : "McDonald’s"}
-            onChange={(event) => setPlace(event.target.value)}
-          />
-        </label>
         {error ? <p className="text-sm text-clay">{error}</p> : null}
         <button className="btn btn-primary" type="submit" disabled={busy}>
           {busy ? "Looking up offers…" : "Find offers"}
         </button>
+        <button type="button" className="btn btn-quiet" disabled={watching} onClick={() => void addToWatchlist()}>
+          {watching ? "Adding…" : "Add to Watchlist"}
+        </button>
+        <p className="-mt-2 text-sm text-muted">
+          Watchlist: Pence keeps looking every day and tells you when an offer turns up. Needs an item, or a shop or place.
+        </p>
       </form>
+      {watched ? (
+        <section className="panel mt-6 border-forest p-4" aria-live="polite">
+          <p className="font-medium">{watched.existing ? "Already on your Watchlist" : "Added to your Watchlist"}</p>
+          <p className="mt-1 text-sm">{watched.label}</p>
+          <p className="mt-1 text-sm text-muted">Pence is looking now, then every day. Offers it finds show in Offers.</p>
+          <Link to="/offers" hash="watchlist" className="mt-2 inline-flex min-h-11 items-center text-sm font-medium text-forest">
+            See your Watchlist
+          </Link>
+        </section>
+      ) : null}
       {listed.length > 0 ? (
         <section className="mt-6">
           <ul className="space-y-3">
@@ -329,17 +427,16 @@ export function PlanView() {
         </section>
       ) : null}
       {!busy && offers && listed.length === 0 ? <p className="panel mt-6 p-4 text-sm">{note}</p> : null}
-      {offers && !busy ? (
-        <a
-          href={`/watch?what=${encodeURIComponent((items.trim() || place.trim() || whatLabel).slice(0, 120))}${
-            budget.trim() ? `&most=${encodeURIComponent(budget.trim())}` : ""
-          }`}
-          className="panel mt-6 block p-4"
-        >
+      {offers && !busy && !watched ? (
+        <section className="panel mt-6 p-4">
           <p className="font-medium">Not the price you want?</p>
-          <p className="mt-1 text-sm text-muted">Pence can watch it and tell you when a better offer turns up.</p>
-          <p className="mt-2 text-sm font-medium text-forest">Watch the price</p>
-        </a>
+          <p className="mt-1 text-sm text-muted">
+            Add it to your Watchlist. Pence keeps looking and tells you when a better offer turns up.
+          </p>
+          <button type="button" className="btn btn-quiet mt-3" disabled={watching} onClick={() => void addToWatchlist()}>
+            Add to Watchlist
+          </button>
+        </section>
       ) : null}
       {whatOpen ? (
         <div className="fixed inset-0 z-40 flex items-end">

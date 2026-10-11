@@ -454,20 +454,30 @@ export function buildTaste(
     const { id: mainId, brand } = merchantInterest(tx.merchant, tx.category);
     const shopName = brand ?? tx.merchant.trim();
     const items = tx.items ?? [];
-    let itemized = 0;
-    const perInterest = new Map<string, number>();
+    // Each item goes to what it is: nappies to the kids, perfume to perfume, bread to the food shop.
+    // Items with no price share what is left of the total equally, so a no-receipt
+    // "ASDA £20.50: nappies, bread" counts about half for each.
+    const priced = new Map<string, number>();
+    const unpriced = new Map<string, number>();
+    let pricedTotal = 0;
     for (const item of items) {
-      const id = itemInterest(item.name);
-      if (!id || id === mainId) continue;
-      const pence = Math.max(0, item.amountPence);
-      perInterest.set(id, (perInterest.get(id) ?? 0) + pence);
-      itemized += pence;
+      const id = itemInterest(item.name) ?? mainId;
+      if (!id) continue;
+      if (item.amountPence > 0) {
+        priced.set(id, (priced.get(id) ?? 0) + item.amountPence);
+        pricedTotal += item.amountPence;
+      } else {
+        unpriced.set(id, (unpriced.get(id) ?? 0) + 1);
+      }
     }
-    const rest = Math.max(0, tx.amountPence - itemized);
-    if (mainId && (rest > 0 || perInterest.size === 0)) {
-      perInterest.set(mainId, (perInterest.get(mainId) ?? 0) + rest);
+    const pool = Math.max(0, tx.amountPence - pricedTotal);
+    const shares = [...unpriced.values()].reduce((sum, n) => sum + n, 0);
+    const perInterest = new Map<string, number>(priced);
+    if (shares > 0) {
+      for (const [id, n] of unpriced) perInterest.set(id, (perInterest.get(id) ?? 0) + Math.round((pool * n) / shares));
+    } else if (mainId && (pool > 0 || perInterest.size === 0)) {
+      perInterest.set(mainId, (perInterest.get(mainId) ?? 0) + pool);
     }
-
     for (const [id, pence] of perInterest) {
       const b = interests.get(id) ?? bucket();
       b.occs.push({ day, pence, minutes });

@@ -11,8 +11,10 @@ import {
   type CategoryId,
   type Tx,
 } from "@/lib/spend/model";
+import { descKey } from "@/lib/spend/payee";
 import { deleteSpend, getReceipt, updateSpend } from "@/server/ledger";
 import { useLedger, useRefreshLedger } from "./data";
+import { ItemsEditor, type DraftItem } from "./items-editor";
 import { errorText, PageHead } from "./ui";
 
 export function ActivityView() {
@@ -89,6 +91,7 @@ export function ActivityView() {
                         <span className="block truncate font-medium">{tx.merchant}</span>
                         <span className="block text-sm text-muted">
                           {categoryLabel(tx.category)}
+                          {tx.items.length > 0 && !tx.hasReceipt ? ` · ${tx.items.length} item${tx.items.length === 1 ? "" : "s"}` : ""}
                           {tx.source === "wallet" && !tx.hasReceipt ? " · wallet, no receipt" : ""}
                           {tx.source === "bank" ? " · bank, no receipt" : ""}
                           {tx.hasReceipt ? " · receipt" : ""}
@@ -105,7 +108,7 @@ export function ActivityView() {
         </div>
       )}
 
-      {editing ? <SpendDialog tx={editing} onClose={() => setEditing(null)} /> : null}
+      {editing ? <SpendDialog tx={editing} all={rows} onClose={() => setEditing(null)} /> : null}
     </div>
   );
 }
@@ -130,16 +133,34 @@ function Filter({
   );
 }
 
-function SpendDialog({ tx, onClose }: { tx: Tx; onClose: () => void }) {
+function toDraft(items: Tx["items"]): DraftItem[] {
+  return items.map((item) => ({ name: item.name, amount: item.amountPence > 0 ? (item.amountPence / 100).toFixed(2) : "" }));
+}
+
+function fromDraft(items: DraftItem[]): Tx["items"] {
+  return items
+    .filter((item) => item.name.trim())
+    .slice(0, 40)
+    .map((item) => ({ name: item.name.trim().slice(0, 80), amountPence: poundsToPence(item.amount) ?? 0 }));
+}
+
+function SpendDialog({ tx, all, onClose }: { tx: Tx; all: Tx[]; onClose: () => void }) {
   const refresh = useRefreshLedger();
   const [merchant, setMerchant] = useState(tx.merchant);
   const [amount, setAmount] = useState((tx.amountPence / 100).toFixed(2));
   const [category, setCategory] = useState<CategoryId>(tx.category);
   const [spentOn, setSpentOn] = useState(tx.spentOn);
   const [note, setNote] = useState(tx.note);
+  const [items, setItems] = useState<DraftItem[]>(() => toDraft(tx.items));
+  const [applyToSame, setApplyToSame] = useState(true);
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
   const [image, setImage] = useState<string | null>(null);
+
+  const key = descKey(tx.description || tx.merchant);
+  const same = key ? all.filter((row) => row.id !== tx.id && descKey(row.description || row.merchant) === key).length : 0;
+  const changedPayee = merchant.trim() !== tx.merchant || category !== tx.category;
+  const printed = tx.description && tx.description !== tx.merchant ? tx.description : "";
 
   async function showReceipt() {
     setBusy(true);
@@ -163,23 +184,29 @@ function SpendDialog({ tx, onClose }: { tx: Tx; onClose: () => void }) {
     setBusy(true);
     setError("");
     try {
-      await updateSpend({
+      const result = await updateSpend({
         data: {
           id: tx.id,
-          merchant,
+          merchant: merchant.trim(),
+          description: tx.description,
           amountPence,
           category,
           spentOn,
           source: tx.source,
           hasReceipt: tx.hasReceipt,
           note,
-          items: tx.items,
+          items: fromDraft(items),
           rawAlert: tx.rawAlert,
           alertId: null,
+          applyToSame: changedPayee && applyToSame,
         },
       });
       await refresh();
-      toast("Spend updated");
+      toast(
+        result.alsoChanged > 0
+          ? `Saved, and ${result.alsoChanged} other payment${result.alsoChanged === 1 ? "" : "s"} changed too`
+          : "Spend updated",
+      );
       onClose();
     } catch (err) {
       setError(errorText(err, "Couldn’t update that."));
@@ -212,6 +239,11 @@ function SpendDialog({ tx, onClose }: { tx: Tx; onClose: () => void }) {
         <h2 id="spend-title" className="font-display text-3xl">
           Edit spend
         </h2>
+        {printed ? (
+          <p className="mt-1 text-sm text-muted">
+            On your statement: <span className="font-medium text-ink">{printed}</span>
+          </p>
+        ) : null}
         <div className="mt-4 space-y-3">
           <label className="field">
             <span className="field-label">Amount (£)</span>
@@ -231,6 +263,33 @@ function SpendDialog({ tx, onClose }: { tx: Tx; onClose: () => void }) {
               ))}
             </select>
           </label>
+          {changedPayee ? (
+            <label className="flex items-start gap-3 rounded-md bg-mist px-3 py-3 text-sm">
+              <input
+                type="checkbox"
+                className="mt-0.5 size-5 shrink-0 accent-[var(--color-forest)]"
+                checked={applyToSame}
+                onChange={(event) => setApplyToSame(event.target.checked)}
+              />
+              <span>
+                {same > 0
+                  ? `Also change the ${same} other payment${same === 1 ? "" : "s"} like this, and future ones.`
+                  : "Use this for future payments like this too."}
+                <span className="block text-muted">Untick to change only this one.</span>
+              </span>
+            </label>
+          ) : null}
+          <ItemsEditor
+            items={items}
+            onChange={setItems}
+            label={tx.hasReceipt ? "Items on the receipt" : "What did you buy?"}
+            hint={
+              tx.hasReceipt
+                ? ""
+                : "Add what you bought, like bread or nappies. Pence learns your habits from it. Prices are optional."
+            }
+            totalPence={poundsToPence(amount)}
+          />
           <label className="field">
             <span className="field-label">Date</span>
             <input className="control" type="date" value={spentOn} onChange={(e) => setSpentOn(e.target.value)} />
@@ -239,16 +298,6 @@ function SpendDialog({ tx, onClose }: { tx: Tx; onClose: () => void }) {
             <span className="field-label">Note</span>
             <input className="control" value={note} onChange={(e) => setNote(e.target.value)} />
           </label>
-          {tx.items.length > 0 ? (
-            <ul className="text-sm text-muted">
-              {tx.items.map((item) => (
-                <li key={item.name} className="flex justify-between gap-3 py-1">
-                  <span className="truncate">{item.name}</span>
-                  <span className="tabular-nums">{formatGBP(item.amountPence)}</span>
-                </li>
-              ))}
-            </ul>
-          ) : null}
           {tx.hasReceipt ? (
             <button type="button" className="text-sm font-medium text-forest" onClick={showReceipt} disabled={busy}>
               View receipt photo

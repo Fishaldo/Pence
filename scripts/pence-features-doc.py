@@ -27,6 +27,7 @@ SECTIONS = [
             "A wallet or bank alert can be pasted as text. Pence asks whether there is a receipt. If not, it files the spend from the alert.",
             "If a new receipt or statement line matches a payment already saved — same amount, same shop, and the same date — Pence asks whether to keep the saved one, replace it, or keep both. The same amount on a different date is not flagged.",
             "A spend can also be typed in by hand.",
+            "When a payment comes in with no receipt, What did you buy? is there to add items, if you want to.",
             "Categories for a logged spend: Groceries, Household, Fashion, Entertainment, Dining, Transport, Health, Bills, Subscriptions, Personal care, Travel, Gifts, and Other.",
         ],
     ),
@@ -44,6 +45,8 @@ SECTIONS = [
         "Activity",
         [
             "Every spend, grouped by day. A spend can be opened, edited, or deleted.",
+            "Editing shows the description as it came in, such as BLD*MYPERFECTCV.CO. A new shop name or category also changes every other payment with the same description, and future ones come in named and filed the same way. Untick it to change only that one.",
+            "What did you buy? lets you add items to any payment, with or without prices, such as nappies and bread on a £20.50 ASDA payment with no receipt. Pence learns your habits from them as it does from a receipt. Items without prices share the rest of the total.",
             "The receipt image, when one was saved, stays with the spend.",
         ],
     ),
@@ -59,7 +62,7 @@ SECTIONS = [
     (
         "Offers for you",
         [
-            "Pence learns what you buy from every receipt line and every payment: the food shop, coffee, takeaways, clothes, shoes and trainers, perfume, beauty, toiletries, the pharmacy, the home, cleaning, the kids, pets, games, tickets, streaming, the gym, taxis, trains, fuel, flights, hotels, holidays, tech, gifts, and bills. Perfume bought at Boots counts as perfume, not as the pharmacy.",
+            "Pence learns what you buy from every receipt line, every item you add, and every payment: the food shop, coffee, takeaways, clothes, shoes and trainers, perfume, beauty, toiletries, the pharmacy, the home, cleaning, the kids, pets, games, tickets, streaming, CV and job services, other subscriptions, the gym, taxis, trains, fuel, flights, hotels, holidays, tech, gifts, and bills. Perfume bought at Boots counts as perfume, not as the pharmacy. A subscription Pence does not know is not assumed to be streaming.",
             "For each habit and each regular shop it works out how often you buy, which weekday, whether it is just after payday, the usual time of day when a receipt shows it, and the usual spend.",
             "From that it expects the next buy, such as a food shop at Tesco on Saturday. Coming up lists those buys with deals for each one.",
             "Deals are grouped by habit. Each one says why it is shown, for example: You buy perfume about every 6 weeks. Deals near your town come first, then the shops you already use, then other shops for the same thing. About thirty at a time, then More.",
@@ -72,14 +75,15 @@ SECTIONS = [
         ],
     ),
     (
-        "Price watch",
+        "Watchlist",
         [
-            "For something you want but not at today’s price: a phone, trainers, a hotel, a meal out, any product or service. Type what it is, and if you like the most you would pay and a town.",
-            "Pence looks straight away, then every day: HotUKDeals and a wider search of public UK pages. It keeps to the same model and size, leaves out accessories, skips expired deals, and never takes a monthly contract price for the full price.",
-            "When an offer turns up, Pence asks whether the price is right for you. Happy with this price ends the watch and keeps the offer under Done. Still too much keeps watching, and from then on only a lower price than the one turned down counts.",
-            "A watch can be checked now, its price changed, or stopped at any time. Raising the price shows any offer Pence already saw that now fits.",
-            "Home shows a card when Pence finds a price, and the Offers tab shows a dot. Phone alerts can be turned on at the bottom of Price watch. On iPhone, Pence must be added to the Home Screen first.",
-            "Price watch opens from Offers, from the sidebar on a computer, and from the end of a Plan search.",
+            "For something you want, or somewhere you want to shop, but not at today’s price: a phone, trainers, a hotel, a meal out, ASDA, a gym, any product, service or place.",
+            "Added from Plan with Add to Watchlist. It needs the item, or the shop or place, or both. Budget becomes the most you would pay, and the place is used for local offers first.",
+            "Pence looks straight away, then every day: HotUKDeals and a wider search of public UK pages. For an item it keeps to the same model and size, leaves out accessories and expired deals, and never takes a monthly contract price for the full price.",
+            "For a shop or place on its own, Pence waits for any promotion there. Promotions across the shop come first. A big shop keeps to what you picked in Plan, so ASDA for groceries skips its air fryers.",
+            "When an offer turns up, Pence asks whether it is right for you. Taking it ends the watch and keeps the offer under Taken. Still too much keeps watching an item for a lower price than the one turned down; Not this one keeps watching a shop for the next promotion.",
+            "The Watchlist is in the Offers tab: offers waiting for an answer first, then everything being watched. Each can be checked now, have its price changed, or be stopped.",
+            "Home shows a card when Pence finds an offer, and the Offers tab shows a dot. Phone alerts can be turned on under the Watchlist. On iPhone, Pence must be added to the Home Screen first.",
         ],
     ),
     (
@@ -97,7 +101,9 @@ SECTIONS = [
             "What it is, grouped as Food, Home, Getting around, Shopping, You, and Life. That includes rent, gas and electricity, water, broadband, a mobile contract, TV, council tax, insurance, repairs, furniture, the garden, fuel, parking, a car, a bike, driving lessons, a phone, fashion, gifts, health, personal care, a gym, sport such as a pitch or court, entertainment, hobbies, kids, childcare, pets, education, subscriptions, a wedding or party, moving house, charity, and something else.",
             "A UK plan stays on what was asked for. Deals in the named town come first, then nationwide deals for the same thing. More continues until that list runs out.",
             "A wider search of public pages follows. It is slow the first time. The same plan on the same day is saved and returns faster. A code or a price is shown only when that page prints it.",
-            "Not the price you want? opens Price watch with the item and budget filled in.",
+            "Saved place comes first. It offers your town, your saved places, Use my location now, and Type a place. Only Type a place shows Country and Town or city.",
+            "Shop or place covers shops, restaurants, gyms, pharmacies and anywhere else.",
+            "Two buttons: Find offers, and Add to Watchlist.",
         ],
     ),
     (
@@ -125,7 +131,7 @@ SECTIONS = [
     (
         "How you move around",
         [
-            "The bottom bar is Home, Plan, Add, Insights, and Offers. Price watch opens from Offers.",
+            "The bottom bar is Home, Plan, Add, Insights, and Offers. The Watchlist is in Offers.",
             "Activity on Home is the latest spends, with All Activity opening the full list. Settings is on Home. Bank import is in Settings.",
         ],
     ),
