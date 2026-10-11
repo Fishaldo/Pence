@@ -23,6 +23,8 @@ export type LineItem = { name: string; amountPence: number };
 export type Tx = {
   id: string;
   merchant: string;
+  /** The description as it first came in, such as the statement line. */
+  description: string;
   amountPence: number;
   category: CategoryId;
   spentOn: string;
@@ -50,6 +52,8 @@ export type WalletAlert = {
   id: string;
   rawText: string;
   merchant: string;
+  /** The payee as read from the alert, before any of the person's fixes. */
+  description: string;
   amountPence: number | null;
   category: CategoryId;
   confidence: number;
@@ -390,7 +394,7 @@ function extractAmount(text: string): number | null {
 function extractMerchant(text: string): string {
   let t = text.replace(/google\s*pay|apple\s*pay|gpay|apple\s*wallet|samsung\s*pay/gi, " ");
   const directed = t.match(
-    /\b(?:at|to|from)\s+([a-z0-9][a-z0-9&.'’\-]*(?:\s+[a-z0-9][a-z0-9&.'’\-]*){0,3})/i,
+    /\b(?:at|to|from)\s+([a-z0-9][a-z0-9&.'’-]*(?:\s+[a-z0-9][a-z0-9&.'’-]*){0,3})/i,
   );
   if (directed) return tidyName(directed[1]);
   t = t.replace(/£\s*\d[\d.,]*|\b\d[\d.,]*\s*gbp\b/gi, " ");

@@ -1,6 +1,5 @@
 import { Link, useRouterState } from "@tanstack/react-router";
 import {
-  BellRing,
   Calendar,
   House,
   PieChart,
@@ -97,17 +96,6 @@ export function Shell({ children }: { children: ReactNode }) {
                 </Link>
               );
             })}
-            <Link
-              to="/watch"
-              className={cn(
-                "flex h-11 items-center gap-3 rounded-md px-3 text-sm",
-                path === "/watch" ? "bg-mist font-medium text-forest-deep" : "text-ink hover:bg-sand",
-              )}
-            >
-              <BellRing className="size-4" strokeWidth={1.75} />
-              <span className="flex-1">Price watch</span>
-              {priceFound ? <span className="size-2.5 rounded-full bg-clay" aria-label="Pence found a price" /> : null}
-            </Link>
           </nav>
           <Link
             to="/settings"

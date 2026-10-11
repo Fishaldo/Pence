@@ -20,11 +20,11 @@ self.addEventListener("push", (event) => {
   } catch {
     data = {};
   }
-  const title = typeof data.title === "string" ? data.title : "Pence found a price";
+  const title = typeof data.title === "string" ? data.title : "Pence found an offer";
   const body =
     typeof data.body === "string"
       ? data.body
-      : "Something you’re watching has an offer. Tap to see if the price is right for you.";
+      : "Something on your Watchlist has an offer. Tap to see if it’s right for you.";
   event.waitUntil(
     self.registration.showNotification(title, {
       body,
@@ -32,14 +32,14 @@ self.addEventListener("push", (event) => {
       badge: "/__grok/icon-180.png",
       tag: "pence-watch",
       renotify: true,
-      data: { url: "/watch" },
+      data: { url: "/offers#watchlist" },
     }),
   );
 });
 
 self.addEventListener("notificationclick", (event) => {
   event.notification.close();
-  const target = new URL((event.notification.data && event.notification.data.url) || "/watch", self.location.origin).href;
+  const target = new URL((event.notification.data && event.notification.data.url) || "/offers#watchlist", self.location.origin).href;
   event.waitUntil(
     self.clients.matchAll({ type: "window", includeUncontrolled: true }).then((windows) => {
       for (const client of windows) {

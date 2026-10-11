@@ -5,6 +5,8 @@ export type StatementRow = {
   merchant: string;
   amountPence: number;
   category: CategoryId;
+  /** The line as printed, when the merchant shown has been tidied or renamed. */
+  description?: string;
 };
 
 const MONTHS: Record<string, string> = {
@@ -63,7 +65,7 @@ function splitCsv(line: string): string[] {
 function statementDate(raw: string): string | null {
   const value = raw.trim();
   if (/^\d{4}-\d{2}-\d{2}/.test(value) && validDate(value.slice(0, 10))) return value.slice(0, 10);
-  const slash = value.match(/^(\d{1,2})[\/\-.](\d{1,2})[\/\-.](\d{2,4})/);
+  const slash = value.match(/^(\d{1,2})[/.-](\d{1,2})[/.-](\d{2,4})/);
   if (slash) {
     const year = slash[3].length === 2 ? `20${slash[3]}` : slash[3];
     const iso = `${year}-${slash[2].padStart(2, "0")}-${slash[1].padStart(2, "0")}`;
@@ -158,7 +160,7 @@ function fromLines(text: string): StatementRow[] {
   for (const line of text.split(/\r?\n/)) {
     const trimmed = line.trim();
     if (trimmed.length < 3) continue;
-    const dated = trimmed.match(/^(\d{4}-\d{2}-\d{2}|\d{1,2}[\/\-.]\d{1,2}[\/\-.]\d{2,4}|\d{1,2}\s+[A-Za-z]{3,9}\s+\d{4})\b[, ]*(.*)$/);
+    const dated = trimmed.match(/^(\d{4}-\d{2}-\d{2}|\d{1,2}[/.-]\d{1,2}[/.-]\d{2,4}|\d{1,2}\s+[A-Za-z]{3,9}\s+\d{4})\b[, ]*(.*)$/);
     const spentOn = dated ? statementDate(dated[1]) : null;
     const rest = dated ? dated[2] : trimmed;
     const parsed = parseAlert(rest);

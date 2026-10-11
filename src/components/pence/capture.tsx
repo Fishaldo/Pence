@@ -17,13 +17,14 @@ import {
 } from "@/lib/spend/model";
 import { createAlert, deleteSpend, dismissAlert, findClashes, importBank, readReceipt, saveSpend, type Clash } from "@/server/ledger";
 import { SamePayment, type ClashChoice } from "./clash";
+import { ItemsEditor, type DraftItem } from "./items-editor";
 import { useLedger, useRefreshLedger } from "./data";
 import { errorText, PageHead } from "./ui";
 
-type DraftItem = { name: string; amount: string };
-
 type Draft = {
   merchant: string;
+  /** The name as it came in, before the person or Pence tidied it. */
+  description: string;
   amount: string;
   category: CategoryId;
   spentOn: string;
@@ -79,6 +80,7 @@ function fromDraftItems(items: DraftItem[]): LineItem[] {
 function blankDraft(partial: Partial<Draft>): Draft {
   return {
     merchant: "",
+    description: "",
     amount: "",
     category: "other",
     spentOn: todayISO(),
@@ -182,6 +184,7 @@ export function CaptureView() {
         drafts.push(
           blankDraft({
             merchant: read.merchant || (useAlert ? alert?.merchant : "") || "",
+            description: read.description || (useAlert ? alert?.description : "") || "",
             amount: moneyField(amountPence),
             category: read.category !== "other" ? read.category : (useAlert ? alert?.category ?? read.category : read.category),
             spentOn: read.spentOn ?? todayISO(),
@@ -275,6 +278,7 @@ export function CaptureView() {
       await saveSpend({
         data: {
           merchant: draft.merchant.trim(),
+          description: draft.description.trim() || draft.merchant.trim(),
           amountPence,
           category: draft.category,
           spentOn: draft.spentOn,
@@ -551,6 +555,7 @@ export function CaptureView() {
                   kind: "review",
                   draft: blankDraft({
                     merchant: phase.alert.merchant,
+                    description: phase.alert.description,
                     amount: moneyField(phase.alert.amountPence),
                     category: phase.alert.category,
                     source: "wallet",
@@ -733,18 +738,6 @@ function StatementReview({
   );
 }
 
-function itemSum(items: DraftItem[]): number | null {
-  let sum = 0;
-  let any = false;
-  for (const item of items) {
-    const pence = poundsToPence(item.amount);
-    if (pence == null) continue;
-    any = true;
-    sum += pence;
-  }
-  return any ? sum : null;
-}
-
 function Review({
   draft,
   remaining,
@@ -760,17 +753,6 @@ function Review({
   onSave: () => void;
   onBack: () => void;
 }) {
-  const sum = itemSum(draft.items);
-  const total = poundsToPence(draft.amount);
-  const mismatch = sum != null && total != null && Math.abs(sum - total) > 2;
-
-  function patchItem(index: number, patch: Partial<DraftItem>) {
-    onChange({
-      ...draft,
-      items: draft.items.map((item, i) => (i === index ? { ...item, ...patch } : item)),
-    });
-  }
-
   return (
     <div className="flex flex-col gap-3">
       {draft.unsure ? (
@@ -788,50 +770,17 @@ function Review({
       {draft.imageDataUrl ? (
         <img src={draft.imageDataUrl} alt="Receipt" className="max-h-40 w-full rounded-lg bg-sand object-contain" />
       ) : null}
-      {draft.items.length > 0 ? (
-        <div className="panel px-3 py-3">
-          <p className="field-label">Items on the receipt</p>
-          <ul className="flex flex-col gap-2">
-            {draft.items.map((item, index) => (
-              <li key={index} className="flex items-center gap-2">
-                <input
-                  className="control min-w-0 flex-1"
-                  aria-label={`Item ${index + 1}`}
-                  value={item.name}
-                  onChange={(event) => patchItem(index, { name: event.target.value })}
-                />
-                <input
-                  className="control w-24 shrink-0 tabular-nums"
-                  aria-label={`Amount for item ${index + 1}`}
-                  inputMode="decimal"
-                  value={item.amount}
-                  onChange={(event) => patchItem(index, { amount: event.target.value })}
-                />
-                <button
-                  type="button"
-                  className="shrink-0 text-sm text-muted"
-                  onClick={() => onChange({ ...draft, items: draft.items.filter((_, i) => i !== index) })}
-                >
-                  Remove
-                </button>
-              </li>
-            ))}
-          </ul>
-          {sum != null ? (
-            <p className="mt-2 text-sm text-muted">
-              Items add up to {formatGBP(sum)}
-              {mismatch ? " — that doesn’t match the total below." : "."}
-            </p>
-          ) : null}
-        </div>
-      ) : null}
-      <button
-        type="button"
-        className="text-left text-sm font-medium text-forest"
-        onClick={() => onChange({ ...draft, items: [...draft.items, { name: "", amount: "" }] })}
-      >
-        Add an item
-      </button>
+      <ItemsEditor
+        items={draft.items}
+        onChange={(items) => onChange({ ...draft, items })}
+        label={draft.hasReceipt ? "Items on the receipt" : "What did you buy? (optional)"}
+        hint={
+          draft.hasReceipt
+            ? ""
+            : "No receipt? Add what you bought, like bread or nappies. Pence learns your habits from it. Prices are optional."
+        }
+        totalPence={poundsToPence(draft.amount)}
+      />
       <label className="field">
         <span className="field-label">Amount (£)</span>
         <input

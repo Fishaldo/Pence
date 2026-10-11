@@ -9,7 +9,7 @@ import { useForYou, useForYouWide } from "./data";
 import { CodeChip, DealAction } from "./deal-bits";
 import { goUrl } from "./deal-links";
 import { errorText, PageHead } from "./ui";
-import { WatchSummary } from "./watch";
+import { Watchlist } from "./watch";
 
 const SCHEMES: { test: RegExp; id: string }[] = [
   { test: /tesco/, id: "clubcard" },
@@ -229,7 +229,9 @@ export function OffersView() {
             </button>
           </div>
         </section>
-        <WatchSummary invite />
+        <div className="mt-6">
+          <Watchlist />
+        </div>
         {taste.hidden.length > 0 ? <HiddenList taste={taste} busyKey={busyKey} onShow={change} /> : null}
         {addSheet}
       </div>
@@ -240,9 +242,9 @@ export function OffersView() {
     <div>
       <PageHead kicker="Offers" title="For you" />
 
-      <WatchSummary invite className="" />
+      <Watchlist />
 
-      <section className="panel mt-4 p-4">
+      <section className="panel mt-6 p-4">
         <p className="text-sm text-muted">
           {taste.usingSamples ? "Learned from the sample month" : `Learned from ${taste.basedOn} spends`}
         </p>

@@ -58,7 +58,8 @@ describe("matching shops and items", () => {
     assert.equal(itemInterest("Nike Air Max 90"), "shoes");
     assert.equal(itemInterest("Persil Bio 1.4L"), "cleaning");
     assert.equal(itemInterest("Phone Top Up"), null);
-    assert.equal(itemInterest("Semi skimmed milk"), null);
+    assert.equal(itemInterest("Semi skimmed milk"), "food-shop");
+    assert.equal(itemInterest("Phone top up"), null);
   });
 
   it("cleans a receipt line for people to read", () => {
@@ -207,6 +208,50 @@ describe("taste profile", () => {
     const only = buildTaste([spend(3, "Tesco", 10, "groceries", { isSample: true })], { today: TODAY, payday: null });
     assert.equal(only.usingSamples, true);
     assert.equal(only.interests[0]?.id, "food-shop");
+  });
+});
+
+describe("what people tell Pence", () => {
+  it("knows a CV builder is not streaming", () => {
+    assert.equal(merchantInterest("BLD*MYPERFECTCV.CO", "subscriptions").id, "career");
+    assert.equal(merchantInterest("BLD*MYPERFECTCV.CO", "subscriptions").brand, "MyPerfectCV");
+    assert.equal(merchantInterest("ACME CLOUD TOOLS", "subscriptions").id, "memberships");
+    assert.equal(merchantInterest("Netflix", "subscriptions").id, "streaming");
+  });
+
+  it("learns from items added to a payment with no receipt", () => {
+    const taste = buildTaste(
+      [
+        spend(20, "ASDA", 20.5, "groceries", {
+          source: "bank",
+          items: [
+            { name: "Nappies", amountPence: 0 },
+            { name: "Bread", amountPence: 0 },
+          ],
+        }),
+      ],
+      { today: TODAY, payday: null },
+    );
+    const kids = taste.interests.find((row) => row.id === "kids");
+    const food = taste.interests.find((row) => row.id === "food-shop");
+    assert.equal(kids?.totalPence, 1025);
+    assert.equal(food?.totalPence, 1025);
+  });
+
+  it("uses the prices people know and shares the rest", () => {
+    const taste = buildTaste(
+      [
+        spend(20, "Boots", 40, "health", {
+          items: [
+            { name: "Sauvage perfume", amountPence: 3000 },
+            { name: "Paracetamol", amountPence: 0 },
+          ],
+        }),
+      ],
+      { today: TODAY, payday: null },
+    );
+    assert.equal(taste.interests.find((row) => row.id === "perfume")?.totalPence, 3000);
+    assert.equal(taste.interests.find((row) => row.id === "pharmacy")?.totalPence, 1000);
   });
 });
 
