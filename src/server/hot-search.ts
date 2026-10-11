@@ -25,7 +25,7 @@ export type HotDeal = {
  */
 
 const MONTHLY =
-  /(?:\/\s?(?:mo|mth|month)\b|\bper month\b|\ba month\b|\bp\/?m\b|£\s?\d+(?:\.\d{1,2})?\s?p\/?m\b|\bmonthly\b)/i;
+  /(?:\/\s?(?:m|mo|mth|month)\b|\bper (?:month|mth)\b|\ba (?:month|mth)\b|\bp\/?m\b|\bpcm\b|£\s?\d+(?:\.\d{1,2})?\s?p\/?m\b|\bmonthly\b|\bx\s?(?:12|18|24|30|36)\b)/i;
 
 /** True when a price in this text is a monthly payment, not the price of the thing. */
 export function isMonthly(text: string): boolean {

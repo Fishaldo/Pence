@@ -8,6 +8,7 @@ import {
   interestDef,
   type InterestDef,
 } from "./interests.ts";
+import { isStoreWide } from "./promo.ts";
 
 export { INTERESTS, interestDef, type InterestDef };
 
@@ -763,6 +764,17 @@ export function reasonFor(key: string, taste: TasteProfile, itemName?: string): 
   return parts.join(" ");
 }
 
+/** Why a deal at another shop is shown: "You usually use Asda for this. This one is at Aldi." */
+export function elsewhereReason(key: string, taste: TasteProfile, merchant: string): string {
+  const interest = taste.interests.find((row) => row.key === key);
+  const shop = taste.shops.find((row) => row.key === key);
+  const usual = interest?.shops[0] ?? shop?.name ?? "";
+  const where = merchant.trim();
+  if (usual && where) return `You usually use ${usual} for this. This one is at ${where}.`;
+  if (usual) return `You usually use ${usual} for this. This could cost less.`;
+  return "This could cost less than where you usually go.";
+}
+
 /** A saving the page itself states, applied to this person's usual spend. Never guessed. */
 export function savingLine(title: string, usualPence: number): string {
   if (usualPence < 300) return "";
@@ -788,9 +800,25 @@ export type Need = {
   avoid: string[];
   /** Brand words of the shop when the need is a shop. */
   shopWords: string[];
+  /**
+   * For a shop that sells everything, such as a supermarket: the deal must be one
+   * of these kinds of thing, or a promotion across the shop. Keeps step stools
+   * and screenwash out of a food shop habit.
+   */
+  kindWords?: string[];
+  /** A rival shop for the same habit, where the same spend could cost less. */
+  elsewhere?: boolean;
+  /** How many results to ask the deal board for. */
+  limit?: number;
   item?: string;
   usualPence: number;
 };
+
+/** The words that say what a deal is for, without the shop names that appear in every deal. */
+function kindWordsOf(def: InterestDef): string[] {
+  const shops = new Set(def.shops.map((word) => word.replace(/^=/, "")));
+  return [...def.match.filter((word) => !shops.has(word)), ...def.items];
+}
 
 /** Words that name this shop in a deal title. Unknown local shops fall back to their own name. */
 function shopWordsFor(name: string, brandsOnly = false): string[] {
@@ -822,6 +850,7 @@ export function searchNeeds(taste: TasteProfile, max = 9): Need[] {
       match: [],
       avoid: def?.avoid ?? BIG_TICKET,
       shopWords: words,
+      kindWords: def?.broad ? kindWordsOf(def) : undefined,
       usualPence: shop.avgPence,
     });
   };
@@ -868,11 +897,56 @@ export function searchNeeds(taste: TasteProfile, max = 9): Need[] {
   return needs;
 }
 
-/** Whether a deal title fits a need. Keeps a grocery habit away from televisions. */
-export function dealFits(title: string, need: Need): boolean {
+/**
+ * Rival shops for the habits that matter most: where the same spend could cost
+ * less. Someone at ASDA every week also gets Aldi and Iceland deals; someone
+ * who pays Cineworld gets Vue and Odeon.
+ */
+export function rivalNeeds(taste: TasteProfile, max = 5): Need[] {
+  const needs: Need[] = [];
+  const used = new Set(taste.shops.flatMap((shop) => shopWordsFor(shop.name, true)));
+  const live = taste.interests.filter((row) => row.occasions >= 2 && !row.faded);
+  for (const interest of live.slice(0, 4)) {
+    const def = interestDef(interest.id);
+    if (!def?.rivals?.length) continue;
+    let picked = 0;
+    for (const rival of def.rivals) {
+      if (needs.length >= max || picked >= 2) break;
+      const words = shopWordsFor(rival, true);
+      const names = words.length > 0 ? words : [rival.toLowerCase()];
+      if (names.some((word) => used.has(word))) continue;
+      needs.push({
+        key: interest.key,
+        query: rival,
+        match: [],
+        avoid: def.avoid,
+        shopWords: names,
+        // A specialist rival (Vue for a Cineworld habit) is on topic by name; a supermarket needs the kind check.
+        kindWords: def.broad ? kindWordsOf(def) : undefined,
+        elsewhere: true,
+        limit: 8,
+        usualPence: interest.avgPence,
+      });
+      picked += 1;
+    }
+  }
+  return needs;
+}
+
+/**
+ * Whether a deal fits a need. Keeps a grocery habit away from televisions. The
+ * shop the deal board names counts for a shop need; what the deal is for is read
+ * from the title alone.
+ */
+export function dealFits(title: string, need: Need, merchant = ""): boolean {
   const hay = norm(title);
   if (need.avoid.some((word) => hasWord(hay, word))) return false;
-  if (need.shopWords.length > 0) return need.shopWords.some((word) => hasWord(hay, word));
+  if (need.shopWords.length > 0) {
+    const where = norm(`${title} ${merchant}`);
+    if (!need.shopWords.some((word) => hasWord(where, word))) return false;
+    if (need.kindWords && !isStoreWide(title) && !need.kindWords.some((word) => hasWord(hay, word))) return false;
+    return true;
+  }
   if (need.match.length === 0) return true;
   if (need.item) return need.match.filter((word) => hasWord(hay, word)).length >= Math.min(2, need.match.length);
   return need.match.some((word) => hasWord(hay, word));

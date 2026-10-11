@@ -36,7 +36,8 @@ SECTIONS = [
         [
             "Home shows how much of the current pay is already spent. If payday is the 25th, that pay starts on the 25th of the previous month and runs until the day before the next 25th. With no payday set, it stays a calendar month.",
             "How the month is pacing against last month.",
-            "Coming up shows the next two buys Pence expects from your own habits, such as a Saturday food shop or a Friday taxi, with the likely day and the usual spend.",
+            "Coming out soon lists regular payments and free trials due in the next 7 days. With none due, a short line opens the full list of regular payments.",
+            "Coming up shows the next two buys Pence expects from your own habits, such as a Saturday food shop or a Friday taxi, with the likely day and the usual spend. A buy only shows when there is an offer for it.",
             "Picked for you shows three deals for those habits, each with the reason it is shown. When there are none yet, it shows three posts trending across the UK instead.",
             "Activity on Home lists the latest spends. All Activity opens the full list.",
         ],
@@ -64,7 +65,9 @@ SECTIONS = [
         [
             "Pence learns what you buy from every receipt line, every item you add, and every payment: the food shop, coffee, takeaways, clothes, shoes and trainers, perfume, beauty, toiletries, the pharmacy, the home, cleaning, the kids, pets, games, tickets, streaming, CV and job services, other subscriptions, the gym, taxis, trains, fuel, flights, hotels, holidays, tech, gifts, and bills. Perfume bought at Boots counts as perfume, not as the pharmacy. A subscription Pence does not know is not assumed to be streaming.",
             "For each habit and each regular shop it works out how often you buy, which weekday, whether it is just after payday, the usual time of day when a receipt shows it, and the usual spend.",
-            "From that it expects the next buy, such as a food shop at Tesco on Saturday. Coming up lists those buys with deals for each one.",
+            "From that it expects the next buy, such as a food shop at Tesco on Saturday. Coming up lists those buys with deals for each one. A buy with no offer is left out.",
+            "Each habit lists offers at the shops you already use first, marked Your shop. Under them, Could cost less elsewhere shows offers for the same kind of thing at other shops or online, such as Aldi or Lidl when you shop at Tesco, or Vue when you go to Cineworld. Each says which shop you usually use.",
+            "For a paid service, such as a CV builder, the wider search also looks for cheaper or free alternatives from public pages.",
             "Deals are grouped by habit. Each one says why it is shown, for example: You buy perfume about every 6 weeks. Deals near your town come first, then the shops you already use, then other shops for the same thing. About thirty at a time, then More.",
             "When a deal page states a percentage off, Pence shows what that is on your usual spend. It never guesses a saving.",
             "A product bought more than once, such as the same perfume, gets a search of its own.",
@@ -82,8 +85,25 @@ SECTIONS = [
             "Pence looks straight away, then every day: HotUKDeals and a wider search of public UK pages. For an item it keeps to the same model and size, leaves out accessories and expired deals, and never takes a monthly contract price for the full price.",
             "For a shop or place on its own, Pence waits for any promotion there. Promotions across the shop come first. A big shop keeps to what you picked in Plan, so ASDA for groceries skips its air fryers.",
             "When an offer turns up, Pence asks whether it is right for you. Taking it ends the watch and keeps the offer under Taken. Still too much keeps watching an item for a lower price than the one turned down; Not this one keeps watching a shop for the next promotion.",
+            "Offers seen opens every offer found so far, cheapest first, so you can change your mind and take one at today’s price. A price far below the others, such as a case or a monthly price, is marked as unlikely to be the item and never becomes the price to beat.",
+            "Change price clears the price turned down, and offers seen before are checked again against the new price.",
             "The Watchlist is in the Offers tab: offers waiting for an answer first, then everything being watched. Each can be checked now, have its price changed, or be stopped.",
-            "Home shows a card when Pence finds an offer, and the Offers tab shows a dot. Phone alerts can be turned on under the Watchlist. On iPhone, Pence must be added to the Home Screen first.",
+            "Home shows a card when Pence finds an offer, and the Offers tab shows a dot. Phone alerts can be turned on under the Watchlist, and the alert names what was found. On iPhone, Pence must be added to the Home Screen first.",
+        ],
+    ),
+    (
+        "Regular payments",
+        [
+            "A list of subscriptions, bills, memberships and free trials, with when each one is next due and roughly what they cost in a month.",
+            "Every payment filed as a subscription is on the list, even one paid once. Other payments join it when they come back on a steady rhythm for about the same amount, such as rent, a gym, or a phone contract.",
+            "Payments with the same statement description count as one, so a renamed payee stays one entry.",
+            "Pence works out the next date from the last payment. When it has only one payment, it guesses every month and says so. Change fixes the name, amount, how often, and the next date.",
+            "Add a payment or free trial covers what the bank does not show yet, such as a trial that starts charging. Once means a free trial or a single payment; it drops off a few days after its date.",
+            "A phone alert comes 7 days, 3 days, and 1 day before each payment, naming it and the amount. Each reminder can be turned off. Phone alerts are turned on from the same page.",
+            "I’ve cancelled it moves a payment to Cancelled. If it is paid again after that, Pence shows it at the top under Check this.",
+            "Not seen lately lists payments that have not come out for longer than usual, to mark as cancelled or still paying.",
+            "How to cancel opens a web search for that service.",
+            "Opened from Home, from Settings, or from the side menu on a computer.",
         ],
     ),
     (
@@ -133,6 +153,7 @@ SECTIONS = [
         [
             "The bottom bar is Home, Plan, Add, Insights, and Offers. The Watchlist is in Offers.",
             "Activity on Home is the latest spends, with All Activity opening the full list. Settings is on Home. Bank import is in Settings.",
+            "Regular payments opens from Coming out soon on Home, from Settings, and from the side menu on a computer.",
         ],
     ),
 ]

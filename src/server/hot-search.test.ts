@@ -86,5 +86,7 @@ describe("prices in titles", () => {
     assert.equal(isMonthly("SIM only 100GB £10 per month"), true);
     assert.equal(isMonthly("iPhone 17 Pro + Unlimited Data - £40.99pm - £29 Upfront"), true);
     assert.equal(isMonthly("Pizza Express: kids eat free until 9pm"), false);
+    assert.equal(isMonthly("iPhone 17 128GB £21.99/m, 100GB data"), true);
+    assert.equal(isMonthly("iPhone 17 £30 x24"), true);
   });
 });

@@ -154,6 +154,13 @@ export function SettingsView() {
           From your bank
         </Link>
       </div>
+      <div className="panel mb-6 p-4">
+        <p className="font-medium">Regular payments</p>
+        <p className="mt-1 text-sm text-muted">Subscriptions, bills and free trials, with a reminder 7, 3 and 1 day before each one.</p>
+        <Link to="/regular" className="btn btn-quiet mt-3">
+          See the list
+        </Link>
+      </div>
       <form onSubmit={save} className="flex flex-col gap-4">
         <label className="field">
           <span className="field-label">Name</span>

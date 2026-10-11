@@ -4,6 +4,7 @@ import {
   House,
   PieChart,
   Plus,
+  Repeat,
   Settings,
   Tag,
 } from "lucide-react";
@@ -97,6 +98,16 @@ export function Shell({ children }: { children: ReactNode }) {
               );
             })}
           </nav>
+          <Link
+            to="/regular"
+            className={cn(
+              "flex h-11 items-center gap-3 rounded-md px-3 text-sm",
+              path === "/regular" ? "bg-mist font-medium text-forest-deep" : "text-ink hover:bg-sand",
+            )}
+          >
+            <Repeat className="size-4" strokeWidth={1.75} />
+            <span className="flex-1">Regular payments</span>
+          </Link>
           <Link
             to="/settings"
             className="mt-4 flex items-center gap-3 rounded-md px-3 py-2 text-sm text-muted hover:bg-sand hover:text-ink"

@@ -8,11 +8,13 @@ import {
   buildTaste,
   dayNum,
   dealFits,
+  elsewhereReason,
   habitLine,
   interestDef,
   isoOf,
   offTopic,
   reasonFor,
+  rivalNeeds,
   savingLine,
   searchNeeds,
   shortDay,
@@ -39,6 +41,8 @@ export type PersonalDeal = {
   code: string;
   local: boolean;
   yours: boolean;
+  /** At another shop or service than the person uses for this habit, where it could cost less. */
+  elsewhere: boolean;
   reason: string;
   saving: string;
 };
@@ -64,6 +68,7 @@ type FoundDeal = {
   code: string;
   local: boolean;
   item: string;
+  elsewhere?: boolean;
 };
 
 function asInt(value: unknown): number {
@@ -171,20 +176,25 @@ function explain(found: FoundDeal[], taste: TasteProfile): PersonalDeal[] {
   const live = new Set([...taste.interests.map((row) => row.key), ...taste.shops.map((row) => row.key)]);
   return found
     .filter((deal) => live.has(deal.key))
-    .map((deal) => ({
-      key: deal.key,
-      title: deal.title,
-      detail: deal.detail,
-      url: deal.url,
-      shopUrl: deal.shopUrl ?? "",
-      source: deal.source,
-      merchant: deal.merchant,
-      code: deal.code,
-      local: deal.local,
-      yours: atKnownShop(`${deal.merchant} ${deal.title}`, taste),
-      reason: reasonFor(deal.key, taste, deal.item || undefined),
-      saving: savingLine(deal.title, usualFor(deal.key, taste)),
-    }));
+    .map((deal) => {
+      const yours = !deal.elsewhere && atKnownShop(`${deal.merchant} ${deal.title}`, taste);
+      const elsewhere = Boolean(deal.elsewhere) || (!yours && deal.merchant !== "");
+      return {
+        key: deal.key,
+        title: deal.title,
+        detail: deal.detail,
+        url: deal.url,
+        shopUrl: deal.shopUrl ?? "",
+        source: deal.source,
+        merchant: deal.merchant,
+        code: deal.code,
+        local: deal.local,
+        yours,
+        elsewhere,
+        reason: elsewhere ? elsewhereReason(deal.key, taste, deal.merchant) : reasonFor(deal.key, taste, deal.item || undefined),
+        saving: savingLine(deal.title, usualFor(deal.key, taste)),
+      };
+    });
 }
 
 async function readCache<T>(userId: string, fingerprint: string): Promise<T | null> {
@@ -215,20 +225,20 @@ export const forYou = createServerFn({ method: "POST" })
   .handler(async ({ context }): Promise<ForYou> => {
     const { taste, city, today } = await loadTaste(context.userId);
     const addable = addableInterests();
-    const needs = searchNeeds(taste, 9);
+    const needs = [...searchNeeds(taste, 9), ...rivalNeeds(taste, 5)];
     if (needs.length === 0) return { taste, deals: [], city, addable };
 
-    const fingerprint = `fy2:${today}:${hashText(needs.map((need) => `${need.key}=${need.query}`).join("|"))}`;
+    const fingerprint = `fy3:${today}:${hashText(needs.map((need) => `${need.key}=${need.query}`).join("|"))}`;
     let found = await readCache<FoundDeal[]>(context.userId, fingerprint);
     if (!Array.isArray(found)) {
-      const batches = await Promise.all(needs.map((need) => searchHot(need.query, 20).catch(() => [])));
+      const batches = await Promise.all(needs.map((need) => searchHot(need.query, need.limit ?? 20).catch(() => [])));
       const seen = new Set<string>();
       const list: FoundDeal[] = [];
       needs.forEach((need, index) => {
         let kept = 0;
         for (const deal of batches[index] ?? []) {
           if (kept >= 8) break;
-          if (seen.has(deal.url) || !dealFits(deal.title, need)) continue;
+          if (seen.has(deal.url) || !dealFits(deal.title, need, deal.merchant ?? "")) continue;
           seen.add(deal.url);
           kept += 1;
           list.push({
@@ -242,6 +252,7 @@ export const forYou = createServerFn({ method: "POST" })
             code: deal.code ?? "",
             local: false,
             item: need.item ?? "",
+            elsewhere: need.elsewhere === true,
           });
         }
       });
@@ -286,7 +297,7 @@ export const forYouWide = createServerFn({ method: "POST" })
     if (lines.length === 0) return { deals: [], note: "" };
 
     // Keyed on which habits and town, not their figures, so a new spend today reuses the search.
-    const fingerprint = `fyw2:${today}:${hashText(`${city}|${chosen.join("|")}`)}`;
+    const fingerprint = `fyw3:${today}:${hashText(`${city}|${chosen.join("|")}`)}`;
     const cached = await readCache<{ found?: FoundDeal[]; note?: string }>(context.userId, fingerprint);
     if (cached && Array.isArray(cached.found)) {
       return { deals: explain(cached.found, taste), note: cached.note ?? "" };
@@ -302,11 +313,13 @@ ${place} Today is ${today}.
 Their habits, most important first:
 ${lines.join("\n")}
 
-Search public pages for current offers, discount codes, loyalty prices, and cheaper options that would cut the cost of the NEXT purchase in each habit. For each habit, first the shops they already use, then other UK shops for the same thing. Look anywhere a person in Britain can use: shop sites, Google results, Reddit, forums, HotUKDeals, and other UK deal pages. Skip US-only boards such as Slickdeals. Only legal public pages. No leaked, stolen, or private codes.
+Search public pages for current offers, discount codes, loyalty prices, and cheaper options that would cut the cost of the NEXT purchase in each habit. For each habit, first offers at the shops they already use. Then, separately, other UK shops or services for the same thing that could cost less${city ? ` near ${city} or online` : " online"}: a cheaper supermarket, a cheaper cinema chain, a cheaper gym, and for a subscription or service a cheaper or free alternative that does the same job. Look anywhere a person in Britain can use: shop sites, Google results, Reddit, forums, HotUKDeals, and other UK deal pages. Skip US-only boards such as Slickdeals. Only legal public pages. No leaked, stolen, or private codes.
 Reply with JSON only, no markdown:
-{"offers":[{"for":"","merchant":"","title":"","detail":"","url":"","code":"","local":false}],"note":""}
+{"offers":[{"for":"","type":"deal","merchant":"","title":"","detail":"","url":"","code":"","local":false}],"note":""}
 Rules:
 - for is the habit key exactly as given, such as "i:perfume" or "s:tesco".
+- type is "deal" for an offer at a shop they already use, "switch" for another shop or service that could cost less.
+- For a switch, detail says why it could cost less only as the page says it, such as a lower price, a cheaper plan, or that it is free. Never claim a saving the page does not show.
 - Stay on the habit. A food shop habit gets food and household offers, never a TV or furniture.
 - url is the page where the person gets or uses the offer: the shop’s own page when one was opened. A deal board, Reddit, or a forum only when no shop page was opened. url must be a page opened in this search.
 - code only if that exact code is printed on the page, otherwise "".
@@ -314,7 +327,7 @@ Rules:
 ${localRule}
 - title is the offer in the page’s own words, shortened.
 - detail is one plain sentence on how it cuts their usual spend, and says in store or online when the page does.
-- At most 5 offers per habit, at most 3 from the same website, 30 in all. Skip a habit if nothing solid turned up.`,
+- At most 6 per habit (up to 4 deals and 2 switches), at most 3 from the same website, 30 in all. Skip a habit if nothing solid turned up.`,
       3200,
     );
     if (!result) return { deals: [], note: "The wider search didn’t answer just now. The deals above still stand." };
@@ -342,7 +355,7 @@ ${localRule}
       if (!citedPage(url, result.sources) || /slickdeals\.net/i.test(url)) continue;
       if (offTopic(`${title} ${detail}`, key, taste)) continue;
       const host = hostOf(url);
-      if ((perKey.get(key) ?? 0) >= 5 || (perHost.get(host) ?? 0) >= 3) continue;
+      if ((perKey.get(key) ?? 0) >= 6 || (perHost.get(host) ?? 0) >= 3) continue;
       perKey.set(key, (perKey.get(key) ?? 0) + 1);
       perHost.set(host, (perHost.get(host) ?? 0) + 1);
       seen.add(url);
@@ -356,6 +369,7 @@ ${localRule}
         code: tidyCode(row.code),
         local: Boolean(city) && row.local === true,
         item: "",
+        elsewhere: row.type === "switch",
       });
       if (found.length >= 30) break;
     }

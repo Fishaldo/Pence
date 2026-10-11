@@ -7,8 +7,8 @@
  *   node scripts/ci-walkthrough.mjs http://127.0.0.1:8080 ci-out/dev
  *
  * Signs up a fresh account, fills in the first-run form, loads the sample
- * month, then opens Home, Offers, Price watch (adding a watch), Plan, Hot deals,
- * Insights and Activity. Every console error, page error and failed request is
+ * month, then opens Home, Offers, the Watchlist (adding watches), Plan, regular
+ * payments (adding a free trial), Hot deals, Insights and Activity. Every console error, page error and failed request is
  * written to report.json.
  */
 import { mkdirSync, writeFileSync } from "node:fs";
@@ -155,6 +155,23 @@ await step("Offers: the Watchlist", async () => {
   return (await page.locator("#watchlist").innerText()).slice(0, 1500);
 });
 
+await step("Watchlist: reopen every offer seen", async () => {
+  const seen = page.locator("#watchlist").getByRole("button", { name: /\d+ offers? seen/ }).first();
+  if ((await seen.count()) === 0) return "no offers seen yet";
+  await seen.click();
+  await page.getByText(/Changed your mind\? Take one\./).first().waitFor();
+  await page.locator("#watchlist").screenshot({ path: join(out, "09b-watchlist-seen.png") });
+  const takes = await page.locator("#watchlist").getByRole("button", { name: "Take this one" }).count();
+  return `${takes} offers can be taken`;
+});
+
+await step("Offers: cheaper elsewhere under your own shops", async () => {
+  await page.goto(`${base}/offers`, { waitUntil: "domcontentloaded" });
+  await settle(6000);
+  const away = await page.getByRole("heading", { name: "Could cost less elsewhere" }).count();
+  return away > 0 ? `${away} groups show cheaper places` : "no cheaper places found right now";
+});
+
 await step("Activity: rename a payee for every payment like it", async () => {
   await page.goto(`${base}/activity`, { waitUntil: "domcontentloaded" });
   await page.getByRole("heading", { name: "Activity", exact: true }).waitFor();
@@ -187,6 +204,47 @@ await step("Activity: add what was bought to a payment", async () => {
   return row.replace(/\s+/g, " ");
 });
 
+await step("Regular payments: the list", async () => {
+  await page.goto(`${base}/regular`, { waitUntil: "domcontentloaded" });
+  await page.getByRole("heading", { name: "Regular payments", exact: true }).waitFor();
+  await page.getByRole("button", { name: /^Netflix/ }).waitFor();
+  await page.getByRole("button", { name: /^Spotify/ }).waitFor();
+  await settle(800);
+  await shot("16-regular");
+  return (await page.locator("main").innerText()).replace(/\s+/g, " ").slice(0, 400);
+});
+
+await step("Regular payments: add a free trial", async () => {
+  const ends = new Date(Date.now() + 5 * 86_400_000).toISOString().slice(0, 10);
+  await page.getByRole("button", { name: "Add a payment or free trial" }).click();
+  await page.getByLabel("Name").fill("Audible trial");
+  await page.getByLabel("Amount (£)").fill("0");
+  await page.getByLabel("How often").selectOption("once");
+  await page.getByLabel("Trial ends").fill(ends);
+  await page.getByRole("button", { name: "Add to the list" }).click();
+  await page.getByText("Audible trial is on your list").waitFor();
+  const soon = page.locator("section").filter({ has: page.getByRole("heading", { name: "Next 7 days" }) });
+  await soon.getByRole("button", { name: /^Audible trial/ }).waitFor();
+  await settle(800);
+  await shot("17-regular-trial");
+});
+
+await step("Regular payments: mark one as cancelled", async () => {
+  await page.getByRole("button", { name: /^Spotify/ }).click();
+  await page.getByRole("link", { name: "How to cancel Spotify" }).waitFor();
+  await page.getByRole("button", { name: "I’ve cancelled it" }).click();
+  const done = page.locator("section").filter({ has: page.getByRole("heading", { name: "Cancelled", exact: true }) });
+  await done.getByRole("button", { name: /^Spotify/ }).waitFor();
+});
+
+await step("Home: payments coming out soon", async () => {
+  await page.goto(`${base}/`, { waitUntil: "domcontentloaded" });
+  await page.getByRole("heading", { name: "Coming out soon" }).waitFor();
+  const card = page.locator("section").filter({ has: page.getByRole("heading", { name: "Coming out soon" }) });
+  await card.getByText("Audible trial").waitFor();
+  await card.screenshot({ path: join(out, "18-home-coming-out.png") });
+});
+
 await step("open Hot deals", async () => {
   await page.goto(`${base}/hot`, { waitUntil: "domcontentloaded" });
   await page.getByRole("heading", { name: "Hot deals", exact: true }).waitFor();
@@ -217,7 +275,7 @@ await step("home on a computer screen", async () => {
 });
 
 await step("phone width has no sideways scroll", async () => {
-  for (const path of ["/", "/offers", "/plan", "/activity"]) {
+  for (const path of ["/", "/offers", "/plan", "/activity", "/regular"]) {
     await page.goto(`${base}${path}`, { waitUntil: "domcontentloaded" });
     await settle(1500);
     const wide = await page.evaluate(() => document.documentElement.scrollWidth > window.innerWidth + 1);

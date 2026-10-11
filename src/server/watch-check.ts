@@ -3,9 +3,11 @@ import { poundsToPence } from "@/lib/spend/model";
 import {
   fitsTarget,
   isPromotion,
+  floorAfter,
   isStoreWide,
   KIND_WORDS,
   offerStatusFor,
+  plausiblePrice,
   shopDealFits,
   type OfferStatus,
   type WatchTarget,
@@ -201,19 +203,33 @@ export async function checkWatch(
   const rank = (title: string) => (isStoreWide(title) ? 2 : isPromotion(title) ? 1 : 0);
   const board = shopOnly ? [...boardRaw].sort((a, b) => rank(b.title) - rank(a.title)) : boardRaw;
   const sql = await getSql();
-  const known = await sql<{ url: string }>`select url from watch_offers where watch_id = ${watch.id}`;
+  const known = await sql<{ url: string; price_pence: number | string | null; monthly: unknown; status: string }>`
+    select url, price_pence, monthly, status from watch_offers where watch_id = ${watch.id}`;
   const seen = new Set(known.map((row) => row.url));
-  const limits = {
-    targetPence: num(watch.target_pence),
-    floorPence: num(watch.floor_pence),
-    declines: num(watch.declines) ?? 0,
-  };
+  const fullPrice = (price: unknown, monthly: unknown) =>
+    monthly === true || monthly === "t" || monthly === "true" ? null : num(price);
+  const priced = [...known.map((row) => fullPrice(row.price_pence, row.monthly)), ...[...board, ...wide].map((offer) => (offer.monthly ? null : offer.pricePence))]
+    .filter((price): price is number => price != null && price > 0);
+  const targetPence = num(watch.target_pence);
+  let floorPence = num(watch.floor_pence);
+  // A price to beat that came from a case or a monthly price would block every real offer: put it right.
+  if (goal.item && floorPence != null && !plausiblePrice(floorPence, priced, targetPence)) {
+    const declined = known
+      .filter((row) => row.status === "declined")
+      .map((row) => fullPrice(row.price_pence, row.monthly))
+      .filter((price) => plausiblePrice(price, priced, targetPence));
+    floorPence = floorAfter(null, declined);
+    await sql`update watches set floor_pence = ${floorPence} where id = ${watch.id}`;
+  }
+  const limits = { targetPence, floorPence, declines: num(watch.declines) ?? 0 };
   let found = 0;
   let saved = 0;
   for (const offer of [...board, ...wide]) {
     if (seen.has(offer.url) || saved >= 20) continue;
     seen.add(offer.url);
     let status: OfferStatus = offerStatusFor(offer, limits, goal);
+    // An "iPhone" at £21.99 next to £800 ones is not the iPhone: keep it as seen, never call about it.
+    if (goal.item && !offer.monthly && !plausiblePrice(offer.pricePence, priced, targetPence)) status = "quiet";
     // Calls at a time, so a watched shop does not bring twenty deals at once. The rest are kept as seen.
     if (status === "new" && found >= (shopOnly ? 5 : 10)) status = "quiet";
     await sql`insert into watch_offers (
@@ -237,7 +253,13 @@ export async function checkWatch(
   } else {
     await sql`update watches set checked_at = now() where id = ${watch.id}`;
   }
-  if (found > 0 && options.push) await pushUser(watch.user_id);
+  if (found > 0 && options.push) {
+    await pushUser(watch.user_id, {
+      title: shopOnly ? `A promotion at ${goal.shop}` : "Pence found an offer",
+      body: `${watch.what}: ${found} new offer${found === 1 ? "" : "s"} on your Watchlist. Tap to see if it’s right for you.`,
+      url: "/offers#watchlist",
+    });
+  }
   return { found, web };
 }
 
