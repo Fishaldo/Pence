@@ -680,6 +680,30 @@ function sinceMonth(iso: string): string {
   return date.toLocaleDateString("en-GB", { month: "long", timeZone: "UTC" });
 }
 
+/** How a regular shop reads in a sentence, by what it sells: "You ride with Uber …". */
+const SHOP_VERB: Record<string, string> = {
+  "food-shop": "do a food shop at",
+  coffee: "get coffee at",
+  lunch: "get lunch at",
+  takeaway: "order from",
+  "eating-out": "eat at",
+  drinks: "buy drinks at",
+  taxis: "ride with",
+  trains: "travel with",
+  "getting-around": "travel with",
+  car: "fill up at",
+  hair: "go to",
+  streaming: "pay",
+  fitness: "pay",
+  energy: "pay",
+  "phone-broadband": "pay",
+  insurance: "pay",
+  housing: "pay",
+};
+
+/** Shops people walk into, as opposed to services they use. */
+const VISITED = new Set(["food-shop", "coffee", "lunch", "eating-out", "drinks", "hair", "clothes", "shoes", "perfume", "beauty", "pharmacy", "home", "kids", "pets", "gifts", "tech", "car"]);
+
 /** Why a deal is shown: "You buy perfume about every 6 weeks. Next one likely Sat 17 Oct." */
 export function reasonFor(key: string, taste: TasteProfile, itemName?: string): string {
   const parts: string[] = [];
@@ -706,12 +730,14 @@ export function reasonFor(key: string, taste: TasteProfile, itemName?: string): 
     }
   } else if (shop) {
     const phrase = rhythmPhrase(shop);
+    const verb = (shop.interestId && SHOP_VERB[shop.interestId]) || "shop at";
+    const visited = !shop.interestId || VISITED.has(shop.interestId);
     parts.push(
       phrase
-        ? `You go to ${shop.name} ${phrase}, about ${pounds(shop.avgPence)} each time.`
+        ? `You ${verb} ${shop.name} ${phrase}, about ${pounds(shop.avgPence)} each time.`
         : shop.occasions > 1
-          ? `You’ve been to ${shop.name} ${shop.occasions} times since ${sinceMonth(shop.firstOn)}.`
-          : `You went to ${shop.name} recently.`,
+          ? `You’ve ${visited ? "been to" : "used"} ${shop.name} ${shop.occasions} times since ${sinceMonth(shop.firstOn)}.`
+          : `You ${visited ? "went to" : "used"} ${shop.name} recently.`,
     );
   }
   if (habit?.nextOn && (habit.due === "now" || habit.due === "soon")) {

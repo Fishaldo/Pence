@@ -6,7 +6,8 @@ import { PROGRAMMES } from "@/lib/spend/model";
 import { habitLine, interestOfKey, whenText, type TasteProfile, type Upcoming } from "@/lib/spend/habits";
 import { setHabit, type PersonalDeal } from "@/server/for-you";
 import { useForYou, useForYouWide } from "./data";
-import { CodeChip, DealAction, goUrl } from "./deal-bits";
+import { CodeChip, DealAction } from "./deal-bits";
+import { goUrl } from "./deal-links";
 import { errorText, PageHead } from "./ui";
 import { WatchSummary } from "./watch";
 
@@ -339,8 +340,9 @@ export function OffersView() {
             <h2 className="font-display text-2xl">{group.label}</h2>
             {group.line ? <p className="text-sm text-muted">{group.line}</p> : null}
             <ul className="mt-3 space-y-3">
-              {shown.map((deal) => (
-                <DealCard key={deal.url} deal={deal} />
+              {shown.map((deal, index) => (
+                // The same reason on every card in a group is noise: say it once, then only when it changes.
+                <DealCard key={deal.url} deal={deal} showReason={index === 0 || shown[index - 1].reason !== deal.reason} />
               ))}
             </ul>
           </section>

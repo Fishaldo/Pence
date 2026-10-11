@@ -19,7 +19,8 @@ import type { PersonalDeal } from "@/server/for-you";
 import { hotDeals, type HotDeal } from "@/server/hotukdeals";
 import { seedSamples } from "@/server/ledger";
 import { useForYou, useLedger, useRefreshLedger } from "./data";
-import { CodeChip, goUrl } from "./deal-bits";
+import { CodeChip } from "./deal-bits";
+import { goUrl } from "./deal-links";
 import { WatchSummary } from "./watch";
 import { errorText, Money, PageHead } from "./ui";
 
