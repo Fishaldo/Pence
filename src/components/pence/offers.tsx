@@ -340,8 +340,9 @@ export function OffersView() {
             <h2 className="font-display text-2xl">{group.label}</h2>
             {group.line ? <p className="text-sm text-muted">{group.line}</p> : null}
             <ul className="mt-3 space-y-3">
-              {shown.map((deal) => (
-                <DealCard key={deal.url} deal={deal} />
+              {shown.map((deal, index) => (
+                // The same reason on every card in a group is noise: say it once, then only when it changes.
+                <DealCard key={deal.url} deal={deal} showReason={index === 0 || shown[index - 1].reason !== deal.reason} />
               ))}
             </ul>
           </section>
