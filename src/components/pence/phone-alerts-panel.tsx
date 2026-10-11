@@ -1,13 +1,36 @@
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
-import { alertKey, saveAlerts } from "@/server/watch";
+import { alertKey, dailyStatus, saveAlerts, testAlert } from "@/server/watch";
 import { alertState, currentSub, turnOffAlerts, turnOnAlerts, type AlertState } from "./phone-alerts";
 import { errorText } from "./ui";
+
+function checkedAgo(iso: string, now = Date.now()): string {
+  const hours = (now - Date.parse(iso)) / 3_600_000;
+  if (!Number.isFinite(hours)) return "recently";
+  if (hours < 1) return "within the hour";
+  if (hours < 24) return `${Math.round(hours)} hour${Math.round(hours) === 1 ? "" : "s"} ago`;
+  const days = Math.round(hours / 24);
+  return `${days} day${days === 1 ? "" : "s"} ago`;
+}
 
 /** Turn phone alerts on or off: offers on the Watchlist, and payments coming out soon. */
 export function PhoneAlerts({ what = "when Pence finds an offer", onChange }: { what?: string; onChange?: () => void }) {
   const [state, setState] = useState<AlertState | null>(null);
   const [busy, setBusy] = useState(false);
+  const [lastCheck, setLastCheck] = useState<string | null | undefined>(undefined);
+
+  useEffect(() => {
+    if (state !== "on") return;
+    let cancel = false;
+    void dailyStatus()
+      .then((result) => {
+        if (!cancel) setLastCheck(result.last);
+      })
+      .catch(() => undefined);
+    return () => {
+      cancel = true;
+    };
+  }, [state]);
 
   useEffect(() => {
     let cancel = false;
@@ -43,6 +66,25 @@ export function PhoneAlerts({ what = "when Pence finds an offer", onChange }: { 
     }
   }
 
+  async function sendTest() {
+    setBusy(true);
+    try {
+      const sub = await currentSub();
+      if (!sub) {
+        setState(await alertState());
+        throw new Error("Alerts are off on this phone. Turn them on again.");
+      }
+      // Hand over the keys again in case this phone turned alerts on before alerts carried words.
+      if (sub.p256dh && sub.auth) await saveAlerts({ data: { ...sub, on: true } });
+      const result = await testAlert({ data: { endpoint: sub.endpoint } });
+      toast(result.ok ? "Test sent. It should show on this phone in a few seconds." : result.problem);
+    } catch (err) {
+      toast(errorText(err, "Couldn’t send a test alert."));
+    } finally {
+      setBusy(false);
+    }
+  }
+
   async function turnOff() {
     setBusy(true);
     try {
@@ -61,12 +103,29 @@ export function PhoneAlerts({ what = "when Pence finds an offer", onChange }: { 
   return (
     <div className="mt-3 rounded-md bg-sand px-4 py-3">
       {state === "on" ? (
-        <div className="flex items-center justify-between gap-3">
-          <p className="text-sm">Phone alerts are on.</p>
-          <button type="button" className="min-h-11 shrink-0 text-sm text-muted" disabled={busy} onClick={() => void turnOff()}>
-            Turn off
-          </button>
-        </div>
+        <>
+          <div className="flex items-center justify-between gap-3">
+            <p className="text-sm">Phone alerts are on.</p>
+            <div className="flex shrink-0 items-center gap-3">
+              <button
+                type="button"
+                className="min-h-11 text-sm font-medium text-forest"
+                disabled={busy}
+                onClick={() => void sendTest()}
+              >
+                {busy ? "Sending…" : "Send a test"}
+              </button>
+              <button type="button" className="min-h-11 text-sm text-muted" disabled={busy} onClick={() => void turnOff()}>
+                Turn off
+              </button>
+            </div>
+          </div>
+          {lastCheck !== undefined ? (
+            <p className="text-xs text-muted">
+              {lastCheck ? `Morning check last ran ${checkedAgo(lastCheck)}.` : "The morning check hasn’t run yet."}
+            </p>
+          ) : null}
+        </>
       ) : state === "off" ? (
         <div className="flex items-center justify-between gap-3">
           <p className="text-sm">Get a message on this phone {what}.</p>

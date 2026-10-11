@@ -12,11 +12,8 @@ async function run(request: Request): Promise<Response> {
   if (secret && request.headers.get("authorization") !== `Bearer ${secret}`) {
     return new Response("Unauthorized", { status: 401 });
   }
-  const { sendDueReminders } = await import("@/server/regular");
-  const reminders = await sendDueReminders({ budgetMs: 40_000 }).catch(() => ({ users: 0, sent: 0, failed: true }));
-  const { checkDue } = await import("@/server/watch-check");
-  const result = await checkDue({ limit: 30, budgetMs: 200_000, push: true });
-  return Response.json({ ...result, reminders });
+  const { runDailyCheck } = await import("@/server/daily");
+  return Response.json(await runDailyCheck());
 }
 
 export const Route = createFileRoute("/api/watch-check")({

@@ -147,37 +147,51 @@ export async function encryptForPhone(p256dh: string, auth: string, plaintext: U
   return concat(header, sealed);
 }
 
+export type PushResult = { endpoint: string; status: number; ok: boolean; note: string };
+
+/** Send one push to one phone, and say what its push service answered. */
+export async function pushTo(
+  sub: { endpoint: string; p256dh: string | null; auth: string | null },
+  message?: PushMessage,
+): Promise<PushResult> {
+  const { endpoint, p256dh, auth } = sub;
+  if (!isPushEndpoint(endpoint)) return { endpoint, status: 0, ok: false, note: "not a push address" };
+  try {
+    const headers: Record<string, string> = {
+      Authorization: await vapidHeader(endpoint),
+      TTL: String(24 * 3600),
+      Urgency: "high",
+    };
+    let body: Uint8Array<ArrayBuffer> | undefined;
+    if (message && p256dh && auth) {
+      body = buf(await encryptForPhone(p256dh, auth, new TextEncoder().encode(JSON.stringify(message))));
+      headers["Content-Encoding"] = "aes128gcm";
+      headers["Content-Type"] = "application/octet-stream";
+    } else {
+      headers["Content-Length"] = "0";
+    }
+    const res = await fetch(endpoint, { method: "POST", headers, body, signal: AbortSignal.timeout(10_000) });
+    const note = res.ok ? "" : (await res.text().catch(() => "")).replace(/\s+/g, " ").slice(0, 200);
+    if (res.status === 404 || res.status === 410) {
+      // The phone dropped this subscription; it must turn alerts on again.
+      const sql = await getSql();
+      await sql`delete from push_subs where endpoint = ${endpoint}`;
+    }
+    return { endpoint, status: res.status, ok: res.ok, note };
+  } catch (error) {
+    return { endpoint, status: 0, ok: false, note: error instanceof Error ? error.message.slice(0, 200) : "no answer" };
+  }
+}
+
 /** Wake every phone this person turned alerts on for, with words to show when the phone allows. */
 export async function pushUser(userId: string, message?: PushMessage): Promise<number> {
   const sql = await getSql();
   const subs = await sql<{ endpoint: string; p256dh: string | null; auth: string | null }>`
     select endpoint, p256dh, auth from push_subs where user_id = ${userId}`;
   let reached = 0;
-  for (const { endpoint, p256dh, auth } of subs) {
-    if (!isPushEndpoint(endpoint)) continue;
-    try {
-      const headers: Record<string, string> = {
-        Authorization: await vapidHeader(endpoint),
-        TTL: String(24 * 3600),
-        Urgency: "high",
-      };
-      let body: Uint8Array<ArrayBuffer> | undefined;
-      if (message && p256dh && auth) {
-        body = buf(await encryptForPhone(p256dh, auth, new TextEncoder().encode(JSON.stringify(message))));
-        headers["Content-Encoding"] = "aes128gcm";
-        headers["Content-Type"] = "application/octet-stream";
-      } else {
-        headers["Content-Length"] = "0";
-      }
-      const res = await fetch(endpoint, { method: "POST", headers, body, signal: AbortSignal.timeout(10_000) });
-      if (res.status === 404 || res.status === 410) {
-        await sql`delete from push_subs where endpoint = ${endpoint}`;
-      } else if (res.ok) {
-        reached += 1;
-      }
-    } catch {
-      /* the phone's push service can be down; the alert still waits in the app */
-    }
+  for (const sub of subs) {
+    const result = await pushTo(sub, message);
+    if (result.ok) reached += 1;
   }
   return reached;
 }

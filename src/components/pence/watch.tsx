@@ -8,6 +8,7 @@ import {
   changeWatchPrice,
   checkMyWatches,
   checkWatchNow,
+  dailyCatchUp,
   removeWatch,
   type WatchItem,
   type WatchOffer,
@@ -25,6 +26,8 @@ function useDailyLook() {
   useEffect(() => {
     if (lookedThisVisit) return;
     lookedThisVisit = true;
+    // If the morning check missed a day, this visit runs it, so reminders still go out.
+    void dailyCatchUp().catch(() => undefined);
     void checkMyWatches()
       .then((result) => {
         if (result.checked > 0) void client.invalidateQueries({ queryKey: ["watches"] });

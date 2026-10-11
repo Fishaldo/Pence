@@ -13,7 +13,8 @@ import {
   type OfferStatus,
   type WatchStatus,
 } from "@/lib/spend/watch";
-import { isPushEndpoint, vapidPublicKey } from "@/server/push";
+import { catchUpDailyCheck, lastDailyCheck } from "@/server/daily";
+import { isPushEndpoint, pushTo, vapidPublicKey } from "@/server/push";
 import { checkDue, checkWatch, targetOf, WEB_EVERY_HOURS, type WatchRow } from "@/server/watch-check";
 
 export type WatchOffer = {
@@ -408,4 +409,54 @@ export const saveAlerts = createServerFn({ method: "POST" })
       await sql`delete from push_subs where endpoint = ${data.endpoint} and user_id = ${context.userId}`;
     }
     return { ok: true as const };
+  });
+
+/**
+ * Send a test alert to this phone now, so the person can see alerts arrive.
+ * Says plainly what went wrong when the phone's push service turns it down.
+ */
+export const testAlert = createServerFn({ method: "POST" })
+  .middleware([authMiddleware])
+  .validator((input: unknown) => {
+    const row = (input && typeof input === "object" ? input : {}) as Record<string, unknown>;
+    const endpoint = typeof row.endpoint === "string" ? row.endpoint.trim() : "";
+    if (!isPushEndpoint(endpoint)) throw new Error("Turn phone alerts on first.");
+    return { endpoint };
+  })
+  .handler(async ({ context, data }): Promise<{ ok: boolean; problem: string }> => {
+    const sql = await getSql();
+    const rows = await sql<{ endpoint: string; p256dh: string | null; auth: string | null }>`
+      select endpoint, p256dh, auth from push_subs where endpoint = ${data.endpoint} and user_id = ${context.userId}`;
+    if (!rows[0]) return { ok: false, problem: "This phone isn’t signed up for alerts. Turn alerts off and on again." };
+    const result = await pushTo(rows[0], {
+      title: "Pence alerts are working",
+      body: "This is how Pence tells you about offers and payments coming out.",
+      url: "/",
+      tag: "pence-test",
+    });
+    if (result.ok) return { ok: true, problem: "" };
+    if (result.status === 404 || result.status === 410) {
+      return { ok: false, problem: "This phone stopped taking alerts from Pence. Turn alerts on again." };
+    }
+    if (result.status === 401 || result.status === 403) {
+      return { ok: false, problem: "The phone’s alert service turned Pence down. Turn alerts off and on again." };
+    }
+    return { ok: false, problem: "The phone’s alert service didn’t answer. Try again in a minute." };
+  });
+
+/** When the morning check last ran, for the alerts panel. */
+export const dailyStatus = createServerFn({ method: "GET" })
+  .middleware([authMiddleware])
+  .handler(async (): Promise<{ last: string | null }> => ({ last: await lastDailyCheck().catch(() => null) }));
+
+/** Run the morning check on a visit when it has not run for over a day. */
+export const dailyCatchUp = createServerFn({ method: "POST" })
+  .middleware([authMiddleware])
+  .handler(async (): Promise<{ ran: boolean }> => {
+    try {
+      const { ran } = await catchUpDailyCheck();
+      return { ran };
+    } catch {
+      return { ran: false };
+    }
   });

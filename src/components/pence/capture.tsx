@@ -286,7 +286,7 @@ export function CaptureView() {
           hasReceipt: draft.hasReceipt,
           note: draft.note,
           items: fromDraftItems(draft.items),
-          imageDataUrl: draft.imageDataUrl,
+          // The photo stays on this screen only; Pence saves what it read, not the picture.
           rawAlert: draft.rawAlert,
           alertId: draft.alertId,
         },

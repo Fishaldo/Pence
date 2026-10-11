@@ -906,10 +906,8 @@ function readSpend(input: unknown, withImage: boolean): SpendInput {
   const note = typeof row.note === "string" ? row.note.trim().slice(0, 200) : "";
   const rawAlert = typeof row.rawAlert === "string" ? row.rawAlert.slice(0, 800) : "";
   const items = asItems(JSON.stringify(row.items ?? []));
-  let imageDataUrl: string | null = null;
-  if (withImage && typeof row.imageDataUrl === "string" && row.imageDataUrl.startsWith("data:image/")) {
-    imageDataUrl = row.imageDataUrl.length <= 1_500_000 ? row.imageDataUrl : null;
-  }
+  // Pence keeps what it read from a photo, never the photo itself.
+  const hadImage = withImage && typeof row.imageDataUrl === "string" && row.imageDataUrl.startsWith("data:image/");
   const alertId = typeof row.alertId === "string" && row.alertId.length < 80 ? row.alertId : null;
   const id = typeof row.id === "string" ? row.id : undefined;
   const description = typeof row.description === "string" ? row.description.trim().slice(0, 120) : "";
@@ -921,10 +919,10 @@ function readSpend(input: unknown, withImage: boolean): SpendInput {
     category,
     spentOn,
     source,
-    hasReceipt: row.hasReceipt === true || imageDataUrl != null,
+    hasReceipt: row.hasReceipt === true || hadImage,
     note,
     items,
-    imageDataUrl,
+    imageDataUrl: null,
     rawAlert,
     alertId,
   };
@@ -1191,21 +1189,6 @@ export const dismissAlert = createServerFn({ method: "POST" })
     await sql`update wallet_alerts set status = 'dismissed'
               where id = ${data.id} and user_id = ${context.userId}`;
     return { ok: true as const };
-  });
-
-export const getReceipt = createServerFn({ method: "POST" })
-  .middleware([authMiddleware])
-  .validator((input: unknown) => {
-    const id = input && typeof input === "object" ? (input as { id?: unknown }).id : null;
-    if (typeof id !== "string" || !id) throw new Error("Missing spend.");
-    return { id };
-  })
-  .handler(async ({ context, data }): Promise<{ image: string | null }> => {
-    const sql = await getSql();
-    const rows = await sql<{ image_data: string | null }>`
-      select image_data from transactions where id = ${data.id} and user_id = ${context.userId}`;
-    const image = rows[0]?.image_data ?? null;
-    return { image: typeof image === "string" && image.startsWith("data:image/") ? image : null };
   });
 
 const SAMPLE_PREV: {

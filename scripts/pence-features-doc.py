@@ -22,6 +22,7 @@ SECTIONS = [
         [
             "Scan a receipt, pick photos from the gallery, or pick PDFs from Files. Up to 8 files. A PDF is read page by page, the first 4 pages.",
             "A receipt, photo or PDF, is read for the shop, date, total, and each line item. You can correct any of it before it is saved. Several receipts are checked one after another.",
+            "Pence keeps what it reads, the shop, amount, date and items, and never stores the photo or PDF. While you check a scan, the picture stays on that screen only. Photos saved before this change were cleared.",
             "A photo that is not a receipt or a list of payments is rejected.",
             "A photo or PDF of a bank or card list is accepted. Money in is ignored. Each money-out line can be kept or dropped, with a category.",
             "A wallet or bank alert can be pasted as text. Pence asks whether there is a receipt. If not, it files the spend from the alert.",
@@ -48,7 +49,7 @@ SECTIONS = [
             "Every spend, grouped by day. A spend can be opened, edited, or deleted.",
             "Editing shows the description as it came in, such as BLD*MYPERFECTCV.CO. A new shop name or category also changes every other payment with the same description, and future ones come in named and filed the same way. Untick it to change only that one.",
             "What did you buy? lets you add items to any payment, with or without prices, such as nappies and bread on a £20.50 ASDA payment with no receipt. Pence learns your habits from them as it does from a receipt. Items without prices share the rest of the total.",
-            "The receipt image, when one was saved, stays with the spend.",
+            "A spend read from a receipt says so. The photo itself is not kept.",
         ],
     ),
     (
@@ -100,6 +101,7 @@ SECTIONS = [
             "Pence works out the next date from the last payment. When it has only one payment, it guesses every month and says so. Change fixes the name, amount, how often, and the next date.",
             "Add a payment or free trial covers what the bank does not show yet, such as a trial that starts charging. Once means a free trial or a single payment; it drops off a few days after its date.",
             "A phone alert comes 7 days, 3 days, and 1 day before each payment, naming it and the amount. Each reminder can be turned off. Phone alerts are turned on from the same page.",
+            "Send a test shows an alert on this phone straight away, to check alerts arrive. The panel also says when the morning check last ran. If the morning check misses a day, the next visit to Pence runs it.",
             "I’ve cancelled it moves a payment to Cancelled. If it is paid again after that, Pence shows it at the top under Check this.",
             "Not seen lately lists payments that have not come out for longer than usual, to mark as cancelled or still paying.",
             "How to cancel opens a web search for that service.",

@@ -1,4 +1,4 @@
-import { readdirSync } from "node:fs";
+import { readdirSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import type { Plugin } from "vite";
 import { defineConfig } from "vite";
@@ -18,6 +18,24 @@ function hasGlobbedMigrations(root: string): boolean {
     return readdirSync(join(root, "migrations")).some(isMigrationFile);
   } catch {
     return false;
+  }
+}
+
+/**
+ * The schedules in vercel.json. A prebuilt deploy reads them from the build's
+ * own config, not from vercel.json, so they are copied in below; without this
+ * the morning check (phone alerts, payment reminders) never runs.
+ */
+function vercelCrons(root: string): { path: string; schedule: string }[] {
+  try {
+    const parsed = JSON.parse(readFileSync(join(root, "vercel.json"), "utf8")) as { crons?: unknown };
+    if (!Array.isArray(parsed.crons)) return [];
+    return parsed.crons.filter(
+      (row): row is { path: string; schedule: string } =>
+        typeof row?.path === "string" && typeof row?.schedule === "string",
+    );
+  } catch {
+    return [];
   }
 }
 
@@ -175,6 +193,7 @@ export default defineConfig(({ command, isPreview }) => ({
             // manifest + head-tag middleware). Nitro v3 defaults serverDir to
             // false, so removing this silently unwires /?install=1 on deploys.
             serverDir: "./server",
+            vercel: { config: { crons: vercelCrons(process.cwd()) } },
           }),
         ]
       : []),
