@@ -93,31 +93,3 @@ export async function searchWebText(
   if (!text) return null;
   return { text, sources: collectSources(body) };
 }
-
-/**
- * A quick question to the model with no web search, for things it can answer
- * from what it knows, such as what a well-known UK chain sells.
- */
-export async function askModel(prompt: string, maxTokens = 800, timeoutMs = 20_000): Promise<string | null> {
-  const apiKey = process.env.XAI_API_KEY;
-  if (!apiKey) return null;
-  try {
-    const res = await fetch("https://api.x.ai/v1/responses", {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${apiKey}`,
-        "Content-Type": "application/json",
-      },
-      signal: AbortSignal.timeout(timeoutMs),
-      body: JSON.stringify({
-        model: "grok-4.5",
-        input: [{ role: "user", content: prompt }],
-        max_output_tokens: maxTokens,
-      }),
-    });
-    if (!res.ok) return null;
-    return lastText((await res.json()) as Record<string, unknown>) || null;
-  } catch {
-    return null;
-  }
-}

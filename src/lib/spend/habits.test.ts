@@ -12,6 +12,7 @@ import {
   itemInterestAt,
   merchantInterest,
   nameHint,
+  shopsToLookUp,
   unknownShop,
   paydayAfter,
   paydayOnOrBefore,
@@ -400,5 +401,57 @@ describe("what a shop sells", () => {
 
   it("explains the cheaper place in plain words", () => {
     assert.equal(elsewhereReason("i:cakes", cakes, "Krispy Kreme"), "You usually use Cake Box for this. This one is at Krispy Kreme.");
+  });
+});
+
+describe("shops looked up on the web", () => {
+  it("looks up every shop that is not a chain Pence knows, most used first", () => {
+    const list = shopsToLookUp([
+      { merchant: "PIZZA & CO", category: "dining" },
+      { merchant: "PIZZA & CO", category: "dining" },
+      { merchant: "Tesco", category: "groceries" },
+      { merchant: "ZXQ TRADING", category: "household" },
+      { merchant: "J SMITH", category: "other" },
+    ]);
+    assert.deepEqual(
+      list.map((row) => [row.core, row.times]),
+      [
+        ["pizza & co", 2],
+        ["zxq trading", 1],
+      ],
+    );
+  });
+
+  it("uses what the web said: the real name, what it sells, and where", () => {
+    const taste = buildTaste(
+      [14, 7].map((n) => spend(n, "PIZZA & CO", 18, "dining")),
+      {
+        today: TODAY,
+        payday: null,
+        book: {
+          "pizza & co": {
+            interestId: "takeaway",
+            name: "Pizza & Co",
+            what: "pizza takeaway",
+            kind: "local",
+            place: "Selly Oak, Birmingham",
+            site: "pizzaandco.co.uk",
+          },
+        },
+      },
+    );
+    const shop = taste.shops[0];
+    assert.equal(shop.name, "Pizza & Co");
+    assert.equal(shop.about, "Pizza takeaway in Selly Oak, Birmingham");
+    assert.equal(shop.local, true);
+    assert.equal(shop.site, "pizzaandco.co.uk");
+    assert.equal(taste.interests[0].id, "takeaway");
+  });
+
+  it("lets the web's answer beat a guess from one word of the name", () => {
+    // "Chicken" in the name says takeaway; the web says it is a butcher.
+    assert.equal(merchantInterest("CHICKEN CORNER", "groceries", { "chicken corner": "food-shop" }).id, "food-shop");
+    // A chain Pence knows by name is never overruled.
+    assert.equal(merchantInterest("Tesco", "groceries", { tesco: "eating-out" }).id, "food-shop");
   });
 });

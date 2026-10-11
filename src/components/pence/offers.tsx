@@ -3,7 +3,7 @@ import { useQueryClient } from "@tanstack/react-query";
 import { useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
 import { PROGRAMMES } from "@/lib/spend/model";
-import { habitLine, interestOfKey, whenText, type TasteProfile, type Upcoming } from "@/lib/spend/habits";
+import { habitLine, interestDef, interestOfKey, shortDay, whenText, type TasteProfile, type Upcoming } from "@/lib/spend/habits";
 import { setHabit, type PersonalDeal } from "@/server/for-you";
 import { useForYou, useForYouWide } from "./data";
 import { CodeChip, DealAction } from "./deal-bits";
@@ -23,8 +23,32 @@ const SCHEMES: { test: RegExp; id: string }[] = [
 const PAGE = 30;
 
 /** Near you first, then the shops this person already uses. */
+/** A deal with something to check first ("only some areas") ranks below one that plainly works. */
+function doubtful(deal: PersonalDeal): boolean {
+  return Boolean(deal.check) && !deal.works;
+}
+
 function rank(a: PersonalDeal, b: PersonalDeal): number {
-  return Number(a.elsewhere) - Number(b.elsewhere) || Number(b.local) - Number(a.local) || Number(b.yours) - Number(a.yours);
+  return (
+    Number(a.elsewhere) - Number(b.elsewhere) ||
+    Number(b.works) - Number(a.works) ||
+    Number(b.local) - Number(a.local) ||
+    Number(doubtful(a)) - Number(doubtful(b)) ||
+    Number(b.yours) - Number(a.yours)
+  );
+}
+
+/** What Pence read in the terms, and the end date the page prints. */
+export function DealTerms({ deal }: { deal: PersonalDeal }) {
+  if (!deal.check && !deal.endsOn) return null;
+  return (
+    <>
+      {deal.check ? (
+        <p className={`mt-1 text-sm ${deal.works ? "text-forest" : "text-clay"}`}>{deal.check}</p>
+      ) : null}
+      {deal.endsOn ? <p className="mt-1 text-sm text-muted">Ends {shortDay(deal.endsOn)}</p> : null}
+    </>
+  );
 }
 
 export function DealCard({ deal, showReason = true }: { deal: PersonalDeal; showReason?: boolean }) {
@@ -38,6 +62,7 @@ export function DealCard({ deal, showReason = true }: { deal: PersonalDeal; show
       <p className="mt-1 font-medium">{deal.title}</p>
       {deal.detail ? <p className="mt-1 text-sm">{deal.detail}</p> : null}
       {deal.saving ? <p className="mt-1 text-sm font-medium text-forest">{deal.saving}</p> : null}
+      <DealTerms deal={deal} />
       {showReason && deal.reason ? <p className="mt-2 text-sm text-muted">{deal.reason}</p> : null}
       <DealAction deal={deal} />
     </li>
@@ -284,6 +309,23 @@ export function OffersView() {
                 </li>
               ))}
             </ul>
+            {taste.shops.length > 0 ? (
+              <>
+                <p className="mt-4 text-sm font-medium">Your shops</p>
+                <ul className="mt-1 divide-y divide-line border-t border-line">
+                  {taste.shops.map((shop) => (
+                    <li key={shop.key} className="py-2">
+                      <p className="font-medium">{shop.name}</p>
+                      <p className="text-sm text-muted">
+                        {shop.about ||
+                          (shop.interestId ? interestDef(shop.interestId)?.label : "") ||
+                          "Pence is still finding out what this shop sells."}
+                      </p>
+                    </li>
+                  ))}
+                </ul>
+              </>
+            ) : null}
             {addable.length > 0 ? (
               <button type="button" className="btn btn-quiet mt-3" onClick={openAdd}>
                 Add something you buy
@@ -320,6 +362,7 @@ export function OffersView() {
                           {deal.local ? " · near you" : ""}
                         </p>
                         {deal.saving ? <p className="text-sm font-medium text-forest">{deal.saving}</p> : null}
+                        <DealTerms deal={deal} />
                         {deal.code ? <CodeChip code={deal.code} /> : null}
                       </li>
                     ))}

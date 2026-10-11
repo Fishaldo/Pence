@@ -13,6 +13,7 @@ import {
   type WatchTarget,
 } from "@/lib/spend/watch";
 import { isMonthly, searchHot } from "@/server/hot-search";
+import { vetOffers } from "@/server/offer-terms";
 import { pushUser } from "@/server/push";
 import { citedPage, parseModelObject, searchWebText, tidyCode } from "@/server/search";
 
@@ -47,6 +48,8 @@ type Candidate = {
   pricePence: number | null;
   monthly: boolean;
   detail: string;
+  /** An in-store deal at some places only. */
+  inStore?: boolean;
 };
 
 /**
@@ -103,6 +106,7 @@ async function fromBoard(target: WatchTarget, kind: string): Promise<Candidate[]
       pricePence: deal.pricePence ?? null,
       monthly: deal.monthly === true,
       detail: "",
+      inStore: deal.inStore === true,
     }));
 }
 
@@ -146,7 +150,8 @@ ${scope}
 - monthly is true when the price is per month, such as a phone contract.
 - code only if that exact code is printed on the page, otherwise "".
 - Do not invent a price, a code, a percentage, or an end date.
-- detail is one plain sentence: what the offer is and how to get it, such as in store, online, in the app, or with the code.
+- detail is one plain sentence: what the offer is and how to get it, such as in store, online, in the app, or with the code. When the terms limit it to some places or to new customers, say so in detail, naming the places.
+- Read each offer's terms.${town ? ` Skip an offer whose terms name places that do not include ${town} or somewhere near it.` : ""}
 - At most 8 offers, cheapest first. If nothing current is out there, offers is [].`,
     1800,
   );
@@ -222,11 +227,20 @@ export async function checkWatch(
     await sql`update watches set floor_pence = ${floorPence} where id = ${watch.id}`;
   }
   const limits = { targetPence, floorPence, declines: num(watch.declines) ?? 0 };
+  // Read the small print of new offers: one that does not work where they live is never offered.
+  let place = watch.town.trim();
+  if (!place) {
+    const profile = await sql<{ city: string | null }>`select city from profiles where user_id = ${watch.user_id}`;
+    place = profile[0]?.city?.trim() ?? "";
+  }
+  const fresh = [...board, ...wide].filter((offer, index, all) => !seen.has(offer.url) && all.findIndex((o) => o.url === offer.url) === index);
+  const vetted = await vetOffers(fresh.slice(0, 30), { city: place, maxPages: 6 });
   let found = 0;
   let saved = 0;
-  for (const offer of [...board, ...wide]) {
-    if (seen.has(offer.url) || saved >= 20) continue;
-    seen.add(offer.url);
+  for (const raw of vetted) {
+    if (seen.has(raw.url) || saved >= 20) continue;
+    seen.add(raw.url);
+    const offer = { ...raw, detail: [raw.detail, raw.check].filter(Boolean).join(" ").slice(0, 400) };
     let status: OfferStatus = offerStatusFor(offer, limits, goal);
     // An "iPhone" at £21.99 next to £800 ones is not the iPhone: keep it as seen, never call about it.
     if (goal.item && !offer.monthly && !plausiblePrice(offer.pricePence, priced, targetPence)) status = "quiet";

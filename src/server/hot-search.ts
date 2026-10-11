@@ -12,6 +12,10 @@ export type HotDeal = {
   pricePence?: number | null;
   /** The price is per month (a contract or plan), not the full price. */
   monthly?: boolean;
+  /** The end date the deal page prints, as YYYY-MM-DD, when it gives one. */
+  endsOn?: string;
+  /** An in-store deal at some places only, not nationwide. */
+  inStore?: boolean;
 };
 
 /*
@@ -129,6 +133,14 @@ export function readThreads(html: string, limit: number): HotDeal[] {
           : "";
     const monthly = isMonthly(title);
     const price = typeof thread.price === "number" ? thread.price : Number(thread.price);
+    const end =
+      thread.endDate && typeof thread.endDate === "object" ? Number((thread.endDate as Record<string, unknown>).timestamp) : NaN;
+    // Past its printed end date, even if nobody has marked it expired yet.
+    if (Number.isFinite(end) && end * 1000 < Date.now()) continue;
+    const locations =
+      thread.selectedLocations && typeof thread.selectedLocations === "object"
+        ? (thread.selectedLocations as Record<string, unknown>)
+        : null;
     deals.push({
       title,
       url,
@@ -138,6 +150,8 @@ export function readThreads(html: string, limit: number): HotDeal[] {
       code: cleanCode(thread.voucherCode),
       pricePence: !monthly && Number.isFinite(price) && price > 0 ? Math.round(price * 100) : titlePrice(title),
       monthly,
+      endsOn: Number.isFinite(end) ? londonDay(end * 1000) : undefined,
+      inStore: thread.isLocal === true && locations?.isNational !== true,
     });
     if (deals.length >= limit) break;
   }
@@ -173,6 +187,49 @@ export function readHot(html: string, limit: number): HotDeal[] {
     if (deals.length >= limit) break;
   }
   return deals;
+}
+
+function londonDay(ms: number): string {
+  return new Intl.DateTimeFormat("en-CA", { timeZone: "Europe/London", year: "numeric", month: "2-digit", day: "2-digit" }).format(
+    new Date(ms),
+  );
+}
+
+/** The words of a deal post, from its page: where it works, who it is for, how to use it. */
+export function readDealText(html: string): string {
+  const match = html.match(/"preparedHtmlDescription":"((?:[^"\\]|\\.)*)"/);
+  if (!match) return "";
+  let raw = "";
+  try {
+    raw = JSON.parse(`"${match[1]}"`) as string;
+  } catch {
+    return "";
+  }
+  return decode(raw.replace(/<br\s*\/?>/gi, "\n").replace(/<[^>]+>/g, " "))
+    .replace(/[ \t]+/g, " ")
+    .replace(/\s*\n\s*/g, "\n")
+    .trim()
+    .slice(0, 3000);
+}
+
+const pageCache = globalThis as typeof globalThis & { __penceDealText__?: Map<string, { at: number; text: string }> };
+
+/** The words of one deal post, read from its page, kept for an hour. Empty when the page can't be read. */
+export async function dealText(url: string): Promise<string> {
+  if (!/^https:\/\/www\.hotukdeals\.com\/deals\//.test(url)) return "";
+  const cache = (pageCache.__penceDealText__ ??= new Map());
+  const hit = cache.get(url);
+  if (hit && Date.now() - hit.at < 3_600_000) return hit.text;
+  try {
+    const res = await fetch(url, { headers: { "User-Agent": "Mozilla/5.0" }, signal: AbortSignal.timeout(8_000) });
+    if (!res.ok) return "";
+    const text = readDealText(await res.text());
+    if (cache.size > 500) cache.clear();
+    cache.set(url, { at: Date.now(), text });
+    return text;
+  } catch {
+    return "";
+  }
 }
 
 export async function searchHot(query: string, limit: number): Promise<HotDeal[]> {
