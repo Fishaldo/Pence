@@ -47,8 +47,27 @@ export async function alertState(): Promise<AlertState> {
   }
 }
 
-/** Ask permission, then subscribe this device. Returns the address the server pushes to. */
-export async function turnOnAlerts(key: string): Promise<string> {
+export type PhoneSub = { endpoint: string; p256dh?: string; auth?: string };
+
+function asPhoneSub(sub: PushSubscription): PhoneSub {
+  const json = sub.toJSON() as { endpoint?: string; keys?: { p256dh?: string; auth?: string } };
+  return { endpoint: sub.endpoint, p256dh: json.keys?.p256dh, auth: json.keys?.auth };
+}
+
+/** This device's alert subscription, if alerts are on, with the keys alerts are encrypted for. */
+export async function currentSub(): Promise<PhoneSub | null> {
+  if (typeof window === "undefined" || !("serviceWorker" in navigator)) return null;
+  try {
+    const reg = await registration();
+    const sub = await reg?.pushManager.getSubscription();
+    return sub ? asPhoneSub(sub) : null;
+  } catch {
+    return null;
+  }
+}
+
+/** Ask permission, then subscribe this device. Returns the address the server pushes to, and its keys. */
+export async function turnOnAlerts(key: string): Promise<PhoneSub> {
   const permission = await Notification.requestPermission();
   if (permission !== "granted") throw new Error("Alerts are off for Pence in this phone’s settings.");
   const reg = await navigator.serviceWorker.register(WORKER, { scope: "/" });
@@ -60,7 +79,7 @@ export async function turnOnAlerts(key: string): Promise<string> {
     sub = null;
   }
   sub ??= await reg.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: wanted });
-  return sub.endpoint;
+  return asPhoneSub(sub);
 }
 
 /** Unsubscribe this device. Returns the old address so the server can forget it. */

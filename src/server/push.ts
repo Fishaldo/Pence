@@ -3,10 +3,11 @@ import { getSql } from "@/lib/db";
 /*
  * Phone alerts through the browser's own push service (Web Push).
  *
- * The push carries no message: the phone wakes Pence's service worker, which
- * shows "Pence found a price" and opens the price watch when tapped. A push
- * without a message only needs the server to sign who it is (VAPID), so the
- * signing key is made once and kept in the database. Nothing to configure.
+ * Each push is signed with Pence's own key (VAPID), made once and kept in the
+ * database, so there is nothing to configure. When the phone gave its
+ * encryption keys, the push carries the words to show ("Netflix comes out in
+ * 3 days"), encrypted for that phone alone (RFC 8291). Without them, the phone
+ * shows a general "Pence found an offer".
  */
 
 /** Only real push services, so the server never posts to an address a user made up. */
@@ -95,32 +96,102 @@ export async function vapidHeader(endpoint: string, now = Date.now()): Promise<s
   return `vapid t=${unsigned}.${toBase64Url(new Uint8Array(signature))}, k=${publicKey}`;
 }
 
-/** Wake every phone this person turned alerts on for. Returns how many were reached. */
-export async function pushUser(userId: string): Promise<number> {
-  const sql = await getSql();
-  const subs = await sql<{ endpoint: string }>`select endpoint from push_subs where user_id = ${userId}`;
-  let reached = 0;
-  for (const { endpoint } of subs) {
-    if (!isPushEndpoint(endpoint)) continue;
-    try {
-      const res = await fetch(endpoint, {
-        method: "POST",
-        headers: {
-          Authorization: await vapidHeader(endpoint),
-          TTL: String(24 * 3600),
-          Urgency: "high",
-          "Content-Length": "0",
-        },
-        signal: AbortSignal.timeout(10_000),
-      });
-      if (res.status === 404 || res.status === 410) {
-        await sql`delete from push_subs where endpoint = ${endpoint}`;
-      } else if (res.ok) {
-        reached += 1;
-      }
-    } catch {
-      /* the phone's push service can be down; the alert still waits in the app */
+export type PushMessage = { title: string; body: string; url: string; tag?: string };
+
+function concat(...parts: Uint8Array[]): Uint8Array<ArrayBuffer> {
+  const out = new Uint8Array(new ArrayBuffer(parts.reduce((sum, part) => sum + part.length, 0)));
+  let at = 0;
+  for (const part of parts) {
+    out.set(part, at);
+    at += part.length;
+  }
+  return out;
+}
+
+function buf(bytes: Uint8Array): Uint8Array<ArrayBuffer> {
+  return concat(bytes);
+}
+
+async function hkdf(salt: Uint8Array, ikm: Uint8Array, info: Uint8Array, length: number): Promise<Uint8Array> {
+  const key = await crypto.subtle.importKey("raw", buf(ikm), "HKDF", false, ["deriveBits"]);
+  const bits = await crypto.subtle.deriveBits({ name: "HKDF", hash: "SHA-256", salt: buf(salt), info: buf(info) }, key, length * 8);
+  return new Uint8Array(bits);
+}
+
+/**
+ * Encrypt a message for one phone (RFC 8291, "aes128gcm"). `p256dh` and `auth`
+ * are the keys the phone handed over when alerts were turned on.
+ */
+export async function encryptForPhone(p256dh: string, auth: string, plaintext: Uint8Array): Promise<Uint8Array> {
+  const uaPublic = fromBase64Url(p256dh);
+  const authSecret = fromBase64Url(auth);
+  const pair = (await crypto.subtle.generateKey({ name: "ECDH", namedCurve: "P-256" }, true, ["deriveBits"])) as CryptoKeyPair;
+  const asPublic = new Uint8Array(await crypto.subtle.exportKey("raw", pair.publicKey));
+  const uaKey = await crypto.subtle.importKey("raw", buf(uaPublic), { name: "ECDH", namedCurve: "P-256" }, false, []);
+  const shared = new Uint8Array(await crypto.subtle.deriveBits({ name: "ECDH", public: uaKey }, pair.privateKey, 256));
+  const enc = new TextEncoder();
+  const ikm = await hkdf(authSecret, shared, concat(enc.encode("WebPush: info\0"), uaPublic, asPublic), 32);
+  const salt = crypto.getRandomValues(new Uint8Array(16));
+  const cek = await hkdf(salt, ikm, enc.encode("Content-Encoding: aes128gcm\0"), 16);
+  const nonce = await hkdf(salt, ikm, enc.encode("Content-Encoding: nonce\0"), 12);
+  const aes = await crypto.subtle.importKey("raw", buf(cek), "AES-GCM", false, ["encrypt"]);
+  // One record, so the padding delimiter is 2.
+  const sealed = new Uint8Array(
+    await crypto.subtle.encrypt({ name: "AES-GCM", iv: buf(nonce) }, aes, concat(plaintext, new Uint8Array([2]))),
+  );
+  const header = new Uint8Array(16 + 4 + 1 + asPublic.length);
+  header.set(salt, 0);
+  new DataView(header.buffer).setUint32(16, 4096);
+  header[20] = asPublic.length;
+  header.set(asPublic, 21);
+  return concat(header, sealed);
+}
+
+export type PushResult = { endpoint: string; status: number; ok: boolean; note: string };
+
+/** Send one push to one phone, and say what its push service answered. */
+export async function pushTo(
+  sub: { endpoint: string; p256dh: string | null; auth: string | null },
+  message?: PushMessage,
+): Promise<PushResult> {
+  const { endpoint, p256dh, auth } = sub;
+  if (!isPushEndpoint(endpoint)) return { endpoint, status: 0, ok: false, note: "not a push address" };
+  try {
+    const headers: Record<string, string> = {
+      Authorization: await vapidHeader(endpoint),
+      TTL: String(24 * 3600),
+      Urgency: "high",
+    };
+    let body: Uint8Array<ArrayBuffer> | undefined;
+    if (message && p256dh && auth) {
+      body = buf(await encryptForPhone(p256dh, auth, new TextEncoder().encode(JSON.stringify(message))));
+      headers["Content-Encoding"] = "aes128gcm";
+      headers["Content-Type"] = "application/octet-stream";
+    } else {
+      headers["Content-Length"] = "0";
     }
+    const res = await fetch(endpoint, { method: "POST", headers, body, signal: AbortSignal.timeout(10_000) });
+    const note = res.ok ? "" : (await res.text().catch(() => "")).replace(/\s+/g, " ").slice(0, 200);
+    if (res.status === 404 || res.status === 410) {
+      // The phone dropped this subscription; it must turn alerts on again.
+      const sql = await getSql();
+      await sql`delete from push_subs where endpoint = ${endpoint}`;
+    }
+    return { endpoint, status: res.status, ok: res.ok, note };
+  } catch (error) {
+    return { endpoint, status: 0, ok: false, note: error instanceof Error ? error.message.slice(0, 200) : "no answer" };
+  }
+}
+
+/** Wake every phone this person turned alerts on for, with words to show when the phone allows. */
+export async function pushUser(userId: string, message?: PushMessage): Promise<number> {
+  const sql = await getSql();
+  const subs = await sql<{ endpoint: string; p256dh: string | null; auth: string | null }>`
+    select endpoint, p256dh, auth from push_subs where user_id = ${userId}`;
+  let reached = 0;
+  for (const sub of subs) {
+    const result = await pushTo(sub, message);
+    if (result.ok) reached += 1;
   }
   return reached;
 }

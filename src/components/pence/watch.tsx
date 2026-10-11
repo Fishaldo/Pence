@@ -4,19 +4,18 @@ import { useEffect, useState } from "react";
 import { toast } from "sonner";
 import { formatGBP } from "@/lib/spend/model";
 import {
-  alertKey,
   answerWatch,
   changeWatchPrice,
   checkMyWatches,
   checkWatchNow,
+  dailyCatchUp,
   removeWatch,
-  saveAlerts,
   type WatchItem,
   type WatchOffer,
 } from "@/server/watch";
 import { useWatches } from "./data";
 import { DealAction } from "./deal-bits";
-import { alertState, turnOffAlerts, turnOnAlerts, type AlertState } from "./phone-alerts";
+import { PhoneAlerts } from "./phone-alerts-panel";
 import { errorText } from "./ui";
 
 let lookedThisVisit = false;
@@ -27,6 +26,8 @@ function useDailyLook() {
   useEffect(() => {
     if (lookedThisVisit) return;
     lookedThisVisit = true;
+    // If the morning check missed a day, this visit runs it, so reminders still go out.
+    void dailyCatchUp().catch(() => undefined);
     void checkMyWatches()
       .then((result) => {
         if (result.checked > 0) void client.invalidateQueries({ queryKey: ["watches"] });
@@ -82,73 +83,44 @@ function OfferPrice({ offer }: { offer: WatchOffer }) {
   return <p className="font-display text-3xl leading-none tabular-nums">{formatGBP(offer.pricePence)}</p>;
 }
 
-function PhoneAlerts() {
-  const [state, setState] = useState<AlertState | null>(null);
-  const [busy, setBusy] = useState(false);
-
-  useEffect(() => {
-    void alertState().then(setState);
-  }, []);
-
-  async function turnOn() {
-    setBusy(true);
-    try {
-      const { key } = await alertKey();
-      if (!key) throw new Error("Alerts aren’t ready on Pence yet. Try again later.");
-      const endpoint = await turnOnAlerts(key);
-      await saveAlerts({ data: { endpoint, on: true } });
-      setState("on");
-      toast("Alerts are on. Pence will tell you when it finds an offer.");
-    } catch (err) {
-      toast(errorText(err, "Couldn’t turn alerts on here."));
-      setState(await alertState());
-    } finally {
-      setBusy(false);
-    }
-  }
-
-  async function turnOff() {
-    setBusy(true);
-    try {
-      const endpoint = await turnOffAlerts();
-      if (endpoint) await saveAlerts({ data: { endpoint, on: false } }).catch(() => undefined);
-      setState("off");
-    } catch (err) {
-      toast(errorText(err, "Couldn’t turn alerts off."));
-    } finally {
-      setBusy(false);
-    }
-  }
-
-  if (state == null || state === "unsupported") return null;
+/** Every offer seen for one watch, so the person can change their mind and take one. */
+function SeenOffers({ item, busy, onTake }: { item: WatchItem; busy: boolean; onTake: (offerId: string) => void }) {
+  const [shown, setShown] = useState(10);
+  const list = item.seenOffers;
   return (
-    <div className="mt-3 rounded-md bg-sand px-4 py-3">
-      {state === "on" ? (
-        <div className="flex items-center justify-between gap-3">
-          <p className="text-sm">Phone alerts are on.</p>
-          <button type="button" className="min-h-11 shrink-0 text-sm text-muted" disabled={busy} onClick={() => void turnOff()}>
-            Turn off
-          </button>
-        </div>
-      ) : state === "off" ? (
-        <div className="flex items-center justify-between gap-3">
-          <p className="text-sm">Get a message on this phone when Pence finds an offer.</p>
-          <button
-            type="button"
-            className="min-h-11 shrink-0 rounded-md bg-forest px-4 text-sm font-medium text-foam"
-            disabled={busy}
-            onClick={() => void turnOn()}
-          >
-            {busy ? "Turning on…" : "Turn on"}
-          </button>
-        </div>
-      ) : state === "blocked" ? (
-        <p className="text-sm text-muted">Phone alerts are blocked for Pence. Allow notifications for Pence in your phone’s settings.</p>
-      ) : (
-        <p className="text-sm text-muted">
-          For phone alerts on iPhone, add Pence to your Home Screen first: tap Share, then Add to Home Screen.
-        </p>
-      )}
+    <div className="mt-3 border-t border-line pt-3">
+      <p className="text-sm text-muted">
+        Everything Pence has seen, {item.shopOnly ? "newest promotions first" : "cheapest first"}. Changed your mind? Take one.
+      </p>
+      <ul className="mt-2 divide-y divide-line">
+        {list.slice(0, shown).map((offer) => (
+          <li key={offer.id} className="py-3">
+            <div className="flex items-baseline justify-between gap-3">
+              <p className="min-w-0 text-sm text-muted">{offer.merchant || offer.source}</p>
+              {offer.monthly ? (
+                <p className="shrink-0 text-sm text-muted">Monthly price</p>
+              ) : offer.pricePence != null ? (
+                <p className="shrink-0 font-medium tabular-nums">{formatGBP(offer.pricePence)}</p>
+              ) : null}
+            </div>
+            <p className="mt-0.5 text-sm font-medium">{offer.title}</p>
+            {offer.unlikely ? (
+              <p className="mt-0.5 text-sm text-clay">This price looks like an accessory or a monthly payment, not the item.</p>
+            ) : null}
+            <div className="flex flex-wrap items-center gap-x-4">
+              <DealAction deal={offer} />
+              <button type="button" className="mt-2 min-h-11 text-sm font-medium" disabled={busy} onClick={() => onTake(offer.id)}>
+                Take this one
+              </button>
+            </div>
+          </li>
+        ))}
+      </ul>
+      {list.length > shown ? (
+        <button type="button" className="min-h-11 text-sm font-medium text-forest" onClick={() => setShown((n) => n + 10)}>
+          Show more
+        </button>
+      ) : null}
     </div>
   );
 }
@@ -163,6 +135,7 @@ export function Watchlist() {
   const [working, setWorking] = useState<string[]>([]);
   const [editing, setEditing] = useState<{ id: string; most: string } | null>(null);
   const [stopping, setStopping] = useState("");
+  const [openSeen, setOpenSeen] = useState("");
   useDailyLook();
 
   async function refresh() {
@@ -336,13 +309,28 @@ export function Watchlist() {
               </p>
               <p className="mt-1 text-sm text-muted">
                 {working.includes(item.id) ? "Looking now…" : checkedText(item)}
-                {item.seen > 0 ? ` · ${item.seen} offer${item.seen === 1 ? "" : "s"} seen` : ""}
+                {item.seen > 0 ? (
+                  <>
+                    {" · "}
+                    <button
+                      type="button"
+                      className="font-medium text-forest underline underline-offset-2"
+                      aria-expanded={openSeen === item.id}
+                      onClick={() => setOpenSeen(openSeen === item.id ? "" : item.id)}
+                    >
+                      {item.seen} offer{item.seen === 1 ? "" : "s"} seen
+                    </button>
+                  </>
+                ) : null}
               </p>
               {item.lowest?.pricePence != null && !item.shopOnly ? (
                 <p className="mt-1 text-sm">
                   Lowest seen: <span className="font-medium tabular-nums">{formatGBP(item.lowest.pricePence)}</span>
                   {item.lowest.merchant ? ` at ${item.lowest.merchant}` : ""}
                 </p>
+              ) : null}
+              {openSeen === item.id ? (
+                <SeenOffers item={item} busy={working.includes(item.id)} onTake={(offerId) => void answer(item, true, offerId)} />
               ) : null}
               {editing?.id === item.id ? (
                 <div className="mt-3 flex items-end gap-2">

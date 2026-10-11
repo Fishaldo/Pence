@@ -2,6 +2,7 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { getProfile, listAlerts, listPlaces, listTransactions } from "@/server/ledger";
 import { forYou, forYouWide } from "@/server/for-you";
 import { listWatches } from "@/server/watch";
+import { listRegulars } from "@/server/regular";
 
 export function useLedger() {
   const profile = useQuery({ queryKey: ["profile"], queryFn: () => getProfile() });
@@ -32,6 +33,10 @@ export function useWatches() {
   return useQuery({ queryKey: ["watches"], queryFn: () => listWatches(), staleTime: 60_000 });
 }
 
+export function useRegulars() {
+  return useQuery({ queryKey: ["regulars"], queryFn: () => listRegulars(), staleTime: 60_000 });
+}
+
 export function useRefreshLedger() {
   const client = useQueryClient();
   return async () => {
@@ -41,5 +46,6 @@ export function useRefreshLedger() {
     await client.invalidateQueries({ queryKey: ["places"] });
     await client.invalidateQueries({ queryKey: ["forYou"] });
     await client.invalidateQueries({ queryKey: ["forYouWide"] });
+    await client.invalidateQueries({ queryKey: ["regulars"] });
   };
 }

@@ -29,6 +29,8 @@ export type InterestDef = {
   products?: boolean;
   /** The shops sell many kinds of thing, so the category the person chose wins. */
   broad?: boolean;
+  /** Other shops or services for the same thing, where the same spend could cost less. */
+  rivals?: string[];
 };
 
 export const BIG_TICKET = [
@@ -72,9 +74,36 @@ export const BIG_TICKET = [
   "mower",
 ];
 
+/** Things a supermarket sells that are not the food shop. */
+const NOT_FOOD = [
+  ...BIG_TICKET,
+  "toy",
+  "toys",
+  "train set",
+  "food truck",
+  "screenwash",
+  "de-icer",
+  "step stool",
+  "stool",
+  "kettle",
+  "toaster",
+  "duvet",
+  "pillow",
+  "towels",
+  "curtains",
+  "rug",
+  "lamp",
+  "storage box",
+  "jeans",
+  "dress",
+  "trainers",
+  "school uniform",
+];
+
 export const INTERESTS: InterestDef[] = [
   {
     id: "food-shop",
+    rivals: ["Aldi", "Lidl", "Tesco", "Sainsbury's", "Asda", "Morrisons", "Iceland"],
     label: "Food shop",
     noun: "your food shop",
     verb: "do a food shop",
@@ -165,6 +194,22 @@ export const INTERESTS: InterestDef[] = [
       "plantain",
       "yam",
       "garri",
+      "bakery",
+      "cake",
+      "cheesecake",
+      "donuts",
+      "doughnuts",
+      "waffles",
+      "croissants",
+      "pastries",
+      "tart",
+      "dessert",
+      "ice cream",
+      "pizza",
+      "ready meal",
+      "meat",
+      "chilled",
+      "cupboard",
     ],
     query: "groceries",
     match: [
@@ -187,11 +232,12 @@ export const INTERESTS: InterestDef[] = [
       "multipack",
       "meal deal",
     ],
-    avoid: BIG_TICKET,
+    avoid: NOT_FOOD,
     broad: true,
   },
   {
     id: "coffee",
+    rivals: ["Costa", "Starbucks", "Caffè Nero", "Pret", "Greggs"],
     label: "Coffee",
     noun: "coffee out",
     verb: "buy coffee out",
@@ -204,6 +250,7 @@ export const INTERESTS: InterestDef[] = [
   },
   {
     id: "lunch",
+    rivals: ["Greggs", "Subway", "Pret", "Tesco meal deal"],
     label: "Lunch on the go",
     noun: "lunch on the go",
     category: "dining",
@@ -215,6 +262,7 @@ export const INTERESTS: InterestDef[] = [
   },
   {
     id: "takeaway",
+    rivals: ["Just Eat", "Deliveroo", "Uber Eats", "Domino's"],
     label: "Takeaways",
     noun: "takeaways",
     category: "dining",
@@ -261,6 +309,7 @@ export const INTERESTS: InterestDef[] = [
   },
   {
     id: "eating-out",
+    rivals: ["Nando's", "Wagamama", "Pizza Express", "Toby Carvery", "Wetherspoon"],
     label: "Eating out",
     noun: "eating out",
     verb: "eat out",
@@ -328,6 +377,7 @@ export const INTERESTS: InterestDef[] = [
   },
   {
     id: "clothes",
+    rivals: ["Primark", "TK Maxx", "H&M", "Matalan", "Uniqlo"],
     label: "Clothes",
     noun: "clothes",
     category: "fashion",
@@ -438,6 +488,7 @@ export const INTERESTS: InterestDef[] = [
   },
   {
     id: "shoes",
+    rivals: ["JD Sports", "Sports Direct", "Schuh", "Foot Locker"],
     label: "Shoes & trainers",
     noun: "shoes and trainers",
     category: "fashion",
@@ -519,6 +570,7 @@ export const INTERESTS: InterestDef[] = [
   },
   {
     id: "perfume",
+    rivals: ["The Perfume Shop", "Fragrance Direct", "Superdrug", "Boots"],
     label: "Perfume",
     noun: "perfume",
     category: "personal",
@@ -580,6 +632,7 @@ export const INTERESTS: InterestDef[] = [
   },
   {
     id: "beauty",
+    rivals: ["Superdrug", "Boots", "Lookfantastic", "Sephora"],
     label: "Beauty & skincare",
     noun: "beauty and skincare",
     category: "personal",
@@ -727,6 +780,7 @@ export const INTERESTS: InterestDef[] = [
   },
   {
     id: "pharmacy",
+    rivals: ["Superdrug", "Boots", "Lloyds Pharmacy", "Pharmacy2U"],
     label: "Pharmacy",
     noun: "pharmacy items",
     category: "health",
@@ -785,6 +839,7 @@ export const INTERESTS: InterestDef[] = [
   },
   {
     id: "home",
+    rivals: ["IKEA", "Dunelm", "B&M", "Home Bargains", "The Range"],
     label: "Home & DIY",
     noun: "things for the home",
     category: "household",
@@ -862,6 +917,7 @@ export const INTERESTS: InterestDef[] = [
   },
   {
     id: "cleaning",
+    rivals: ["Home Bargains", "B&M", "Aldi", "Lidl"],
     label: "Cleaning & laundry",
     noun: "cleaning and laundry",
     category: "household",
@@ -923,6 +979,7 @@ export const INTERESTS: InterestDef[] = [
   },
   {
     id: "kids",
+    rivals: ["Smyths", "Aldi", "Asda", "Boots"],
     label: "Baby & kids",
     noun: "things for the kids",
     category: "household",
@@ -957,6 +1014,7 @@ export const INTERESTS: InterestDef[] = [
   },
   {
     id: "pets",
+    rivals: ["Pets at Home", "Jollyes", "Zooplus"],
     label: "Pets",
     noun: "pet food and supplies",
     category: "household",
@@ -996,6 +1054,7 @@ export const INTERESTS: InterestDef[] = [
   },
   {
     id: "going-out",
+    rivals: ["Odeon", "Vue", "Cineworld", "Everyman", "Showcase"],
     label: "Cinema & events",
     noun: "tickets and days out",
     category: "entertainment",
@@ -1158,6 +1217,7 @@ export const INTERESTS: InterestDef[] = [
   },
   {
     id: "fitness",
+    rivals: ["PureGym", "The Gym Group", "Better gym", "JD Gyms"],
     label: "Gym & fitness",
     noun: "the gym",
     verb: "pay for the gym",
@@ -1187,6 +1247,7 @@ export const INTERESTS: InterestDef[] = [
   },
   {
     id: "taxis",
+    rivals: ["Uber", "Bolt", "FREENOW"],
     label: "Taxis & rides",
     noun: "taxis",
     verb: "take taxis",
@@ -1199,6 +1260,7 @@ export const INTERESTS: InterestDef[] = [
   },
   {
     id: "trains",
+    rivals: ["Trainline", "Megabus", "National Express"],
     label: "Trains & coaches",
     noun: "train and coach tickets",
     category: "transport",
@@ -1291,6 +1353,7 @@ export const INTERESTS: InterestDef[] = [
   },
   {
     id: "flights",
+    rivals: ["Ryanair", "easyJet", "Jet2", "Wizz Air"],
     label: "Flights",
     noun: "flights",
     category: "travel",
@@ -1326,6 +1389,7 @@ export const INTERESTS: InterestDef[] = [
   },
   {
     id: "hotels",
+    rivals: ["Premier Inn", "Travelodge", "Booking.com", "Ibis"],
     label: "Hotels & stays",
     noun: "hotels and places to stay",
     verb: "book hotels",
@@ -1510,6 +1574,7 @@ export const INTERESTS: InterestDef[] = [
   },
   {
     id: "energy",
+    rivals: ["Octopus", "OVO", "E.ON", "British Gas"],
     label: "Energy & water",
     noun: "gas, electricity and water",
     verb: "pay for gas, electricity and water",
@@ -1546,6 +1611,7 @@ export const INTERESTS: InterestDef[] = [
   },
   {
     id: "phone-broadband",
+    rivals: ["giffgaff", "VOXI", "SMARTY", "Lebara"],
     label: "Phone & broadband",
     noun: "your phone and broadband",
     verb: "pay for your phone and broadband",
@@ -1771,6 +1837,7 @@ export const BRAND: Record<string, string> = {
   "body shop": "The Body Shop",
   "mac cosmetics": "MAC",
   "e-scooter": "E-scooter",
+  asda: "ASDA",
   myperfectcv: "MyPerfectCV",
   "my perfect cv": "MyPerfectCV",
   livecareer: "LiveCareer",

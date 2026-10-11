@@ -1,8 +1,9 @@
 /*
- * Pence's service worker. It only shows price-watch alerts: it does not cache
+ * Pence's service worker. It only shows alerts (offers and payments coming out): it does not cache
  * pages or touch any request, so the app behaves exactly as before.
  *
- * The push from the server carries no message, so the words are fixed here.
+ * A push carries its own words when the phone gave its keys; otherwise the
+ * general words below are shown.
  */
 
 self.addEventListener("install", () => {
@@ -29,10 +30,9 @@ self.addEventListener("push", (event) => {
     self.registration.showNotification(title, {
       body,
       icon: "/__grok/icon-180.png",
-      badge: "/__grok/icon-180.png",
-      tag: "pence-watch",
+      tag: typeof data.tag === "string" ? data.tag : "pence-watch",
       renotify: true,
-      data: { url: "/offers#watchlist" },
+      data: { url: typeof data.url === "string" && data.url.startsWith("/") ? data.url : "/offers#watchlist" },
     }),
   );
 });

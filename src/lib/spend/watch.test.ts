@@ -10,6 +10,7 @@ import {
   namesShop,
   offerStatus,
   offerStatusFor,
+  plausiblePrice,
   isStoreWide,
   shopDealFits,
   watchLabel,
@@ -122,5 +123,18 @@ describe("which deals at a watched shop are worth a call", () => {
   it("keeps a specialist to what it sells, whatever was picked", () => {
     assert.equal(shopDealFits("PureGym: no joining fee this week", "groceries", "PureGym"), true);
     assert.equal(shopDealFits("Mama Ngozi's Kitchen: 2 for 1 mains", "dining", "Mama Ngozi's Kitchen"), true);
+  });
+});
+
+describe("prices that cannot be the thing watched", () => {
+  const iphones = [85989, 99900, 104900, 109900, 2199];
+  it("sets aside a £21.99 iPhone next to £800 ones", () => {
+    assert.equal(plausiblePrice(2199, iphones, null), false);
+    assert.equal(plausiblePrice(2199, [], 80000), false);
+    assert.equal(plausiblePrice(79900, iphones, 80000), true);
+    assert.equal(plausiblePrice(2199, [2199, 2500], null), true);
+  });
+  it("leaves out MagSafe wallets and the like", () => {
+    assert.equal(fitsWatch("Apple iPhone 17 MagSafe Wallet £21.99", "iPhone 17"), false);
   });
 });

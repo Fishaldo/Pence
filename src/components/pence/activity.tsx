@@ -12,7 +12,7 @@ import {
   type Tx,
 } from "@/lib/spend/model";
 import { descKey } from "@/lib/spend/payee";
-import { deleteSpend, getReceipt, updateSpend } from "@/server/ledger";
+import { deleteSpend, updateSpend } from "@/server/ledger";
 import { useLedger, useRefreshLedger } from "./data";
 import { ItemsEditor, type DraftItem } from "./items-editor";
 import { errorText, PageHead } from "./ui";
@@ -155,25 +155,11 @@ function SpendDialog({ tx, all, onClose }: { tx: Tx; all: Tx[]; onClose: () => v
   const [applyToSame, setApplyToSame] = useState(true);
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
-  const [image, setImage] = useState<string | null>(null);
 
   const key = descKey(tx.description || tx.merchant);
   const same = key ? all.filter((row) => row.id !== tx.id && descKey(row.description || row.merchant) === key).length : 0;
   const changedPayee = merchant.trim() !== tx.merchant || category !== tx.category;
   const printed = tx.description && tx.description !== tx.merchant ? tx.description : "";
-
-  async function showReceipt() {
-    setBusy(true);
-    try {
-      const result = await getReceipt({ data: { id: tx.id } });
-      setImage(result.image);
-      if (!result.image) setError("The photo wasn’t kept for this spend.");
-    } catch (err) {
-      setError(errorText(err, "Couldn’t open the receipt."));
-    } finally {
-      setBusy(false);
-    }
-  }
 
   async function save() {
     const amountPence = poundsToPence(amount);
@@ -298,14 +284,9 @@ function SpendDialog({ tx, all, onClose }: { tx: Tx; all: Tx[]; onClose: () => v
             <span className="field-label">Note</span>
             <input className="control" value={note} onChange={(e) => setNote(e.target.value)} />
           </label>
-          {tx.hasReceipt ? (
-            <button type="button" className="text-sm font-medium text-forest" onClick={showReceipt} disabled={busy}>
-              View receipt photo
-            </button>
-          ) : (
-            <p className="text-sm text-muted">No receipt attached.</p>
-          )}
-          {image ? <img src={image} alt="Receipt" className="max-h-64 w-full rounded-md object-contain" /> : null}
+          <p className="text-sm text-muted">
+            {tx.hasReceipt ? "Read from a receipt. Pence keeps the details, not the photo." : "No receipt."}
+          </p>
           {error ? <p className="text-sm text-clay">{error}</p> : null}
         </div>
         <div className="mt-4 flex flex-col gap-2">

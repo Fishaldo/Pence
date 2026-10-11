@@ -8,11 +8,13 @@ import {
   isStoreWide,
   KIND_WORDS,
   offerStatusFor,
+  plausiblePrice,
   watchLabel,
   type OfferStatus,
   type WatchStatus,
 } from "@/lib/spend/watch";
-import { isPushEndpoint, vapidPublicKey } from "@/server/push";
+import { catchUpDailyCheck, lastDailyCheck } from "@/server/daily";
+import { isPushEndpoint, pushTo, vapidPublicKey } from "@/server/push";
 import { checkDue, checkWatch, targetOf, WEB_EVERY_HOURS, type WatchRow } from "@/server/watch-check";
 
 export type WatchOffer = {
@@ -48,6 +50,8 @@ export type WatchItem = {
   offers: WatchOffer[];
   /** The cheapest priced offer seen that was not good enough. */
   lowest: WatchOffer | null;
+  /** Every offer seen, cheapest believable first, so the person can change their mind and take one. */
+  seenOffers: (WatchOffer & { unlikely: boolean })[];
   /** Everything seen so far, good enough or not. */
   seen: number;
 };
@@ -179,10 +183,27 @@ export const listWatches = createServerFn({ method: "GET" })
             ? Number(isStoreWide(b.title)) - Number(isStoreWide(a.title))
             : (a.pricePence ?? Infinity) - (b.pricePence ?? Infinity),
         );
+      const prices = all
+        .filter((offer) => offer.pricePence != null && !offer.monthly)
+        .map((offer) => offer.pricePence as number);
+      const targetPence = num(row.target_pence);
+      const believable = (offer: WatchOffer) =>
+        shopOnly || offer.monthly || plausiblePrice(offer.pricePence, prices, targetPence);
       const priced = all.filter(
-        (offer) => offer.status !== "new" && offer.status !== "accepted" && offer.pricePence != null && !offer.monthly,
+        (offer) =>
+          offer.status !== "new" && offer.status !== "accepted" && offer.pricePence != null && !offer.monthly && believable(offer),
       );
       const lowest = priced.sort((a, b) => (a.pricePence ?? 0) - (b.pricePence ?? 0))[0] ?? null;
+      const seenOffers = all
+        .map((offer) => ({ ...offer, unlikely: !believable(offer) }))
+        .sort((a, b) => {
+          if (a.unlikely !== b.unlikely) return a.unlikely ? 1 : -1;
+          const pa = a.monthly ? null : a.pricePence;
+          const pb = b.monthly ? null : b.pricePence;
+          if (pa == null || pb == null) return pa == null ? (pb == null ? 0 : 1) : -1;
+          return pa - pb;
+        })
+        .slice(0, 40);
       return {
         id: row.id,
         what: row.what,
@@ -198,6 +219,7 @@ export const listWatches = createServerFn({ method: "GET" })
         closedAt: when(row.closed_at),
         offers: shown.slice(0, 10),
         lowest,
+        seenOffers,
         seen: all.length,
       };
     });
@@ -287,11 +309,20 @@ export const answerWatch = createServerFn({ method: "POST" })
       where watch_id = ${watch.id} and status = 'new'
       returning price_pence, monthly`;
     const goal = targetOf(watch);
-    // "Not this one" on a watched shop just waits for the next promotion; only items wait for a lower price.
+    const everyPrice = await sql<{ price_pence: number | string | null; monthly: unknown }>`
+      select price_pence, monthly from watch_offers where watch_id = ${watch.id}`;
+    const prices = everyPrice
+      .map((row) => (asBool(row.monthly) ? null : num(row.price_pence)))
+      .filter((price): price is number => price != null && price > 0);
+    const target = num(watch.target_pence);
+    // "Not this one" on a watched shop just waits for the next promotion; only items wait for a lower price,
+    // and only a believable price can become the one to beat.
     const floor = goal.item
       ? floorAfter(
           num(watch.floor_pence),
-          declined.map((row) => (asBool(row.monthly) ? null : num(row.price_pence))),
+          declined
+            .map((row) => (asBool(row.monthly) ? null : num(row.price_pence)))
+            .filter((price) => plausiblePrice(price, prices, target)),
         )
       : null;
     await sql`update watches set status = 'watching', floor_pence = ${floor}, declines = declines + 1
@@ -309,19 +340,22 @@ export const changeWatchPrice = createServerFn({ method: "POST" })
   .handler(async ({ context, data }): Promise<{ found: number }> => {
     const sql = await getSql();
     const watch = await ownWatch(context.userId, data.id);
-    await sql`update watches set target_pence = ${data.most} where id = ${watch.id}`;
+    // A new limit starts fresh: the price turned down before no longer has to be beaten.
+    await sql`update watches set target_pence = ${data.most}, floor_pence = null where id = ${watch.id}`;
     if (watch.status !== "watching" && watch.status !== "found") return { found: 0 };
-    const limits = {
-      targetPence: data.most,
-      floorPence: num(watch.floor_pence),
-      declines: num(watch.declines) ?? 0,
-    };
-    const waiting = await sql<{ id: string; price_pence: number | string | null; monthly: unknown }>`
-      select id, price_pence, monthly from watch_offers
-      where watch_id = ${watch.id} and status in ('above', 'quiet')`;
+    const limits = { targetPence: data.most, floorPence: null, declines: num(watch.declines) ?? 0 };
+    const offers = await sql<{ id: string; price_pence: number | string | null; monthly: unknown; status: string }>`
+      select id, price_pence, monthly, status from watch_offers where watch_id = ${watch.id}`;
+    const prices = offers
+      .map((row) => (asBool(row.monthly) ? null : num(row.price_pence)))
+      .filter((price): price is number => price != null && price > 0);
+    const goal = targetOf(watch);
     let found = 0;
-    for (const row of waiting) {
-      const status = offerStatusFor({ pricePence: num(row.price_pence), monthly: asBool(row.monthly) }, limits, targetOf(watch));
+    for (const row of offers) {
+      if (row.status !== "above" && row.status !== "quiet") continue;
+      const price = asBool(row.monthly) ? null : num(row.price_pence);
+      if (goal.item && !plausiblePrice(price, prices, data.most)) continue;
+      const status = offerStatusFor({ pricePence: num(row.price_pence), monthly: asBool(row.monthly) }, limits, goal);
       if (status !== "new") continue;
       await sql`update watch_offers set status = 'new' where id = ${row.id}`;
       found += 1;
@@ -358,15 +392,71 @@ export const saveAlerts = createServerFn({ method: "POST" })
     const row = (input && typeof input === "object" ? input : {}) as Record<string, unknown>;
     const endpoint = typeof row.endpoint === "string" ? row.endpoint.trim() : "";
     if (!isPushEndpoint(endpoint)) throw new Error("This phone can’t take alerts from Pence.");
-    return { endpoint, on: row.on !== false };
+    const key = (value: unknown) => (typeof value === "string" && /^[A-Za-z0-9_-]{16,200}$/.test(value) ? value : null);
+    return { endpoint, on: row.on !== false, p256dh: key(row.p256dh), auth: key(row.auth) };
   })
   .handler(async ({ context, data }) => {
     const sql = await getSql();
     if (data.on) {
-      await sql`insert into push_subs (endpoint, user_id) values (${data.endpoint}, ${context.userId})
-                on conflict (endpoint) do update set user_id = excluded.user_id, created_at = now()`;
+      await sql`insert into push_subs (endpoint, user_id, p256dh, auth)
+                values (${data.endpoint}, ${context.userId}, ${data.p256dh}, ${data.auth})
+                on conflict (endpoint) do update set
+                  user_id = excluded.user_id,
+                  p256dh = coalesce(excluded.p256dh, push_subs.p256dh),
+                  auth = coalesce(excluded.auth, push_subs.auth),
+                  created_at = now()`;
     } else {
       await sql`delete from push_subs where endpoint = ${data.endpoint} and user_id = ${context.userId}`;
     }
     return { ok: true as const };
+  });
+
+/**
+ * Send a test alert to this phone now, so the person can see alerts arrive.
+ * Says plainly what went wrong when the phone's push service turns it down.
+ */
+export const testAlert = createServerFn({ method: "POST" })
+  .middleware([authMiddleware])
+  .validator((input: unknown) => {
+    const row = (input && typeof input === "object" ? input : {}) as Record<string, unknown>;
+    const endpoint = typeof row.endpoint === "string" ? row.endpoint.trim() : "";
+    if (!isPushEndpoint(endpoint)) throw new Error("Turn phone alerts on first.");
+    return { endpoint };
+  })
+  .handler(async ({ context, data }): Promise<{ ok: boolean; problem: string }> => {
+    const sql = await getSql();
+    const rows = await sql<{ endpoint: string; p256dh: string | null; auth: string | null }>`
+      select endpoint, p256dh, auth from push_subs where endpoint = ${data.endpoint} and user_id = ${context.userId}`;
+    if (!rows[0]) return { ok: false, problem: "This phone isn’t signed up for alerts. Turn alerts off and on again." };
+    const result = await pushTo(rows[0], {
+      title: "Pence alerts are working",
+      body: "This is how Pence tells you about offers and payments coming out.",
+      url: "/",
+      tag: "pence-test",
+    });
+    if (result.ok) return { ok: true, problem: "" };
+    if (result.status === 404 || result.status === 410) {
+      return { ok: false, problem: "This phone stopped taking alerts from Pence. Turn alerts on again." };
+    }
+    if (result.status === 401 || result.status === 403) {
+      return { ok: false, problem: "The phone’s alert service turned Pence down. Turn alerts off and on again." };
+    }
+    return { ok: false, problem: "The phone’s alert service didn’t answer. Try again in a minute." };
+  });
+
+/** When the morning check last ran, for the alerts panel. */
+export const dailyStatus = createServerFn({ method: "GET" })
+  .middleware([authMiddleware])
+  .handler(async (): Promise<{ last: string | null }> => ({ last: await lastDailyCheck().catch(() => null) }));
+
+/** Run the morning check on a visit when it has not run for over a day. */
+export const dailyCatchUp = createServerFn({ method: "POST" })
+  .middleware([authMiddleware])
+  .handler(async (): Promise<{ ran: boolean }> => {
+    try {
+      const { ran } = await catchUpDailyCheck();
+      return { ran };
+    } catch {
+      return { ran: false };
+    }
   });

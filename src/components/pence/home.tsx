@@ -21,6 +21,7 @@ import { seedSamples } from "@/server/ledger";
 import { useForYou, useLedger, useRefreshLedger } from "./data";
 import { CodeChip } from "./deal-bits";
 import { goUrl } from "./deal-links";
+import { ComingOut } from "./regular";
 import { WatchSummary } from "./watch";
 import { errorText, Money, PageHead } from "./ui";
 
@@ -108,7 +109,11 @@ export function HomeView() {
   const hasSample = rows.some((row) => row.isSample);
   const recent = rows.filter((row) => row.spentOn >= span.start && row.spentOn <= span.end).slice(0, 4);
   const cycle = payday ? "pay" : "month";
-  const upcoming = mine.data?.taste.upcoming ?? [];
+  // Coming up is about offers: only buys Pence has found something for.
+  const dealKeys = new Set((mine.data?.deals ?? []).map((deal) => deal.key));
+  const upcoming = (mine.data?.taste.upcoming ?? []).filter(
+    (up) => dealKeys.has(up.key) || (up.interestKey != null && dealKeys.has(up.interestKey)),
+  );
   const tasteToday = mine.data?.taste.today ?? todayISO(today);
 
   async function loadSample() {
@@ -213,6 +218,8 @@ export function HomeView() {
       </section>
 
       <WatchSummary />
+
+      <ComingOut />
 
       {upcoming.length > 0 ? (
         <section className="mt-4">

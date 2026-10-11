@@ -19,6 +19,7 @@ import { Route as InsightsRouteImport } from './routes/insights'
 import { Route as LoginRouteImport } from './routes/login'
 import { Route as OffersRouteImport } from './routes/offers'
 import { Route as PlanRouteImport } from './routes/plan'
+import { Route as RegularRouteImport } from './routes/regular'
 import { Route as SettingsRouteImport } from './routes/settings'
 import { Route as ApiWatchCheckRouteImport } from './routes/api/watch-check'
 import { Route as ApiAuthSplatRouteImport } from './routes/api/auth/$'
@@ -73,6 +74,11 @@ const PlanRoute = PlanRouteImport.update({
   path: '/plan',
   getParentRoute: () => rootRouteImport,
 } as any)
+const RegularRoute = RegularRouteImport.update({
+  id: '/regular',
+  path: '/regular',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const SettingsRoute = SettingsRouteImport.update({
   id: '/settings',
   path: '/settings',
@@ -100,6 +106,7 @@ export interface FileRoutesByFullPath {
   '/login': typeof LoginRoute
   '/offers': typeof OffersRoute
   '/plan': typeof PlanRoute
+  '/regular': typeof RegularRoute
   '/settings': typeof SettingsRoute
   '/api/watch-check': typeof ApiWatchCheckRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
@@ -115,6 +122,7 @@ export interface FileRoutesByTo {
   '/login': typeof LoginRoute
   '/offers': typeof OffersRoute
   '/plan': typeof PlanRoute
+  '/regular': typeof RegularRoute
   '/settings': typeof SettingsRoute
   '/api/watch-check': typeof ApiWatchCheckRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
@@ -131,6 +139,7 @@ export interface FileRoutesById {
   '/login': typeof LoginRoute
   '/offers': typeof OffersRoute
   '/plan': typeof PlanRoute
+  '/regular': typeof RegularRoute
   '/settings': typeof SettingsRoute
   '/api/watch-check': typeof ApiWatchCheckRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
@@ -148,6 +157,7 @@ export interface FileRouteTypes {
     | '/login'
     | '/offers'
     | '/plan'
+    | '/regular'
     | '/settings'
     | '/api/watch-check'
     | '/api/auth/$'
@@ -163,6 +173,7 @@ export interface FileRouteTypes {
     | '/login'
     | '/offers'
     | '/plan'
+    | '/regular'
     | '/settings'
     | '/api/watch-check'
     | '/api/auth/$'
@@ -178,6 +189,7 @@ export interface FileRouteTypes {
     | '/login'
     | '/offers'
     | '/plan'
+    | '/regular'
     | '/settings'
     | '/api/watch-check'
     | '/api/auth/$'
@@ -194,6 +206,7 @@ export interface RootRouteChildren {
   LoginRoute: typeof LoginRoute
   OffersRoute: typeof OffersRoute
   PlanRoute: typeof PlanRoute
+  RegularRoute: typeof RegularRoute
   SettingsRoute: typeof SettingsRoute
   ApiWatchCheckRoute: typeof ApiWatchCheckRoute
   ApiAuthSplatRoute: typeof ApiAuthSplatRoute
@@ -271,6 +284,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof PlanRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/regular': {
+      id: '/regular'
+      path: '/regular'
+      fullPath: '/regular'
+      preLoaderRoute: typeof RegularRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/settings': {
       id: '/settings'
       path: '/settings'
@@ -306,6 +326,7 @@ const rootRouteChildren: RootRouteChildren = {
   LoginRoute: LoginRoute,
   OffersRoute: OffersRoute,
   PlanRoute: PlanRoute,
+  RegularRoute: RegularRoute,
   SettingsRoute: SettingsRoute,
   ApiWatchCheckRoute: ApiWatchCheckRoute,
   ApiAuthSplatRoute: ApiAuthSplatRoute,

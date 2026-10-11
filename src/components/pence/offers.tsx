@@ -24,7 +24,7 @@ const PAGE = 30;
 
 /** Near you first, then the shops this person already uses. */
 function rank(a: PersonalDeal, b: PersonalDeal): number {
-  return Number(b.local) - Number(a.local) || Number(b.yours) - Number(a.yours);
+  return Number(a.elsewhere) - Number(b.elsewhere) || Number(b.local) - Number(a.local) || Number(b.yours) - Number(a.yours);
 }
 
 export function DealCard({ deal, showReason = true }: { deal: PersonalDeal; showReason?: boolean }) {
@@ -55,7 +55,9 @@ function arrange(deals: PersonalDeal[], taste: TasteProfile) {
       .slice(0, 2);
     for (const deal of picks) used.add(deal.url);
     return { up, deals: picks };
-  });
+  })
+    // Coming up is about offers: a buy with nothing to make it cheaper is not shown.
+    .filter((row) => row.deals.length > 0);
 
   const groups = new Map<string, Group>();
   for (const deal of deals) {
@@ -322,11 +324,7 @@ export function OffersView() {
                       </li>
                     ))}
                   </ul>
-                ) : (
-                  <p className="mt-2 text-sm text-muted">
-                    {wide.isFetching ? "Looking for a deal before you go…" : "No deal found for this yet. Check the shop’s app before you pay."}
-                  </p>
-                )}
+                ) : null}
               </li>
             ))}
           </ul>
@@ -337,16 +335,30 @@ export function OffersView() {
         if (room <= 0) return null;
         const shown = group.deals.slice(0, room);
         room -= shown.length;
+        const here = shown.filter((deal) => !deal.elsewhere);
+        const away = shown.filter((deal) => deal.elsewhere);
         return (
           <section key={group.id} className="mt-6">
             <h2 className="font-display text-2xl">{group.label}</h2>
             {group.line ? <p className="text-sm text-muted">{group.line}</p> : null}
-            <ul className="mt-3 space-y-3">
-              {shown.map((deal, index) => (
-                // The same reason on every card in a group is noise: say it once, then only when it changes.
-                <DealCard key={deal.url} deal={deal} showReason={index === 0 || shown[index - 1].reason !== deal.reason} />
-              ))}
-            </ul>
+            {here.length > 0 ? (
+              <ul className="mt-3 space-y-3">
+                {here.map((deal, index) => (
+                  // The same reason on every card in a group is noise: say it once, then only when it changes.
+                  <DealCard key={deal.url} deal={deal} showReason={index === 0 || here[index - 1].reason !== deal.reason} />
+                ))}
+              </ul>
+            ) : null}
+            {away.length > 0 ? (
+              <>
+                <h3 className="mt-4 text-sm font-medium text-forest">Could cost less elsewhere</h3>
+                <ul className="mt-2 space-y-3">
+                  {away.map((deal) => (
+                    <DealCard key={deal.url} deal={deal} />
+                  ))}
+                </ul>
+              </>
+            ) : null}
           </section>
         );
       })}

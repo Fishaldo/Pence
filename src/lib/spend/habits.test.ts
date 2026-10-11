@@ -5,6 +5,7 @@ import {
   cleanItem,
   dayNum,
   dealFits,
+  elsewhereReason,
   habitLine,
   isoOf,
   itemInterest,
@@ -12,6 +13,7 @@ import {
   paydayAfter,
   paydayOnOrBefore,
   reasonFor,
+  rivalNeeds,
   rhythmOf,
   savingLine,
   searchNeeds,
@@ -273,6 +275,56 @@ describe("keeping deals on topic", () => {
     const need = { key: "i:perfume", query: "dior sauvage", match: ["dior", "sauvage"], avoid: ["candle"], shopWords: [], item: "Dior Sauvage", usualPence: 7000 };
     assert.equal(dealFits("Dior Sauvage EDT 100ml £69 at Boots", need), true);
     assert.equal(dealFits("Dior Addict lipstick £20", need), false);
+  });
+});
+
+describe("cheaper elsewhere", () => {
+  const taste = buildTaste(
+    [
+      ...[56, 49, 42, 35, 28, 21, 14, 7].map((n) => spend(n, "ASDA", 14, "groceries")),
+      spend(40, "Cineworld", 20, "entertainment"),
+      spend(12, "Cineworld", 20, "entertainment"),
+    ],
+    { today: TODAY, payday: null },
+  );
+
+  it("looks at rival shops for the same habit, never the person's own", () => {
+    const rivals = rivalNeeds(taste);
+    const names = rivals.map((need) => need.query);
+    assert.ok(names.includes("Aldi"));
+    assert.ok(!names.includes("Asda"));
+    assert.ok(names.includes("Odeon") || names.includes("Vue"));
+    assert.ok(!names.includes("Cineworld"));
+    assert.ok(rivals.every((need) => need.elsewhere));
+  });
+
+  it("keeps a supermarket's step stools and screenwash out of the food shop", () => {
+    const need = searchNeeds(taste).find((row) => row.key === "s:asda");
+    if (!need) throw new Error("expected an ASDA search");
+    assert.equal(dealFits("Asda Folding Step Stool", need, "ASDA Groceries"), false);
+    assert.equal(dealFits("Asda All Seasons Screenwash 5L", need, "ASDA Groceries"), false);
+    assert.equal(dealFits("Exceptional by ASDA Extra Large Onions 3pk", need, "ASDA Groceries"), true);
+    assert.equal(dealFits("Plain Waffles 200g", need, "ASDA Groceries"), true);
+    assert.equal(dealFits("Plain Waffles 200g", need, "Tesco"), false);
+  });
+
+  it("keeps the food habit to food, whichever supermarket it names", () => {
+    const need = searchNeeds(taste).find((row) => row.key === "i:food-shop");
+    if (!need) throw new Error("expected a food shop search");
+    assert.equal(dealFits("Asda All Seasons Screenwash 5L", need, "ASDA Groceries"), false);
+    assert.equal(dealFits("Asda Folding Step Stool", need, "ASDA Groceries"), false);
+    assert.equal(dealFits("Tesco Large Whole Chicken 1.7-2.1kg - Clubcard Price", need, "Tesco"), true);
+    const lidl = rivalNeeds(taste).find((row) => row.query === "Lidl");
+    if (!lidl) throw new Error("expected a Lidl search");
+    assert.equal(dealFits("Wooden Toy Event + 10% Off with Lidl Plus – Food Truck £35.99 & Train Sets £4.49", lidl, "Lidl"), false);
+    assert.equal(dealFits("Carrots 1kg - Lidl Plus Price", lidl, "Lidl"), true);
+  });
+
+  it("explains a deal at another shop without promising a saving", () => {
+    assert.equal(
+      elsewhereReason("i:food-shop", taste, "Aldi"),
+      "You usually use ASDA for this. This one is at Aldi.",
+    );
   });
 });
 
