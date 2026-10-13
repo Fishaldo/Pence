@@ -13,6 +13,8 @@ import { Route as IndexRouteImport } from './routes/index'
 import { Route as ActivityRouteImport } from './routes/activity'
 import { Route as AlertsRouteImport } from './routes/alerts'
 import { Route as BankRouteImport } from './routes/bank'
+import { Route as BillsRouteImport } from './routes/bills'
+import { Route as BudgetRouteImport } from './routes/budget'
 import { Route as CaptureRouteImport } from './routes/capture'
 import { Route as HotRouteImport } from './routes/hot'
 import { Route as InsightsRouteImport } from './routes/insights'
@@ -21,6 +23,7 @@ import { Route as OffersRouteImport } from './routes/offers'
 import { Route as PlanRouteImport } from './routes/plan'
 import { Route as RegularRouteImport } from './routes/regular'
 import { Route as SettingsRouteImport } from './routes/settings'
+import { Route as WeekRouteImport } from './routes/week'
 import { Route as ApiWatchCheckRouteImport } from './routes/api/watch-check'
 import { Route as ApiAuthSplatRouteImport } from './routes/api/auth/$'
 
@@ -42,6 +45,16 @@ const AlertsRoute = AlertsRouteImport.update({
 const BankRoute = BankRouteImport.update({
   id: '/bank',
   path: '/bank',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const BillsRoute = BillsRouteImport.update({
+  id: '/bills',
+  path: '/bills',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const BudgetRoute = BudgetRouteImport.update({
+  id: '/budget',
+  path: '/budget',
   getParentRoute: () => rootRouteImport,
 } as any)
 const CaptureRoute = CaptureRouteImport.update({
@@ -84,6 +97,11 @@ const SettingsRoute = SettingsRouteImport.update({
   path: '/settings',
   getParentRoute: () => rootRouteImport,
 } as any)
+const WeekRoute = WeekRouteImport.update({
+  id: '/week',
+  path: '/week',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ApiWatchCheckRoute = ApiWatchCheckRouteImport.update({
   id: '/api/watch-check',
   path: '/api/watch-check',
@@ -100,6 +118,8 @@ export interface FileRoutesByFullPath {
   '/activity': typeof ActivityRoute
   '/alerts': typeof AlertsRoute
   '/bank': typeof BankRoute
+  '/bills': typeof BillsRoute
+  '/budget': typeof BudgetRoute
   '/capture': typeof CaptureRoute
   '/hot': typeof HotRoute
   '/insights': typeof InsightsRoute
@@ -108,6 +128,7 @@ export interface FileRoutesByFullPath {
   '/plan': typeof PlanRoute
   '/regular': typeof RegularRoute
   '/settings': typeof SettingsRoute
+  '/week': typeof WeekRoute
   '/api/watch-check': typeof ApiWatchCheckRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
 }
@@ -116,6 +137,8 @@ export interface FileRoutesByTo {
   '/activity': typeof ActivityRoute
   '/alerts': typeof AlertsRoute
   '/bank': typeof BankRoute
+  '/bills': typeof BillsRoute
+  '/budget': typeof BudgetRoute
   '/capture': typeof CaptureRoute
   '/hot': typeof HotRoute
   '/insights': typeof InsightsRoute
@@ -124,6 +147,7 @@ export interface FileRoutesByTo {
   '/plan': typeof PlanRoute
   '/regular': typeof RegularRoute
   '/settings': typeof SettingsRoute
+  '/week': typeof WeekRoute
   '/api/watch-check': typeof ApiWatchCheckRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
 }
@@ -133,6 +157,8 @@ export interface FileRoutesById {
   '/activity': typeof ActivityRoute
   '/alerts': typeof AlertsRoute
   '/bank': typeof BankRoute
+  '/bills': typeof BillsRoute
+  '/budget': typeof BudgetRoute
   '/capture': typeof CaptureRoute
   '/hot': typeof HotRoute
   '/insights': typeof InsightsRoute
@@ -141,6 +167,7 @@ export interface FileRoutesById {
   '/plan': typeof PlanRoute
   '/regular': typeof RegularRoute
   '/settings': typeof SettingsRoute
+  '/week': typeof WeekRoute
   '/api/watch-check': typeof ApiWatchCheckRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
 }
@@ -151,6 +178,8 @@ export interface FileRouteTypes {
     | '/activity'
     | '/alerts'
     | '/bank'
+    | '/bills'
+    | '/budget'
     | '/capture'
     | '/hot'
     | '/insights'
@@ -159,6 +188,7 @@ export interface FileRouteTypes {
     | '/plan'
     | '/regular'
     | '/settings'
+    | '/week'
     | '/api/watch-check'
     | '/api/auth/$'
   fileRoutesByTo: FileRoutesByTo
@@ -167,6 +197,8 @@ export interface FileRouteTypes {
     | '/activity'
     | '/alerts'
     | '/bank'
+    | '/bills'
+    | '/budget'
     | '/capture'
     | '/hot'
     | '/insights'
@@ -175,6 +207,7 @@ export interface FileRouteTypes {
     | '/plan'
     | '/regular'
     | '/settings'
+    | '/week'
     | '/api/watch-check'
     | '/api/auth/$'
   id:
@@ -183,6 +216,8 @@ export interface FileRouteTypes {
     | '/activity'
     | '/alerts'
     | '/bank'
+    | '/bills'
+    | '/budget'
     | '/capture'
     | '/hot'
     | '/insights'
@@ -191,6 +226,7 @@ export interface FileRouteTypes {
     | '/plan'
     | '/regular'
     | '/settings'
+    | '/week'
     | '/api/watch-check'
     | '/api/auth/$'
   fileRoutesById: FileRoutesById
@@ -200,6 +236,8 @@ export interface RootRouteChildren {
   ActivityRoute: typeof ActivityRoute
   AlertsRoute: typeof AlertsRoute
   BankRoute: typeof BankRoute
+  BillsRoute: typeof BillsRoute
+  BudgetRoute: typeof BudgetRoute
   CaptureRoute: typeof CaptureRoute
   HotRoute: typeof HotRoute
   InsightsRoute: typeof InsightsRoute
@@ -208,6 +246,7 @@ export interface RootRouteChildren {
   PlanRoute: typeof PlanRoute
   RegularRoute: typeof RegularRoute
   SettingsRoute: typeof SettingsRoute
+  WeekRoute: typeof WeekRoute
   ApiWatchCheckRoute: typeof ApiWatchCheckRoute
   ApiAuthSplatRoute: typeof ApiAuthSplatRoute
 }
@@ -240,6 +279,20 @@ declare module '@tanstack/react-router' {
       path: '/bank'
       fullPath: '/bank'
       preLoaderRoute: typeof BankRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/bills': {
+      id: '/bills'
+      path: '/bills'
+      fullPath: '/bills'
+      preLoaderRoute: typeof BillsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/budget': {
+      id: '/budget'
+      path: '/budget'
+      fullPath: '/budget'
+      preLoaderRoute: typeof BudgetRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/capture': {
@@ -298,6 +351,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof SettingsRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/week': {
+      id: '/week'
+      path: '/week'
+      fullPath: '/week'
+      preLoaderRoute: typeof WeekRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/api/watch-check': {
       id: '/api/watch-check'
       path: '/api/watch-check'
@@ -320,6 +380,8 @@ const rootRouteChildren: RootRouteChildren = {
   ActivityRoute: ActivityRoute,
   AlertsRoute: AlertsRoute,
   BankRoute: BankRoute,
+  BillsRoute: BillsRoute,
+  BudgetRoute: BudgetRoute,
   CaptureRoute: CaptureRoute,
   HotRoute: HotRoute,
   InsightsRoute: InsightsRoute,
@@ -328,6 +390,7 @@ const rootRouteChildren: RootRouteChildren = {
   PlanRoute: PlanRoute,
   RegularRoute: RegularRoute,
   SettingsRoute: SettingsRoute,
+  WeekRoute: WeekRoute,
   ApiWatchCheckRoute: ApiWatchCheckRoute,
   ApiAuthSplatRoute: ApiAuthSplatRoute,
 }

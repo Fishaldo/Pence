@@ -16,6 +16,7 @@ import {
 import { samePayment } from "@/lib/spend/duplicate";
 import { descKey } from "@/lib/spend/payee";
 import type { StatementRow } from "@/lib/spend/statement";
+import type { MoneyIn } from "@/lib/spend/payday";
 
 type SqlClient = Awaited<ReturnType<typeof getSql>>;
 
@@ -68,6 +69,7 @@ function mapTx(row: {
   raw_alert: string;
   is_sample: unknown;
   created_at: unknown;
+  kind?: string | null;
 }): Tx {
   const source: SpendSource =
     row.source === "receipt" || row.source === "gallery" || row.source === "wallet" || row.source === "manual" || row.source === "bank"
@@ -87,6 +89,7 @@ function mapTx(row: {
     rawAlert: row.raw_alert ?? "",
     isSample: asBool(row.is_sample),
     createdAt: asString(row.created_at),
+    kind: row.kind ?? "",
   };
 }
 
@@ -99,6 +102,8 @@ function mapProfile(row: {
   notify_alerts: unknown;
   lat?: number | string | null;
   lng?: number | string | null;
+  location_asked?: unknown;
+  weekly_day?: number | string | null;
 }): Profile {
   const payday = row.payday == null ? null : asInt(row.payday);
   const lat = row.lat == null || row.lat === "" ? null : Number(row.lat);
@@ -112,6 +117,8 @@ function mapProfile(row: {
     notifyAlerts: asBool(row.notify_alerts),
     lat: lat != null && Number.isFinite(lat) ? lat : null,
     lng: lng != null && Number.isFinite(lng) ? lng : null,
+    locationAsked: row.location_asked == null ? true : asBool(row.location_asked),
+    weeklyDay: row.weekly_day == null || row.weekly_day === "" ? null : asInt(row.weekly_day),
   };
 }
 
@@ -180,7 +187,10 @@ export const getProfile = createServerFn({ method: "GET" })
       notify_alerts: unknown;
       lat: number | null;
       lng: number | null;
-    }>`select display_name, monthly_income_pence, city, payday, onboarded, notify_alerts, lat, lng
+      location_asked: unknown;
+      weekly_day: number | null;
+    }>`select display_name, monthly_income_pence, city, payday, onboarded, notify_alerts, lat, lng,
+              location_asked, weekly_day
        from profiles where user_id = ${context.userId}`;
     return rows[0] ? mapProfile(rows[0]) : null;
   });
@@ -210,7 +220,8 @@ export const saveProfile = createServerFn({ method: "POST" })
          payday = excluded.payday,
          onboarded = true,
          notify_alerts = excluded.notify_alerts
-       returning display_name, monthly_income_pence, city, payday, onboarded, notify_alerts`;
+       returning display_name, monthly_income_pence, city, payday, onboarded, notify_alerts, lat, lng,
+                 location_asked, weekly_day`;
     return mapProfile(rows[0]);
   });
 
@@ -410,8 +421,9 @@ export const listTransactions = createServerFn({ method: "GET" })
       raw_alert: string;
       is_sample: unknown;
       created_at: unknown;
+      kind: string;
     }>`select id, merchant, description, amount_pence, category, spent_on, source, has_receipt, note,
-              items_json, raw_alert, is_sample, created_at
+              items_json, raw_alert, is_sample, created_at, kind
        from transactions
        where user_id = ${context.userId}
        order by spent_on desc, created_at desc
@@ -515,6 +527,8 @@ export type ReceiptRead = {
   kind: "receipt" | "statement" | "none";
   spends: StatementRow[];
   skippedIn: number;
+  /** Money coming in, kept only so Pence can ask whether one of them is pay. */
+  moneyIn: MoneyIn[];
 };
 
 function moneyOf(value: unknown): number | null {
@@ -581,13 +595,17 @@ function statementDay(value: unknown, today: string): string | null {
   return validDate(iso) ? iso : null;
 }
 
-function outgoingRows(parsed: Record<string, unknown>, today: string): { spends: StatementRow[]; skippedIn: number } {
+function outgoingRows(
+  parsed: Record<string, unknown>,
+  today: string,
+): { spends: StatementRow[]; skippedIn: number; moneyIn: MoneyIn[] } {
   const raw = Array.isArray(parsed.transactions)
     ? parsed.transactions
     : Array.isArray(parsed.spends)
       ? parsed.spends
       : [];
   const spends: StatementRow[] = [];
+  const moneyIn: MoneyIn[] = [];
   let skippedIn = 0;
   for (const item of raw) {
     if (!item || typeof item !== "object") continue;
@@ -602,6 +620,10 @@ function outgoingRows(parsed: Record<string, unknown>, today: string): { spends:
     const minus = /^\s*[-−]/.test(amountText);
     if (markedIn || (plus && !minus && !markedOut)) {
       skippedIn += 1;
+      const inPence = absMoney(rec.amount);
+      if (inPence && inPence > 0 && moneyIn.length < 20) {
+        moneyIn.push({ merchant, amountPence: inPence, date: statementDay(rec.date, today) ?? today });
+      }
       continue;
     }
     const amountPence = absMoney(rec.amount);
@@ -617,7 +639,7 @@ function outgoingRows(parsed: Record<string, unknown>, today: string): { spends:
     });
     if (spends.length >= 40) break;
   }
-  return { spends, skippedIn };
+  return { spends, skippedIn, moneyIn };
 }
 
 type Rule = { merchant: string; category: CategoryId };
@@ -673,6 +695,7 @@ export const readReceipt = createServerFn({ method: "POST" })
       kind: "none",
       spends: [],
       skippedIn: 0,
+      moneyIn: [],
     };
     if (!process.env.XAI_API_KEY) {
       throw new Error("Reading photos isn’t available right now. Type the shop and the total.");
@@ -743,7 +766,7 @@ Rules:
       const confidence =
         typeof parsed.confidence === "number" ? Math.min(1, Math.max(0, parsed.confidence)) : 0.55;
       const kindRaw = typeof parsed.kind === "string" ? parsed.kind.toLowerCase() : "";
-      const { spends, skippedIn } = outgoingRows(parsed, today);
+      const { spends, skippedIn, moneyIn } = outgoingRows(parsed, today);
       const statement = kindRaw === "statement" || (kindRaw !== "receipt" && spends.length > 1);
       if (statement) {
         if (spends.length === 0) {
@@ -751,6 +774,7 @@ Rules:
             ...empty,
             kind: "none",
             skippedIn,
+            moneyIn,
             note:
               skippedIn > 0
                 ? "This only shows money coming in. Pence tracks spending."
@@ -767,6 +791,7 @@ Rules:
             return { ...row, merchant: fixed.merchant, category: fixed.category, description: row.merchant };
           }),
           skippedIn,
+          moneyIn,
           confidence,
           note: skippedIn > 0 ? "Money coming in was left out." : "",
         };
@@ -794,6 +819,7 @@ Rules:
         kind: "receipt",
         spends: [],
         skippedIn: 0,
+        moneyIn: [],
       };
     } catch {
       throw new Error("Couldn’t read that photo. Type the shop and the total.");
@@ -1256,6 +1282,7 @@ const SAMPLE_PREV: {
   { slug: "ikea", day: 20, merchant: "IKEA", pounds: "22.40", category: "household", source: "receipt", receipt: true },
   { slug: "uber-c", day: 22, merchant: "Uber", pounds: "18.40", category: "transport", source: "wallet", receipt: false },
   { slug: "octopus", day: 24, merchant: "Octopus Energy", pounds: "68.00", category: "bills", source: "manual", receipt: false },
+  { slug: "vodafone", day: 10, merchant: "Vodafone", pounds: "20.00", category: "bills", source: "manual", receipt: false },
   { slug: "greggs", day: 26, merchant: "Greggs", pounds: "6.40", category: "dining", source: "wallet", receipt: false },
 ];
 
@@ -1264,6 +1291,10 @@ const SAMPLE_NOW: typeof SAMPLE_PREV = [
   { slug: "now-uber", day: 2, merchant: "Uber", pounds: "16.80", category: "transport", source: "wallet", receipt: false },
   { slug: "now-greggs", day: 3, merchant: "Greggs", pounds: "7.10", category: "dining", source: "wallet", receipt: false },
   { slug: "now-netflix", day: 4, merchant: "Netflix", pounds: "12.99", category: "subscriptions", source: "wallet", receipt: false },
+  // No items: Pence asks with one tap whether it was perfume, pharmacy or toiletries.
+  { slug: "now-boots", day: 6, merchant: "Boots", pounds: "38.00", category: "health", source: "wallet", receipt: false },
+  // Up from £20.00 last month: shows as a price rise on Bills.
+  { slug: "now-vodafone", day: 10, merchant: "Vodafone", pounds: "22.90", category: "bills", source: "manual", receipt: false },
 ];
 
 function isoOn(key: string, day: number): string {

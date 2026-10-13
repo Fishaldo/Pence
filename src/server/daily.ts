@@ -1,7 +1,8 @@
 import { getSql } from "@/lib/db";
 
 /*
- * The daily check: reminders for payments coming out soon, then the Watchlist.
+ * The daily check: reminders for payments coming out soon, price rises, the
+ * weekly check-in for people whose day it is, then the Watchlist.
  * The scheduler in vercel.json calls it each morning. If the scheduler is not
  * running on a deployment, the first visit after a missed day runs it instead,
  * so reminders still go out, late rather than never.
@@ -47,6 +48,8 @@ async function runChecks(budgetMs: number, watchLimit: number): Promise<DailyRes
     sent: 0,
     failed: true,
   }));
+  const { sendWeeklyCheckins } = await import("@/server/weekly");
+  await sendWeeklyCheckins({ budgetMs: Math.round(budgetMs * 0.1) }).catch(() => ({ sent: 0 }));
   const { checkDue } = await import("@/server/watch-check");
   const left = Math.max(5_000, budgetMs - (Date.now() - started));
   const result = await checkDue({ limit: watchLimit, budgetMs: left, push: true });

@@ -174,6 +174,15 @@ function PaymentRow({ item }: { item: Regular }) {
         </span>
       </button>
 
+      {item.rise && !item.stopped ? (
+        <p className="mt-2 rounded-md bg-clay-soft px-3 py-2 text-sm text-clay">
+          Went up from {formatGBP(item.rise.fromPence)} to {formatGBP(item.rise.toPence)} on {shortDay(item.rise.on)}.{" "}
+          <Link to="/bills" className="font-medium underline">
+            Look for a better deal
+          </Link>
+        </p>
+      ) : null}
+
       {item.paidAfterStop && item.lastPaid ? (
         <p className="mt-2 rounded-md bg-clay-soft px-3 py-2 text-sm text-clay">
           You said you cancelled this, but it was paid again on {shortDay(item.lastPaid)}. Check with them.
@@ -260,7 +269,7 @@ function PaymentRow({ item }: { item: Regular }) {
                         void run(() => saveRegular({ data: { key: item.key, remind } }));
                       }}
                     />
-                    Remind me 7, 3 and 1 day before
+                    Remind me a week, 3 days and 2 working days before
                   </label>
                   <a
                     href={cancelSearch(item.name)}
@@ -326,7 +335,7 @@ export function RegularView() {
           </>
         )}
         <PhoneAlerts
-          what="7, 3 and 1 day before a payment comes out"
+          what="a week, 3 days and 2 working days before a payment comes out"
           onChange={() => void client.invalidateQueries({ queryKey: ["regulars"] })}
         />
         {adding ? (

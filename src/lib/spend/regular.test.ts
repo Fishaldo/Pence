@@ -2,6 +2,7 @@ import { describe, it } from "node:test";
 import assert from "node:assert/strict";
 import {
   addFreq,
+  contractEndMessage,
   dueText,
   findRegulars,
   payeeKey,
@@ -9,6 +10,8 @@ import {
   remindersDue,
   reminderStep,
   rollForward,
+  findRise,
+  workingDaysUntil,
   type RegularSpend,
 } from "./regular.ts";
 
@@ -148,8 +151,17 @@ describe("regular payments", () => {
     assert.equal(list[list.length - 1].stopped, true);
   });
 
-  it("reminds a week, three days and a day before", () => {
-    assert.deepEqual([8, 7, 6, 4, 3, 2, 1, 0, -1].map(reminderStep), [null, 7, 7, 7, 3, 3, 1, 1, null]);
+  it("reminds a week, three days and two working days before", () => {
+    assert.deepEqual(
+      [8, 7, 6, 4, 3, 2, 1, 0, -1].map((days) => reminderStep(days)),
+      [null, 7, 7, 7, 3, 2, 2, 2, null],
+    );
+    // Thursday 15 October, due Monday 19 October: Friday and Monday are the two working days.
+    assert.equal(workingDaysUntil("2026-10-15", "2026-10-19"), 2);
+    assert.equal(reminderStep(4, 2), 2);
+    // Christmas: 25 and 28 December 2026 are bank holidays, so 23 December is two working days before the 29th.
+    assert.equal(workingDaysUntil("2026-12-23", "2026-12-29"), 2);
+    assert.equal(workingDaysUntil("2026-12-22", "2026-12-29"), 3);
     assert.equal(dueText({ nextDue: "2026-10-12", daysLeft: 1 }), "Due tomorrow");
     assert.equal(dueText({ nextDue: "2026-10-11", daysLeft: 0 }), "Due today");
     assert.match(dueText({ nextDue: "2026-10-18", daysLeft: 7 }), /in 7 days$/);
@@ -174,6 +186,42 @@ describe("regular payments", () => {
     assert.equal(remindersDue(off, []).length, 0);
   });
 
+  it("notices a bill or subscription going up", () => {
+    const spends = [
+      spend("Vodafone", 2000, "2026-07-03", "bills"),
+      spend("Vodafone", 2000, "2026-08-03", "bills"),
+      spend("Vodafone", 2000, "2026-09-03", "bills"),
+      spend("Vodafone", 2290, "2026-10-03", "bills"),
+    ];
+    const vodafone = findRegulars(spends, [], "2026-10-11").find((item) => item.name === "Vodafone");
+    assert.ok(vodafone);
+    assert.deepEqual(vodafone.rise, { fromPence: 2000, toPence: 2290, on: "2026-10-03" });
+    assert.equal(vodafone.lastPence, 2290);
+  });
+
+  it("does not call a bill that moves with use a price rise", () => {
+    assert.equal(
+      findRise([
+        { amountPence: 4100, spentOn: "2026-08-01" },
+        { amountPence: 5600, spentOn: "2026-09-01" },
+        { amountPence: 6300, spentOn: "2026-10-01" },
+      ]),
+      null,
+    );
+    assert.equal(findRise([{ amountPence: 999, spentOn: "2026-09-01" }, { amountPence: 1019, spentOn: "2026-10-01" }]), null);
+  });
+
+  it("keeps a contract end the person gave", () => {
+    const spends = [spend("Sky", 3500, "2026-09-05", "bills"), spend("Sky", 3500, "2026-08-05", "bills")];
+    const key = payeeKey(spends[0]);
+    const list = findRegulars(
+      spends,
+      [{ key, name: "", amountPence: null, freq: null, nextDue: null, stopped: false, remind: true, contractEnd: "2026-11-30" }],
+      "2026-10-11",
+    );
+    assert.equal(list[0].contractEnd, "2026-11-30");
+  });
+
   it("words the phone message plainly", () => {
     const spends = [spend("Netflix", 1099, "2026-09-14", "subscriptions"), spend("Netflix", 1099, "2026-08-14", "subscriptions")];
     const list = findRegulars(
@@ -191,5 +239,14 @@ describe("regular payments", () => {
     assert.equal(reminderMessage([trial]).title, "Audible trial ends tomorrow");
     assert.match(reminderMessage([trial]).body, /^Cancel before .+ if you don’t want to pay\.$/);
     assert.equal(reminderMessage([trial, netflix]).title, "2 payments coming out soon");
+  });
+});
+
+describe("contract ends", () => {
+  it("tells the person once, with time to switch", () => {
+    const message = contractEndMessage("Vodafone", "2026-11-30");
+    assert.equal(message.title, "Vodafone: contract ends Mon 30 Nov");
+    assert.equal(message.url, "/bills");
+    assert.match(message.body, /better one/);
   });
 });

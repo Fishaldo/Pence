@@ -1,4 +1,4 @@
-import { isCategory, parseAlert, poundsToPence, validDate, type CategoryId } from "./model";
+import { isCategory, parseAlert, poundsToPence, validDate, type CategoryId } from "./model.ts";
 
 export type StatementRow = {
   spentOn: string;
@@ -25,10 +25,20 @@ const MONTHS: Record<string, string> = {
 };
 
 const BANK_LABEL: { test: RegExp; category: CategoryId }[] = [
+  { test: /^savings?\b|\bisa\b/, category: "savings" },
+  { test: /invest/, category: "investments" },
+  { test: /transfer/, category: "transfers" },
+  { test: /^cash\b|withdrawal/, category: "cash" },
+  { test: /charit|donation/, category: "charity" },
+  { test: /\bfees?\b|\bcharges?\b/, category: "fees" },
+  { test: /\bpets?\b|\bvet/, category: "pets" },
+  { test: /family|\bkids\b|child/, category: "kids" },
+  { test: /education|tuition|course/, category: "education" },
+  { test: /^rent\b|\brent\b|mortgage|housing/, category: "housing" },
   { test: /groc|supermarket/, category: "groceries" },
   { test: /eat out|dining|restaurant|coffee|food|takeaway/, category: "dining" },
   { test: /transport|fuel|petrol/, category: "transport" },
-  { test: /rent|utilit|bill|energy|council|mortgage/, category: "bills" },
+  { test: /utilit|bill|energy|council/, category: "bills" },
   { test: /subscription|gym|digital|entertainment sub/, category: "subscriptions" },
   { test: /fashion|clothes|shopping/, category: "fashion" },
   { test: /entertain|cinema|games/, category: "entertainment" },
@@ -182,4 +192,50 @@ export function parseStatement(text: string): StatementRow[] {
   const table = fromTable(lines);
   if (table && table.length > 0) return table;
   return fromLines(text);
+}
+
+/**
+ * Money coming in on a bank export, kept apart from spending. Pence only uses it
+ * to ask whether one of them is pay. Refunds and transfers stay in the list;
+ * looksLikePay picks out pay.
+ */
+export function parseMoneyIn(text: string): { merchant: string; amountPence: number; date: string }[] {
+  const lines = text.replace(/^\uFEFF/, "").split(/\r?\n/).filter((line) => line.trim());
+  if (lines.length < 2) return [];
+  const headers = splitCsv(lines[0]).map((cell) => cell.toLowerCase().replace(/\s+/g, " "));
+  const dateCol = findCol(headers, ["date", "transaction date", "booked date", "posted date", "datetime"]);
+  const nameCol = findCol(headers, [
+    "name",
+    "counter party",
+    "counterparty",
+    "description",
+    "transaction description",
+    "narrative",
+    "merchant",
+    "merchant name",
+    "payee",
+  ]);
+  if (dateCol < 0 || nameCol < 0) return [];
+  const amountCol = findCol(headers, ["amount", "amount (gbp)", "value", "amount gbp", "gross", "net"]);
+  const creditCol = findCol(headers, ["credit amount", "credit", "money in", "paid in"]);
+  if (amountCol < 0 && creditCol < 0) return [];
+  const out: { merchant: string; amountPence: number; date: string }[] = [];
+  for (const line of lines.slice(1)) {
+    const cells = splitCsv(line);
+    const date = statementDate(cells[dateCol] ?? "");
+    const merchant = (cells[nameCol] ?? "").replace(/\s+/g, " ").trim().slice(0, 80);
+    if (!date || !merchant) continue;
+    let amountPence: number | null = null;
+    if (creditCol >= 0) {
+      const credit = signedPence(cells[creditCol] ?? "");
+      amountPence = credit == null ? null : Math.abs(credit);
+    } else {
+      const signed = signedPence(cells[amountCol] ?? "");
+      amountPence = signed != null && signed > 0 ? signed : null;
+    }
+    if (!amountPence) continue;
+    out.push({ merchant, amountPence, date });
+    if (out.length >= 50) break;
+  }
+  return out;
 }

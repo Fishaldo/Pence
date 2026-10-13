@@ -3,39 +3,63 @@ import { toast } from "sonner";
 import {
   CATEGORIES,
   categoryLabel,
+  countsAsSpending,
   dayLabel,
   formatGBP,
-  monthKey,
-  monthLabel,
   poundsToPence,
+  todayISO,
   type CategoryId,
   type Tx,
 } from "@/lib/spend/model";
+import { dayNum, isoOf } from "@/lib/spend/habits";
 import { descKey } from "@/lib/spend/payee";
 import { deleteSpend, updateSpend } from "@/server/ledger";
 import { useLedger, useRefreshLedger } from "./data";
 import { ItemsEditor, type DraftItem } from "./items-editor";
 import { errorText, PageHead } from "./ui";
 
+const PERIODS = [
+  { id: "1w", label: "1 week", days: 7 },
+  { id: "1m", label: "1 month", days: 31 },
+  { id: "3m", label: "3 months", days: 92 },
+  { id: "6m", label: "6 months", days: 183 },
+  { id: "1y", label: "1 year", days: 366 },
+  { id: "all", label: "All time", days: 0 },
+] as const;
+
+type PeriodId = (typeof PERIODS)[number]["id"];
+
+/** Everything a search can match: shop, statement text, items, note and category. */
+function searchText(tx: Tx): string {
+  return [tx.merchant, tx.description, tx.note, categoryLabel(tx.category), ...tx.items.map((item) => item.name)].join(" ").toLowerCase();
+}
+
 export function ActivityView() {
   const { txs } = useLedger();
   const [category, setCategory] = useState<CategoryId | "all">("all");
-  const [month, setMonth] = useState("all");
+  const [period, setPeriod] = useState<PeriodId>("all");
+  const [query, setQuery] = useState("");
   const [editing, setEditing] = useState<Tx | null>(null);
 
-  const rows = txs.data ?? [];
-  const months = useMemo(() => {
-    const keys = new Set<string>();
-    for (const row of rows) keys.add(row.spentOn.slice(0, 7));
-    keys.add(monthKey(new Date()));
-    return [...keys].sort().reverse();
-  }, [rows]);
-
-  const filtered = rows.filter((row) => {
-    if (category !== "all" && row.category !== category) return false;
-    if (month !== "all" && !row.spentOn.startsWith(month)) return false;
-    return true;
-  });
+  const rows = useMemo(() => txs.data ?? [], [txs.data]);
+  const today = todayISO(new Date());
+  const days = PERIODS.find((item) => item.id === period)?.days ?? 0;
+  const from = days > 0 ? isoOf(dayNum(today) - days + 1) : "";
+  const filtered = useMemo(() => {
+    const words = query.toLowerCase().split(/\s+/).filter(Boolean);
+    return rows.filter((row) => {
+      if (category !== "all" && row.category !== category) return false;
+      if (from && row.spentOn < from) return false;
+      if (words.length > 0) {
+        const hay = searchText(row);
+        if (!words.every((word) => hay.includes(word))) return false;
+      }
+      return true;
+    });
+  }, [rows, category, from, query]);
+  const spent = filtered.filter((row) => countsAsSpending(row.category));
+  const spentTotal = spent.reduce((sum, row) => sum + row.amountPence, 0);
+  const movedTotal = filtered.filter((row) => !countsAsSpending(row.category)).reduce((sum, row) => sum + row.amountPence, 0);
 
   const groups: { label: string; items: Tx[] }[] = [];
   for (const row of filtered) {
@@ -50,6 +74,23 @@ export function ActivityView() {
   return (
     <div>
       <PageHead kicker="Ledger" title="Activity" />
+      <label className="mb-3 block">
+        <span className="field-label">Search</span>
+        <input
+          className="control"
+          type="search"
+          placeholder="Shop, item or note, like Uber or nappies"
+          value={query}
+          onChange={(event) => setQuery(event.target.value)}
+        />
+      </label>
+      <div className="mb-3 flex gap-2 overflow-x-auto pb-1" role="group" aria-label="Period">
+        {PERIODS.map((item) => (
+          <Filter key={item.id} on={period === item.id} onClick={() => setPeriod(item.id)}>
+            {item.label}
+          </Filter>
+        ))}
+      </div>
       <div className="mb-4 flex gap-2 overflow-x-auto pb-1">
         <Filter on={category === "all"} onClick={() => setCategory("all")}>
           All
@@ -60,17 +101,15 @@ export function ActivityView() {
           </Filter>
         ))}
       </div>
-      <label className="mb-4 block">
-        <span className="field-label">Month</span>
-        <select className="control" value={month} onChange={(e) => setMonth(e.target.value)}>
-          <option value="all">Every month</option>
-          {months.map((key) => (
-            <option key={key} value={key}>
-              {monthLabel(key)}
-            </option>
-          ))}
-        </select>
-      </label>
+      <p className="panel mb-4 px-4 py-3" aria-live="polite">
+        <span className="block font-display text-3xl tabular-nums">{formatGBP(spentTotal)}</span>
+        <span className="block text-sm text-muted">
+          {spent.length} spend{spent.length === 1 ? "" : "s"}
+          {query.trim() ? ` matching “${query.trim()}”` : ""}
+          {period === "all" ? ", all time" : `, last ${PERIODS.find((item) => item.id === period)?.label}`}
+          {movedTotal > 0 ? `. Plus ${formatGBP(movedTotal)} saved, invested or moved.` : "."}
+        </span>
+      </p>
 
       {filtered.length === 0 ? (
         <p className="panel px-4 py-8 text-center text-sm text-muted">No spends in this view yet.</p>

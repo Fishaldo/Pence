@@ -3,6 +3,7 @@ import type { ReactNode } from "react";
 import { RedirectToSignIn } from "@/lib/auth/gates";
 import { useCurrentUserState } from "@/lib/auth/use-current-user";
 import { getProfile } from "@/server/ledger";
+import { LocationStep } from "./location-step";
 import { Onboarding } from "./onboarding";
 import { BootScreen } from "./ui";
 
@@ -18,6 +19,9 @@ export function RequireUser({ children }: { children: ReactNode }) {
   if (!user) return <RedirectToSignIn />;
   if (!profile.data?.onboarded) {
     return <Onboarding defaultName={user.displayName ?? ""} />;
+  }
+  if (!profile.data.locationAsked) {
+    return <LocationStep city={profile.data.city} />;
   }
   return children;
 }
