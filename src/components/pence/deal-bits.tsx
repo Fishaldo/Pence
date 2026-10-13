@@ -24,7 +24,7 @@ export function CodeChip({ code }: { code: string }) {
       </span>
       <button
         type="button"
-        className="min-h-11 shrink-0 rounded-md bg-forest px-4 text-sm font-medium text-foam"
+        className="min-h-11 shrink-0 rounded-md bg-forest px-4 text-sm font-bold text-foam"
         onClick={() => void copy()}
       >
         {copied ? "Copied" : "Copy"}
@@ -40,7 +40,7 @@ export function DealAction({ deal }: { deal: Linkable }) {
       {deal.code ? <CodeChip code={deal.code} /> : null}
       <a
         href={goUrl(deal)}
-        className="mt-2 inline-flex min-h-11 items-center text-sm font-medium text-forest"
+        className="mt-2 inline-flex min-h-11 items-center text-sm font-bold text-forest"
         target="_blank"
         rel="noreferrer"
       >

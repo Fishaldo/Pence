@@ -86,11 +86,11 @@ export function BudgetView() {
     const draftTotal = draft.reduce((sum, row) => sum + (poundsToPence(row.amount) ?? 0), 0);
     return (
       <div>
-        <PageHead kicker="Each pay" title="Budget" />
-        <p className="text-sm text-muted">
-          Made from what you spent in your last pays, rounded up to the next £5. Change any amount. Lines marked “never cut” are rent,
-          bills, health and the like: Pence never suggests trimming them.
-        </p>
+        <PageHead
+          back="/"
+          title="Your budget for this pay"
+          sub="Built from your last pays, rounded up to the next £5. Change any amount. Never cut lines, like rent, bills and health, are never suggested for trimming."
+        />
         <ul className="mt-4 space-y-3">
           {draft.map((row) => (
             <li key={row.key} className="panel p-4">
@@ -129,7 +129,7 @@ export function BudgetView() {
                   <input type="checkbox" className="size-4" checked={row.neverCut} onChange={(event) => update(row.key, { neverCut: event.target.checked })} />
                   Never cut
                 </label>
-                <button type="button" className="text-sm text-muted" onClick={() => setDraft((current) => current?.filter((r) => r.key !== row.key) ?? null)}>
+                <button type="button" className="link text-muted" onClick={() => setDraft((current) => current?.filter((r) => r.key !== row.key) ?? null)}>
                   Remove
                 </button>
               </div>
@@ -165,11 +165,11 @@ export function BudgetView() {
 
   return (
     <div>
-      <PageHead kicker="Each pay" title="Budget" />
-      {budget.isPending ? <div className="h-32 animate-pulse rounded-lg bg-sand" /> : null}
+      <PageHead back="/" title="Your budget for this pay" sub="Built from your last pays. Change any line." />
+      {budget.isPending ? <div className="h-32 animate-pulse rounded-[1.125rem] bg-sand" /> : null}
       {!budget.isPending && lines.length === 0 ? (
         <section className="panel p-5">
-          <p className="font-display text-3xl">No budget yet</p>
+          <p className="section-title">No budget yet</p>
           <p className="mt-2 text-sm text-muted">Pence can make one from what you spent in your last pays. You change any line.</p>
           <button type="button" className="btn btn-primary mt-4" onClick={startFromHistory}>
             Make my budget
@@ -178,34 +178,23 @@ export function BudgetView() {
       ) : null}
       {lines.length > 0 ? (
         <>
-          <section className="panel p-5">
-            <p className="text-sm text-muted">Planned each pay</p>
-            <p className="mt-1 font-display text-5xl leading-none tabular-nums">{formatGBP(planned)}</p>
-            {pay.takeHomePence > 0 ? (
-              <p className="mt-2 text-sm text-muted">
-                {planned <= pay.takeHomePence
-                  ? `${formatGBP(pay.takeHomePence - planned)} of your take-home is not planned.`
-                  : `${formatGBP(planned - pay.takeHomePence)} more than your take-home.`}
-              </p>
-            ) : null}
-          </section>
-          <ul className="panel mt-4 divide-y divide-line">
+          <ul className="rows">
             {lines.map((line) => {
               const progress = lineProgress(line, rows, pay.span);
               const share = line.amountPence > 0 ? Math.min(1, progress.spentPence / line.amountPence) : 0;
               return (
                 <li key={line.id} className="px-4 py-3">
                   <div className="flex items-baseline justify-between gap-3">
-                    <span className="min-w-0 truncate font-medium">
-                      {lineName(line)}
-                      {line.neverCut ? <span className="ml-2 rounded-full bg-mist px-2 py-0.5 text-xs text-forest-deep">never cut</span> : null}
+                    <span className="min-w-0 truncate text-[0.9375rem] font-bold">{lineName(line)}</span>
+                    <span className="flex shrink-0 items-center gap-2">
+                      {line.neverCut ? <span className="badge">Never cut</span> : null}
+                      <span className="text-[0.9375rem] font-extrabold tabular-nums">{formatGBP(line.amountPence)}</span>
                     </span>
-                    <span className="shrink-0 tabular-nums">{formatGBP(line.amountPence)}</span>
                   </div>
                   {line.category ? (
                     <>
-                      <div className="mt-2 h-2 overflow-hidden rounded-full bg-sand" aria-hidden="true">
-                        <div className={progress.over ? "h-full bg-clay" : "h-full bg-forest"} style={{ width: `${Math.max(2, share * 100)}%` }} />
+                      <div className="track mt-2 h-1.5" aria-hidden="true">
+                        <span className={progress.over ? "bg-clay" : ""} style={{ width: `${Math.max(2, share * 100)}%`, ...(progress.over ? { background: "var(--color-clay)" } : {}) }} />
                       </div>
                       <p className={`mt-1 text-sm ${progress.over ? "text-clay" : "text-muted"}`}>
                         {progress.over
@@ -220,6 +209,22 @@ export function BudgetView() {
               );
             })}
           </ul>
+          <section className="panel mt-4 flex flex-col gap-1.5 p-4" aria-label="Totals">
+            <div className="flex items-baseline justify-between gap-3">
+              <span className="text-[0.9375rem] font-bold">Planned</span>
+              <span className="text-[0.9375rem] font-extrabold tabular-nums">
+                {formatGBP(planned)}
+                {pay.takeHomePence > 0 ? ` of ${formatGBP(pay.takeHomePence)}` : ""}
+              </span>
+            </div>
+            {pay.takeHomePence > 0 ? (
+              <span className={`text-[0.8125rem] ${planned > pay.takeHomePence ? "font-semibold text-clay" : "text-muted"}`}>
+                {planned <= pay.takeHomePence
+                  ? `${formatGBP(pay.takeHomePence - planned)} not planned yet. Put some into savings?`
+                  : `${formatGBP(planned - pay.takeHomePence)} more than your take-home.`}
+              </span>
+            ) : null}
+          </section>
           <button type="button" className="btn btn-quiet mt-4 w-full" onClick={() => setDraft(toDraft(lines))}>
             Change the budget
           </button>

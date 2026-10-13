@@ -2,7 +2,8 @@ import { useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 import { markLocationAsked } from "@/server/money";
 import { savePhonePlace } from "@/server/ledger";
-import { errorText, Mark } from "./ui";
+import { Check, MapPin } from "lucide-react";
+import { errorText } from "./ui";
 
 /**
  * Asked once, right after the first sign-in: may Pence use this phone's
@@ -49,28 +50,36 @@ export function LocationStep({ city }: { city: string }) {
   }
 
   return (
-    <main className="min-h-dvh bg-paper px-4 py-10 text-ink">
-      <div className="mx-auto flex w-full max-w-md flex-col gap-5">
-        <Mark />
-        <div>
-          <p className="text-xs tracking-[0.16em] text-muted uppercase">One more thing</p>
-          <h1 className="mt-1 font-display text-4xl">Deals near you first</h1>
-          <p className="mt-2 text-sm text-muted">
+    <main className="min-h-dvh bg-paper px-5 pt-[max(2rem,env(safe-area-inset-top))] pb-10 text-ink">
+      <div className="mx-auto flex w-full max-w-[560px] flex-col gap-5">
+        <span className="text-[0.8125rem] font-bold text-forest">Step 2 of 2</span>
+        <span className="grid size-[84px] place-items-center rounded-full bg-mist" aria-hidden="true">
+          <MapPin className="size-9 text-forest" strokeWidth={1.9} />
+        </span>
+        <div className="flex flex-col gap-2">
+          <h1 className="page-title">Deals near you first</h1>
+          <p className="text-base leading-[1.5] text-muted">
             Pence uses this phone’s location to put nearby shops and deals at the top. National deals still show underneath.
           </p>
         </div>
-        <ul className="space-y-2 text-sm">
-          <li>Precise location finds shops on your street.</li>
-          <li>Change it or turn it off any time in Settings.</li>
+        <ul className="flex flex-col gap-2.5">
+          {["Precise location finds shops on your street.", "Change it or turn it off any time in Settings."].map((line) => (
+            <li key={line} className="flex items-center gap-2.5 text-[0.9375rem] font-bold">
+              <Check className="size-[18px] shrink-0 text-forest" strokeWidth={2.4} aria-hidden="true" />
+              {line}
+            </li>
+          ))}
         </ul>
         {error ? <p className="text-sm text-clay">{error}</p> : null}
-        <button type="button" className="btn btn-primary" disabled={busy} onClick={() => void allow()}>
-          {busy ? "Finding you…" : "Allow location"}
-        </button>
-        <button type="button" className="btn btn-quiet" disabled={busy} onClick={() => void skip()}>
-          {city ? `Not now, use ${city}` : "Not now"}
-        </button>
-        <p className="text-center text-sm text-muted">Your phone asks next.</p>
+        <div className="mt-4 flex flex-col gap-2.5">
+          <button type="button" className="btn btn-primary" disabled={busy} onClick={() => void allow()}>
+            {busy ? "Finding you…" : "Allow location"}
+          </button>
+          <button type="button" className="btn btn-quiet" disabled={busy} onClick={() => void skip()}>
+            {city ? `Not now, use ${city}` : "Not now"}
+          </button>
+          <p className="text-center text-[0.8125rem] text-muted">Your phone asks next.</p>
+        </div>
       </div>
     </main>
   );

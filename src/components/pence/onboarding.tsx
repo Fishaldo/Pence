@@ -2,7 +2,7 @@ import { useState } from "react";
 import { saveProfile } from "@/server/ledger";
 import { poundsToPence } from "@/lib/spend/model";
 import { useRefreshLedger } from "./data";
-import { errorText, Mark } from "./ui";
+import { errorText } from "./ui";
 
 export function Onboarding({ defaultName }: { defaultName: string }) {
   const refresh = useRefreshLedger();
@@ -40,33 +40,43 @@ export function Onboarding({ defaultName }: { defaultName: string }) {
   }
 
   return (
-    <main className="min-h-dvh bg-paper px-4 py-10 text-ink">
-      <form onSubmit={submit} className="mx-auto flex w-full max-w-md flex-col gap-5">
-        <Mark />
-        <div>
-          <p className="text-xs tracking-[0.16em] text-muted uppercase">Your account</p>
-          <h1 className="mt-1 font-display text-4xl">What lands in your account?</h1>
-          <p className="mt-2 text-sm text-muted">
-            Pence uses your take-home pay to show what share goes to groceries, rides, and the rest. It stays with your account.
-          </p>
+    <main className="min-h-dvh bg-paper px-5 pt-[max(2rem,env(safe-area-inset-top))] pb-10 text-ink">
+      <form onSubmit={submit} className="mx-auto flex w-full max-w-[560px] flex-col gap-5">
+        <span className="text-[0.8125rem] font-bold text-forest">Step 1 of 2</span>
+        <div className="-mt-3 flex flex-col gap-1.5">
+          <h1 className="page-title">A little about you</h1>
+          <p className="text-sm leading-[1.45] text-muted">So Pence can set your pay period. You can change this later.</p>
         </div>
         <label className="field">
-          <span className="field-label">Your name</span>
-          <input className="control" value={name} onChange={(e) => setName(e.target.value)} autoComplete="name" required />
+          <span className="field-label">First name</span>
+          <input className="control" value={name} onChange={(e) => setName(e.target.value)} autoComplete="given-name" required />
         </label>
         <label className="field">
-          <span className="field-label">Monthly take-home (£)</span>
+          <span className="field-label">Monthly take-home pay</span>
           <input
             className="control tabular-nums"
             inputMode="decimal"
-            placeholder="2400"
+            placeholder="£2,400"
             value={income}
             onChange={(e) => setIncome(e.target.value)}
             required
           />
+          <span className="mt-1.5 block text-[0.8125rem] text-muted">After tax. Pence asks you to confirm it each payday.</span>
         </label>
         <label className="field">
-          <span className="field-label">City, so tips can be local</span>
+          <span className="field-label">Payday, day of the month</span>
+          <select className="control" value={payday} onChange={(e) => setPayday(e.target.value)}>
+            <option value="">No fixed payday</option>
+            {Array.from({ length: 31 }, (_, i) => i + 1).map((day) => (
+              <option key={day} value={day}>
+                {day}
+              </option>
+            ))}
+          </select>
+          <span className="mt-1.5 block text-[0.8125rem] text-muted">No fixed payday? Leave it and Pence uses calendar months.</span>
+        </label>
+        <label className="field">
+          <span className="field-label">Home town</span>
           <input
             className="control"
             placeholder="Newcastle upon Tyne"
@@ -75,20 +85,13 @@ export function Onboarding({ defaultName }: { defaultName: string }) {
             autoComplete="address-level2"
           />
         </label>
-        <label className="field">
-          <span className="field-label">Payday (optional)</span>
-          <select className="control" value={payday} onChange={(e) => setPayday(e.target.value)}>
-            <option value="">Not sure</option>
-            {Array.from({ length: 31 }, (_, i) => i + 1).map((day) => (
-              <option key={day} value={day}>
-                {day}
-              </option>
-            ))}
-          </select>
-        </label>
+        <div className="field">
+          <span className="field-label">Country</span>
+          <span className="chip chip-on self-start">United Kingdom</span>
+        </div>
         {error ? <p className="text-sm text-clay">{error}</p> : null}
-        <button className="btn btn-primary" type="submit" disabled={busy}>
-          {busy ? "Saving…" : "Start tracking"}
+        <button className="btn btn-primary mt-2" type="submit" disabled={busy}>
+          {busy ? "Saving…" : "Continue"}
         </button>
       </form>
     </main>

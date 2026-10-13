@@ -2,6 +2,7 @@ import { createFileRoute, Navigate } from "@tanstack/react-router";
 import { useState } from "react";
 import { authClient, GROK_PROVIDERS, signIn } from "@/lib/auth/client";
 import { useCurrentUserState } from "@/lib/auth/use-current-user";
+import { Check } from "lucide-react";
 import { BootScreen, Mark } from "@/components/pence/ui";
 
 export const Route = createFileRoute("/login")({
@@ -66,16 +67,36 @@ function LoginPage() {
   }
 
   return (
-    <main className="min-h-dvh bg-paper px-4 py-10 text-ink">
-      <div className="mx-auto w-full max-w-md">
-        <Mark />
-        <p className="mt-6 text-xs tracking-[0.16em] text-muted uppercase">Pence</p>
-        <h1 className="mt-1 font-display text-4xl">
-          {mode === "create" ? "Create your account" : "Welcome back"}
+    <main className="min-h-dvh bg-paper px-5 pt-[max(2.5rem,env(safe-area-inset-top))] pb-10 text-ink">
+      <div className="mx-auto w-full max-w-[560px]">
+        <div className="flex items-center gap-2.5">
+          <Mark />
+          <span className="text-xl font-extrabold">Pence</span>
+        </div>
+        <h1 className="mt-8 text-[2.125rem] leading-[1.15] font-extrabold tracking-[-0.02em]">
+          {mode === "create" ? "See where your pay goes." : "Welcome back"}
         </h1>
-        <p className="mt-2 text-sm text-muted">
-          Next you’ll add your monthly take-home, so every category can be shown as a share of pay.
+        <p className="mt-2.5 text-base leading-[1.5] text-muted">
+          {mode === "create"
+            ? "Pence tracks your spending with almost no typing, then finds real deals before your next spend."
+            : "Sign in to see this pay so far."}
         </p>
+        {mode === "create" ? (
+          <ul className="mt-5 flex flex-col gap-3">
+            {[
+              "Receipts, statements, alerts or your voice",
+              "What is safe to spend until payday",
+              "Real UK deals for the shops you use, local first",
+            ].map((point) => (
+              <li key={point} className="flex items-center gap-3 text-[0.9375rem] font-bold">
+                <span className="grid size-7 shrink-0 place-items-center rounded-full bg-mist" aria-hidden="true">
+                  <Check className="size-4 text-forest" strokeWidth={2.4} />
+                </span>
+                {point}
+              </li>
+            ))}
+          </ul>
+        ) : null}
         <form onSubmit={submit} className="mt-6 flex flex-col gap-3">
           {mode === "create" ? (
             <label className="field">
@@ -112,7 +133,7 @@ function LoginPage() {
         </form>
         <button
           type="button"
-          className="mt-3 text-sm font-medium text-forest"
+          className="link mt-2 w-full justify-center"
           onClick={() => {
             setMode(mode === "create" ? "enter" : "create");
             setError("");

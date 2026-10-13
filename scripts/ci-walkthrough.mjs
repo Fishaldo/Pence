@@ -64,7 +64,7 @@ const email = `ci-${Date.now()}@example.com`;
 
 await step("open the app", async () => {
   await page.goto(`${base}/`, { waitUntil: "domcontentloaded" });
-  await page.getByText("Create your account").waitFor();
+  await page.getByRole("button", { name: "Create account" }).waitFor();
   await shot("01-login");
 });
 
@@ -73,35 +73,35 @@ await step("create an account", async () => {
   await page.getByLabel("Email").fill(email);
   await page.getByLabel("Password").fill("pence-check-123");
   await page.getByRole("button", { name: "Create account" }).click();
-  await page.getByText("What lands in your account?").waitFor({ timeout: 45_000 });
+  await page.getByText("A little about you").waitFor({ timeout: 45_000 });
   await shot("02-first-run");
 });
 
 await step("fill in pay and town", async () => {
-  await page.getByLabel("Monthly take-home (£)").fill("2400");
-  await page.getByLabel("City, so tips can be local").fill("Birmingham");
-  await page.getByLabel("Payday (optional)").selectOption("25");
-  await page.getByRole("button", { name: "Start tracking" }).click();
+  await page.getByLabel("Monthly take-home pay").fill("2400");
+  await page.getByLabel("Home town").fill("Birmingham");
+  await page.getByLabel("Payday, day of the month").selectOption("25");
+  await page.getByRole("button", { name: "Continue" }).click();
   await page.getByText("Deals near you first").waitFor({ timeout: 45_000 });
   await shot("03a-location-once");
   await page.getByRole("button", { name: /^Not now/ }).click();
-  await page.getByText("Spent so far").waitFor({ timeout: 45_000 });
+  await page.getByText("Add your first spends").waitFor({ timeout: 45_000 });
   await shot("03-home-empty");
 });
 
 await step("load the sample month", async () => {
-  await page.getByRole("button", { name: "Try a sample month" }).click();
-  await page.getByText("Activity", { exact: true }).waitFor({ timeout: 45_000 });
+  await page.getByRole("button", { name: "Show a sample month" }).click();
+  await page.getByRole("heading", { name: "Latest", exact: true }).waitFor({ timeout: 45_000 });
   await settle(6000);
   await shot("04-home-sample");
 });
 
 await step("open Offers", async () => {
   await page.goto(`${base}/offers`, { waitUntil: "domcontentloaded" });
-  await page.getByRole("heading", { name: "For you", exact: true }).waitFor();
+  await page.getByRole("heading", { name: "Offers", exact: true }).waitFor();
   await settle(15_000);
   await shot("05-offers");
-  const knows = page.getByRole("button", { name: "What Pence knows" });
+  const knows = page.getByRole("button", { name: "Your shops", exact: true });
   if (await knows.count()) {
     await knows.click();
     await shot("06-offers-what-pence-knows");
@@ -111,14 +111,14 @@ await step("open Offers", async () => {
 
 await step("Plan: place picker", async () => {
   await page.goto(`${base}/plan`, { waitUntil: "domcontentloaded" });
-  await page.getByRole("heading", { name: "Before you spend" }).waitFor();
-  const where = page.getByLabel("Saved place");
+  await page.getByRole("heading", { name: "Plan a spend" }).waitFor();
+  const where = page.getByLabel(/^Where/);
   await where.waitFor();
   const options = await where.locator("option").allInnerTexts();
   if (await page.getByLabel("Country").count()) throw new Error("Country shows before Type a place is picked");
   await where.selectOption("manual");
   await page.getByLabel("Country").waitFor();
-  await page.getByLabel("Town or city").waitFor();
+  await page.getByLabel("Town", { exact: true }).waitFor();
   await shot("07-plan-type-a-place");
   return options.join(" | ");
 });
@@ -130,8 +130,8 @@ await step("Plan: Watchlist needs an item or a shop", async () => {
 });
 
 await step("Plan: add an item to the Watchlist", async () => {
-  await page.getByLabel("Item, if you have one").fill("iPhone 17 Pro 256GB");
-  await page.getByLabel("Budget (£), if you have one").fill("800");
+  await page.getByLabel(/^Item/).fill("iPhone 17 Pro 256GB");
+  await page.getByLabel(/^Budget/).fill("800");
   await page.getByRole("button", { name: "Add to Watchlist" }).first().click();
   await page.getByText("Added to your Watchlist").waitFor();
   await shot("08-plan-added");
@@ -139,7 +139,7 @@ await step("Plan: add an item to the Watchlist", async () => {
 
 await step("Plan: add a shop to the Watchlist", async () => {
   await page.goto(`${base}/plan`, { waitUntil: "domcontentloaded" });
-  await page.getByLabel("Shop or place, if you have one").fill("ASDA");
+  await page.getByLabel(/^Shop/).fill("ASDA");
   await page.getByRole("button", { name: "Add to Watchlist" }).first().click();
   await page.getByText("Added to your Watchlist").waitFor();
 });
@@ -173,8 +173,10 @@ await step("Watchlist: reopen every offer seen", async () => {
 await step("Offers: cheaper elsewhere under your own shops", async () => {
   await page.goto(`${base}/offers`, { waitUntil: "domcontentloaded" });
   await settle(6000);
-  const away = await page.getByRole("heading", { name: "Could cost less elsewhere" }).count();
-  return away > 0 ? `${away} groups show cheaper places` : "no cheaper places found right now";
+  await page.getByRole("button", { name: "Cheaper elsewhere", exact: true }).click();
+  await settle(1000);
+  const away = await page.locator("main li").count();
+  return away > 0 ? `${away} cheaper places shown` : "no cheaper places found right now";
 });
 
 await step("Activity: rename a payee for every payment like it", async () => {
@@ -244,15 +246,15 @@ await step("Regular payments: mark one as cancelled", async () => {
 
 await step("Home: payments coming out soon", async () => {
   await page.goto(`${base}/`, { waitUntil: "domcontentloaded" });
-  await page.getByRole("heading", { name: "Coming out soon" }).waitFor();
-  const card = page.locator("section").filter({ has: page.getByRole("heading", { name: "Coming out soon" }) });
+  await page.getByRole("heading", { name: /^Coming up before/ }).waitFor();
+  const card = page.locator("section[aria-label='Coming up']");
   await card.getByText("Audible trial").waitFor();
   await card.screenshot({ path: join(out, "18-home-coming-out.png") });
 });
 
 await step("open Hot deals", async () => {
   await page.goto(`${base}/hot`, { waitUntil: "domcontentloaded" });
-  await page.getByRole("heading", { name: "Hot deals", exact: true }).waitFor();
+  await page.getByRole("heading", { name: "Popular now in the UK", exact: true }).waitFor();
   await settle(8000);
   await shot("12-hot");
   return (await page.locator("main").innerText()).slice(0, 600);
@@ -266,7 +268,7 @@ await step("open Insights", async () => {
 
 await step("Home: safe to spend and one-tap questions", async () => {
   await page.goto(`${base}/`, { waitUntil: "domcontentloaded" });
-  await page.getByText(/^(Safe to spend|Over) until/).first().waitFor();
+  await page.getByText(/^(Safe to spend|Over your take-home) until/).first().waitFor();
   await settle(2500);
   await shot("19-home-safe-to-spend");
   const tap = page.locator("section[aria-label='Needs a tap'] li").first();
@@ -299,12 +301,12 @@ await step("Bills: list, price rises and a better deal", async () => {
 
 await step("Budget: made from past pays", async () => {
   await page.goto(`${base}/budget`, { waitUntil: "domcontentloaded" });
-  await page.getByRole("heading", { name: "Budget", exact: true }).waitFor();
+  await page.getByRole("heading", { name: "Your budget for this pay", exact: true }).waitFor();
   await page.getByRole("button", { name: "Make my budget" }).click();
   await page.getByRole("button", { name: "Save budget" }).waitFor();
   await shot("22-budget-draft");
   await page.getByRole("button", { name: "Save budget" }).click();
-  await page.getByText("Planned each pay").waitFor();
+  await page.getByText("Planned", { exact: true }).waitFor();
   await settle(1000);
   await shot("23-budget");
 });
@@ -331,9 +333,9 @@ await step("Activity: search with totals by period", async () => {
 
 await step("Plan: quick questions for eating out", async () => {
   await page.goto(`${base}/plan`, { waitUntil: "domcontentloaded" });
-  await page.getByRole("heading", { name: "Before you spend" }).waitFor();
+  await page.getByRole("heading", { name: "Plan a spend" }).waitFor();
   await page.locator("form .field button.control").first().click();
-  await page.getByRole("button", { name: "Dining", exact: true }).click();
+  await page.getByRole("radio", { name: "Dining", exact: true }).click();
   await page.getByText("Who's going?").waitFor();
   await page.getByRole("button", { name: "Family", exact: true }).click();
   await page.getByRole("button", { name: "Dinner", exact: true }).click();
@@ -343,6 +345,8 @@ await step("Plan: quick questions for eating out", async () => {
 
 await step("Add: paste a payment message", async () => {
   await page.goto(`${base}/capture`, { waitUntil: "domcontentloaded" });
+  await page.getByRole("heading", { name: "Add a spend" }).waitFor();
+  await shot("27a-add");
   await page.getByRole("button", { name: "Paste a payment message" }).click();
   await page.getByPlaceholder("Google Pay · You paid £14.80 to Uber").waitFor();
   await shot("27-add-paste");
@@ -371,7 +375,7 @@ await step("open Activity", async () => {
 await step("home on a computer screen", async () => {
   await page.setViewportSize({ width: 1280, height: 900 });
   await page.goto(`${base}/`, { waitUntil: "domcontentloaded" });
-  await page.getByText("Spent so far").waitFor();
+  await page.getByRole("heading", { name: "Latest", exact: true }).waitFor();
   await settle(4000);
   await shot("15-home-desktop");
   await page.setViewportSize({ width: 390, height: 844 });

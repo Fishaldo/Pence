@@ -1,3 +1,4 @@
+import { Link } from "@tanstack/react-router";
 import { useNavigate } from "@tanstack/react-router";
 import { useRef, useState } from "react";
 import { toast } from "sonner";
@@ -100,21 +101,31 @@ export function BankView() {
 
   return (
     <div>
-      <PageHead kicker="Bank" title="From your bank" />
+      <PageHead
+        back="/capture"
+        title="Upload a bank statement"
+        sub="Pence reads the payments going out. It can never move money, and never sees your bank password."
+      />
       {moneyIn.length > 0 ? (
         <div className="mb-4">
           <PaySpotted rows={moneyIn} usualPence={profile.data?.monthlyIncomePence ?? 0} />
         </div>
       ) : null}
-      <p className="mb-4 text-sm text-muted">
-        New payments can only arrive on their own through Open Banking: you approve Pence inside your bank’s own app. This app does not have that connection, and it will not ask for your bank password.
-      </p>
-      <p className="mb-4 text-sm text-muted">
-        Google Pay and Apple Pay do not have a feed a website can read. Those taps show up on the bank statement. PayPal is separate: export its activity as a CSV. Muting notifications does not matter here, because Pence is not listening to them.
-      </p>
-      <p className="mb-4 text-sm text-muted">
-        Until a bank connection exists, one export covers the month. Upload a CSV from Monzo, Starling, Lloyds, Barclays, HSBC, or PayPal, or paste the lines. Gym, rent, and online shops come in without a receipt. Money in is left out. Anything unclear stays as Other.
-      </p>
+      <section className="panel mb-4 flex flex-col gap-2.5 p-[1.125rem]" aria-label="How it works">
+        <span className="text-base font-extrabold">From your banking app</span>
+        <ol className="flex list-decimal flex-col gap-1.5 pl-5 text-sm leading-[1.45] text-ink-soft">
+          <li>Export your statement as a CSV: Monzo, Starling, Lloyds, Barclays, HSBC, PayPal and most others can.</li>
+          <li>Upload it here, or paste the lines.</li>
+          <li>Check the categories, then file them.</li>
+        </ol>
+        <span className="text-[0.8125rem] text-muted">
+          A PDF or a screenshot instead? Use{" "}
+          <Link to="/capture" className="font-bold text-forest">
+            Photos, screenshots or PDF
+          </Link>{" "}
+          on Add.
+        </span>
+      </section>
       <input
         ref={fileRef}
         className="sr-only"
@@ -131,7 +142,7 @@ export function BankView() {
           Upload a bank CSV
         </button>
         <textarea
-          className="min-h-28 w-full rounded-md border border-line bg-card p-3 text-base"
+          className="control min-h-28 py-3"
           placeholder={"01/10/2026, Tesco, -42.16\nor paste a CSV"}
           value={text}
           onChange={(event) => readText(event.target.value)}
@@ -147,11 +158,11 @@ export function BankView() {
           <p className="mb-2 text-sm text-muted">
             {rows.length} outgoing spend{rows.length === 1 ? "" : "s"}. Change a category if it’s wrong, or leave Other.
           </p>
-          <ul className="panel divide-y divide-line">
+          <ul className="rows">
             {rows.map((row, index) => (
               <li key={`${row.spentOn}-${row.merchant}-${row.amountPence}-${index}`} className="flex flex-col gap-2 px-4 py-3 sm:flex-row sm:items-center">
                 <span className="min-w-0 flex-1">
-                  <span className="block truncate font-medium">{row.merchant}</span>
+                  <span className="block truncate font-bold">{row.merchant}</span>
                   <span className="text-sm text-muted">{row.spentOn}</span>
                 </span>
                 <span className="tabular-nums sm:w-24 sm:text-right">{formatGBP(row.amountPence)}</span>
@@ -179,6 +190,17 @@ export function BankView() {
         </div>
       ) : null}
       {error ? <p className="mt-3 text-sm text-clay">{error}</p> : null}
+      <section className="mt-6 flex flex-col gap-2 rounded-[1.25rem] bg-mist p-[1.125rem]" aria-label="What Pence reads">
+        <h2 className="section-title">What Pence reads</h2>
+        <ul className="flex list-disc flex-col gap-1 pl-5 text-sm leading-[1.45] text-ink-soft">
+          <li>Shop, amount and date of each payment going out.</li>
+          <li>Money coming in is left out. If it looks like your pay, Pence asks first.</li>
+          <li>Never your account number, sort code or password.</li>
+        </ul>
+        <span className="text-[0.8125rem] text-ink-soft">
+          Pence has no live bank connection. Google Pay and Apple Pay taps show up on your bank statement.
+        </span>
+      </section>
     </div>
   );
 }

@@ -1,4 +1,5 @@
 import { Link } from "@tanstack/react-router";
+import { Check, ChevronDown } from "lucide-react";
 import { useQueryClient } from "@tanstack/react-query";
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
@@ -334,43 +335,74 @@ export function PlanView() {
       text: `${deal.title} ${deal.source}`,
     })),
   ];
-  if (near.length > 0) {
-    listed.sort((a, b) => Number(mentionsPlace(b.text, near)) - Number(mentionsPlace(a.text, near)));
-  }
+
+  const nearRows = near.length > 0 ? listed.filter((row) => mentionsPlace(row.text, near)) : [];
+  const ukRows = listed.filter((row) => !nearRows.includes(row));
+  const shownNear = nearRows.slice(0, hotShown);
+  const shownUk = ukRows.slice(0, Math.max(0, hotShown - shownNear.length));
+
+  const dealItem = (row: (typeof listed)[number]) => {
+    const shop = row.merchant || row.source;
+    return (
+      <li key={row.key} className="flex flex-col gap-1.5 px-4 py-3.5">
+        {shop ? <span className="text-[0.8125rem] font-semibold text-muted">{shop}</span> : null}
+        <span className="text-[0.9375rem] leading-snug font-extrabold">{row.title}</span>
+        {row.detail ? <span className="text-sm text-ink-soft">{row.detail}</span> : null}
+        <DealAction deal={row} />
+      </li>
+    );
+  };
 
   return (
     <div>
-      <PageHead kicker="Plan" title="Before you spend" />
-      <form onSubmit={(event) => void search(event)} className="flex flex-col gap-4">
+      <PageHead title="Plan a spend" sub="Before you buy: deals near you first, then across the UK." />
+      <form onSubmit={(event) => void search(event)} className="flex flex-col gap-4" aria-label="What are you planning">
         <div className="field">
-          <span className="field-label">What</span>
-          <button type="button" className="control text-left" onClick={openWhat}>
-            {whatLabel}
+          <span className="field-label" id="what-label">
+            What
+          </span>
+          <button
+            type="button"
+            className="control flex items-center justify-between gap-3 text-left font-bold"
+            aria-labelledby="what-label what-value"
+            aria-haspopup="dialog"
+            onClick={openWhat}
+          >
+            <span id="what-value">{whatLabel}</span>
+            <ChevronDown className="size-5 text-muted" strokeWidth={2} aria-hidden="true" />
           </button>
         </div>
         {questions.map((question) => (
-          <fieldset key={question.id} className="field">
-            <legend className="field-label">{question.label}</legend>
-            <div className="mt-1 flex flex-wrap gap-2">
-              {question.choices.map((choice) => {
-                const on = answers[question.id] === choice.label;
-                return (
-                  <button
-                    key={choice.label}
-                    type="button"
-                    aria-pressed={on}
-                    className={`min-h-11 rounded-full px-4 text-sm font-medium ${on ? "bg-forest text-foam" : "border border-line bg-card text-ink"}`}
-                    onClick={() => answer(question.id, choice.label)}
-                  >
-                    {choice.label}
-                  </button>
-                );
-              })}
+          <fieldset key={question.id} className="flex flex-col gap-2">
+            <legend className="mb-2 text-[0.9375rem] font-extrabold">{question.label}</legend>
+            <div className="flex flex-wrap gap-2">
+              {question.choices.map((choice) => (
+                <button
+                  key={choice.label}
+                  type="button"
+                  aria-pressed={answers[question.id] === choice.label}
+                  className="chip"
+                  onClick={() => answer(question.id, choice.label)}
+                >
+                  {choice.label}
+                </button>
+              ))}
             </div>
           </fieldset>
         ))}
         <label className="field">
-          <span className="field-label">Saved place</span>
+          <span className="field-label">
+            Item <span className="font-normal text-muted">(optional)</span>
+          </span>
+          <input
+            className="control"
+            value={items}
+            placeholder="Latest iPhone"
+            onChange={(event) => setItems(event.target.value)}
+          />
+        </label>
+        <label className="field">
+          <span className="field-label">Where</span>
           <select
             className="control"
             value={locating ? "phone-now" : choice}
@@ -389,13 +421,13 @@ export function PlanView() {
           </select>
         </label>
         {manual ? (
-          <>
+          <div className="grid grid-cols-2 gap-3">
             <label className="field">
               <span className="field-label">Country</span>
               <input className="control" value={country} placeholder="China" onChange={(event) => setCountry(event.target.value)} />
             </label>
             <label className="field">
-              <span className="field-label">Town or city</span>
+              <span className="field-label">Town</span>
               <input
                 className="control"
                 placeholder={trip ? "Beijing" : "Liverpool"}
@@ -403,120 +435,132 @@ export function PlanView() {
                 onChange={(event) => setCity(event.target.value)}
               />
             </label>
-          </>
+          </div>
         ) : null}
+        <div className="grid grid-cols-2 gap-3">
+          <label className="field">
+            <span className="field-label">
+              When <span className="font-normal text-muted">(optional)</span>
+            </span>
+            <input className="control" type="date" value={when} onChange={(event) => setWhen(event.target.value)} />
+          </label>
+          <label className="field">
+            <span className="field-label">
+              Budget <span className="font-normal text-muted">(optional)</span>
+            </span>
+            <input
+              className="control tabular-nums"
+              inputMode="decimal"
+              placeholder={trip ? "£400" : "£20"}
+              value={budget}
+              onChange={(event) => setBudget(event.target.value)}
+            />
+          </label>
+        </div>
         <label className="field">
-          <span className="field-label">Item, if you have one</span>
-          <input
-            className="control"
-            value={items}
-            placeholder="Latest iPhone"
-            onChange={(event) => setItems(event.target.value)}
-          />
-        </label>
-        <label className="field">
-          <span className="field-label">Shop or place, if you have one</span>
+          <span className="field-label">
+            Shop <span className="font-normal text-muted">(optional)</span>
+          </span>
           <input
             className="control"
             value={place}
-            placeholder={trip ? "Optional" : "ASDA, a restaurant, a gym"}
+            placeholder={trip ? "Any" : "Any shop"}
             onChange={(event) => setPlace(event.target.value)}
-          />
-        </label>
-        <label className="field">
-          <span className="field-label">Date, if you have one</span>
-          <input className="control" type="date" value={when} onChange={(event) => setWhen(event.target.value)} />
-        </label>
-        <label className="field">
-          <span className="field-label">Budget (£), if you have one</span>
-          <input
-            className="control tabular-nums"
-            inputMode="decimal"
-            placeholder={trip ? "400" : "20"}
-            value={budget}
-            onChange={(event) => setBudget(event.target.value)}
           />
         </label>
         {error ? <p className="text-sm text-clay">{error}</p> : null}
         <button className="btn btn-primary" type="submit" disabled={busy}>
-          {busy ? "Looking up offers…" : "Find offers"}
+          {busy ? "Looking up deals…" : "Find deals"}
         </button>
         <button type="button" className="btn btn-quiet" disabled={watching} onClick={() => void addToWatchlist()}>
           {watching ? "Adding…" : "Add to Watchlist"}
         </button>
-        <p className="-mt-2 text-sm text-muted">
-          Watchlist: Pence keeps looking every day and tells you when an offer turns up. Needs an item, or a shop or place.
+        <p className="-mt-2 text-[0.8125rem] text-muted">
+          Watchlist: Pence keeps looking every day and tells you when an offer turns up. Needs an item, or a shop.
         </p>
       </form>
       {watched ? (
-        <section className="panel mt-6 border-forest p-4" aria-live="polite">
-          <p className="font-medium">{watched.existing ? "Already on your Watchlist" : "Added to your Watchlist"}</p>
-          <p className="mt-1 text-sm">{watched.label}</p>
-          <p className="mt-1 text-sm text-muted">Pence is looking now, then every day. Offers it finds show in Offers.</p>
-          <Link to="/offers" hash="watchlist" className="mt-2 inline-flex min-h-11 items-center text-sm font-medium text-forest">
+        <section className="panel mt-6 flex flex-col gap-1 border-forest p-4" aria-live="polite">
+          <p className="font-extrabold">{watched.existing ? "Already on your Watchlist" : "Added to your Watchlist"}</p>
+          <p className="text-sm">{watched.label}</p>
+          <p className="text-sm text-muted">Pence is looking now, then every day. Offers it finds show in Offers.</p>
+          <Link to="/offers" hash="watchlist" className="link self-start">
             See your Watchlist
           </Link>
         </section>
       ) : null}
       {listed.length > 0 ? (
-        <section className="mt-6">
-          <ul className="space-y-3">
-            {listed.slice(0, hotShown).map((row) => (
-              <li key={row.key} className="panel p-4">
-                {row.source ? <p className="text-sm text-muted">{row.source}</p> : null}
-                <p className={row.source ? "mt-1 font-medium" : "font-medium"}>{row.title}</p>
-                {row.detail ? <p className="mt-1 text-sm">{row.detail}</p> : null}
-                <DealAction deal={row} />
-              </li>
-            ))}
-          </ul>
+        <section className="mt-6 flex flex-col gap-2.5" aria-label="Results">
+          <h2 className="section-title">Deals found</h2>
+          <div className="panel overflow-hidden">
+            {shownNear.length > 0 ? (
+              <>
+                <p className="bg-paper px-4 py-2 text-[0.6875rem] font-extrabold tracking-[0.08em] text-muted uppercase">
+                  Near {town}
+                </p>
+                <ul className="divide-y divide-line">{shownNear.map(dealItem)}</ul>
+              </>
+            ) : null}
+            {shownUk.length > 0 ? (
+              <>
+                <p className="bg-paper px-4 py-2 text-[0.6875rem] font-extrabold tracking-[0.08em] text-muted uppercase">
+                  Across the UK
+                </p>
+                <ul className="divide-y divide-line">{shownUk.map(dealItem)}</ul>
+              </>
+            ) : null}
+          </div>
           {listed.length > hotShown ? (
-            <button type="button" className="btn btn-quiet mt-4" onClick={() => setHotShown((count) => count + 15)}>
+            <button type="button" className="btn btn-quiet" onClick={() => setHotShown((count) => count + 15)}>
               More
             </button>
           ) : null}
-          {!busy && note ? <p className="mt-3 text-sm text-muted">{note}</p> : null}
+          {!busy && note ? <p className="text-[0.8125rem] text-muted">{note}</p> : null}
         </section>
       ) : null}
       {!busy && offers && listed.length === 0 ? <p className="panel mt-6 p-4 text-sm">{note}</p> : null}
       {offers && !busy && !watched ? (
-        <section className="panel mt-6 p-4">
-          <p className="font-medium">Not the price you want?</p>
-          <p className="mt-1 text-sm text-muted">
-            Add it to your Watchlist. Pence keeps looking and tells you when a better offer turns up.
-          </p>
-          <button type="button" className="btn btn-quiet mt-3" disabled={watching} onClick={() => void addToWatchlist()}>
+        <section className="panel mt-6 flex flex-col gap-1 p-4">
+          <p className="font-extrabold">Not the price you want?</p>
+          <p className="text-sm text-muted">Add it to your Watchlist. Pence keeps looking and tells you when a better offer turns up.</p>
+          <button type="button" className="btn btn-quiet mt-2" disabled={watching} onClick={() => void addToWatchlist()}>
             Add to Watchlist
           </button>
         </section>
       ) : null}
       {whatOpen ? (
-        <div className="fixed inset-0 z-40 flex items-end">
-          <button type="button" className="absolute inset-0 bg-ink/40" aria-label="Close" onClick={closeWhat} />
-          <div className="relative max-h-[70dvh] w-full overflow-y-auto rounded-t-2xl bg-card px-4 pt-4 pb-[max(1rem,env(safe-area-inset-bottom))]">
-            <p className="text-sm text-muted">What</p>
+        <div className="fixed inset-0 z-40 flex flex-col justify-end">
+          <button type="button" className="absolute inset-0 bg-[#6e7671]/80" aria-label="Close the list" onClick={closeWhat} />
+          <section
+            role="dialog"
+            aria-label="What are you planning?"
+            className="relative mx-auto flex max-h-[80dvh] w-full max-w-[560px] flex-col gap-3 overflow-y-auto rounded-t-3xl bg-card px-5 pt-3 pb-[max(1.75rem,env(safe-area-inset-bottom))]"
+          >
+            <span className="h-[5px] w-10 shrink-0 self-center rounded-full bg-line-strong" aria-hidden="true" />
+            <h2 className="text-xl font-extrabold">What are you planning?</h2>
             {GROUPS.map((group) => (
-              <div key={group.label} className="mt-3">
-                <p className="text-xs tracking-[0.14em] text-muted uppercase">{group.label}</p>
-                <ul className="mt-1">
-                  {group.kinds.map(([id, label]) => (
-                    <li key={id}>
-                      <button
-                        type="button"
-                        className="flex min-h-11 w-full items-center text-left text-sm"
-                        onClick={() => {
-                          setKind(id);
-                          closeWhat();
-                        }}
-                      >
-                        {label}
-                      </button>
-                    </li>
-                  ))}
-                </ul>
+              <div key={group.label} role="radiogroup" aria-label={group.label}>
+                <p className="mt-1 text-[0.6875rem] font-extrabold tracking-[0.08em] text-muted uppercase">{group.label}</p>
+                {group.kinds.map(([id, label]) => (
+                  <button
+                    key={id}
+                    type="button"
+                    role="radio"
+                    aria-checked={kind === id}
+                    className={`flex min-h-11 w-full items-center justify-between border-b border-rule text-left text-base ${kind === id ? "font-extrabold" : "font-semibold"}`}
+                    onClick={() => {
+                      setKind(id);
+                      closeWhat();
+                    }}
+                  >
+                    <span>{label}</span>
+                    {kind === id ? <Check className="size-[22px] text-forest" strokeWidth={2.4} aria-hidden="true" /> : null}
+                  </button>
+                ))}
               </div>
             ))}
-          </div>
+            <span className="text-[0.8125rem] text-muted">Tap outside or use your phone’s back button to close.</span>
+          </section>
         </div>
       ) : null}
     </div>

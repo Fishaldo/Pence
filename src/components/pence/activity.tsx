@@ -73,7 +73,7 @@ export function ActivityView() {
 
   return (
     <div>
-      <PageHead kicker="Ledger" title="Activity" />
+      <PageHead back="/" title="Activity" />
       <label className="mb-3 block">
         <span className="field-label">Search</span>
         <input
@@ -84,14 +84,14 @@ export function ActivityView() {
           onChange={(event) => setQuery(event.target.value)}
         />
       </label>
-      <div className="mb-3 flex gap-2 overflow-x-auto pb-1" role="group" aria-label="Period">
+      <div className="-mx-5 mb-3 flex gap-2 overflow-x-auto px-5 pb-1" role="group" aria-label="Period">
         {PERIODS.map((item) => (
           <Filter key={item.id} on={period === item.id} onClick={() => setPeriod(item.id)}>
             {item.label}
           </Filter>
         ))}
       </div>
-      <div className="mb-4 flex gap-2 overflow-x-auto pb-1">
+      <div className="-mx-5 mb-4 flex gap-2 overflow-x-auto px-5 pb-1" role="group" aria-label="Category">
         <Filter on={category === "all"} onClick={() => setCategory("all")}>
           All
         </Filter>
@@ -102,7 +102,7 @@ export function ActivityView() {
         ))}
       </div>
       <p className="panel mb-4 px-4 py-3" aria-live="polite">
-        <span className="block font-display text-3xl tabular-nums">{formatGBP(spentTotal)}</span>
+        <span className="block text-[1.75rem] font-extrabold tracking-[-0.02em] tabular-nums">{formatGBP(spentTotal)}</span>
         <span className="block text-sm text-muted">
           {spent.length} spend{spent.length === 1 ? "" : "s"}
           {query.trim() ? ` matching “${query.trim()}”` : ""}
@@ -117,18 +117,21 @@ export function ActivityView() {
         <div className="space-y-5">
           {groups.map((group) => (
             <section key={group.label}>
-              <h2 className="mb-2 text-sm text-muted">{group.label}</h2>
-              <ul className="panel divide-y divide-line">
+              <h2 className="mb-2 text-[0.8125rem] font-bold text-muted">{group.label}</h2>
+              <ul className="rows">
                 {group.items.map((tx) => (
                   <li key={tx.id}>
                     <button
                       type="button"
-                      className="flex w-full items-center justify-between gap-3 px-4 py-3 text-left"
+                      className="row w-full text-left"
                       onClick={() => setEditing(tx)}
                     >
-                      <span className="min-w-0">
-                        <span className="block truncate font-medium">{tx.merchant}</span>
-                        <span className="block text-sm text-muted">
+                      <span aria-hidden="true" className={countsAsSpending(tx.category) ? "initial" : "initial initial-blue"}>
+                        {(tx.merchant.trim().charAt(0) || "·").toUpperCase()}
+                      </span>
+                      <span className="min-w-0 flex-1">
+                        <span className="block truncate text-[0.9375rem] font-bold">{tx.merchant}</span>
+                        <span className="block truncate text-[0.8125rem] text-muted">
                           {categoryLabel(tx.category)}
                           {tx.items.length > 0 && !tx.hasReceipt ? ` · ${tx.items.length} item${tx.items.length === 1 ? "" : "s"}` : ""}
                           {tx.source === "wallet" && !tx.hasReceipt ? " · wallet, no receipt" : ""}
@@ -137,7 +140,9 @@ export function ActivityView() {
                           {tx.isSample ? " · sample" : ""}
                         </span>
                       </span>
-                      <span className="tabular-nums">{formatGBP(tx.amountPence)}</span>
+                      <span className={`shrink-0 text-[0.9375rem] font-extrabold tabular-nums ${countsAsSpending(tx.category) ? "" : "text-saved"}`}>
+                        {formatGBP(tx.amountPence)}
+                      </span>
                     </button>
                   </li>
                 ))}
@@ -165,7 +170,8 @@ function Filter({
     <button
       type="button"
       onClick={onClick}
-      className={`h-10 shrink-0 rounded-full px-3 text-sm ${on ? "bg-forest text-foam" : "border border-line bg-card text-ink"}`}
+      aria-pressed={on}
+      className="chip shrink-0"
     >
       {children}
     </button>
@@ -253,20 +259,28 @@ function SpendDialog({ tx, all, onClose }: { tx: Tx; all: Tx[]; onClose: () => v
   }
 
   return (
-    <div className="fixed inset-0 z-40 flex items-end justify-center bg-ink/40 p-3 md:items-center" role="presentation" onClick={onClose}>
+    <div className="fixed inset-0 z-40 flex items-end justify-center bg-[#6e7671]/80 md:items-center md:p-3" role="presentation" onClick={onClose}>
       <div
         role="dialog"
         aria-modal="true"
         aria-labelledby="spend-title"
-        className="panel max-h-[90dvh] w-full max-w-md overflow-y-auto p-5"
+        className="max-h-[90dvh] w-full max-w-[560px] overflow-y-auto rounded-t-3xl bg-card px-5 pt-5 pb-[max(1.5rem,env(safe-area-inset-bottom))] md:rounded-3xl"
         onClick={(event) => event.stopPropagation()}
       >
-        <h2 id="spend-title" className="font-display text-3xl">
-          Edit spend
-        </h2>
+        <div className="flex items-center gap-3">
+          <span aria-hidden="true" className="initial size-12 text-lg">{(tx.merchant.trim().charAt(0) || "·").toUpperCase()}</span>
+          <div className="min-w-0 flex-1">
+            <h2 id="spend-title" className="truncate text-xl font-extrabold">
+              {tx.merchant}
+            </h2>
+            <p className="text-[0.8125rem] text-muted">
+              {dayLabel(tx.spentOn)} · {formatGBP(tx.amountPence)}
+            </p>
+          </div>
+        </div>
         {printed ? (
           <p className="mt-1 text-sm text-muted">
-            On your statement: <span className="font-medium text-ink">{printed}</span>
+            On your statement: <span className="font-bold text-ink">{printed}</span>
           </p>
         ) : null}
         <div className="mt-4 space-y-3">
@@ -289,7 +303,7 @@ function SpendDialog({ tx, all, onClose }: { tx: Tx; all: Tx[]; onClose: () => v
             </select>
           </label>
           {changedPayee ? (
-            <label className="flex items-start gap-3 rounded-md bg-mist px-3 py-3 text-sm">
+            <label className="flex items-start gap-3 rounded-xl bg-mist px-3 py-3 text-sm">
               <input
                 type="checkbox"
                 className="mt-0.5 size-5 shrink-0 accent-[var(--color-forest)]"

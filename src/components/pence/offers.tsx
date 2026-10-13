@@ -1,12 +1,13 @@
 import { Link } from "@tanstack/react-router";
+import { MapPin } from "lucide-react";
 import { useQueryClient } from "@tanstack/react-query";
 import { useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
-import { PROGRAMMES } from "@/lib/spend/model";
-import { habitLine, interestDef, interestOfKey, shortDay, whenText, type TasteProfile, type Upcoming } from "@/lib/spend/habits";
+import { formatGBP, PROGRAMMES } from "@/lib/spend/model";
+import { habitLine, interestDef, interestOfKey, shortDay, type TasteProfile, type Upcoming } from "@/lib/spend/habits";
 import { setHabit, type PersonalDeal } from "@/server/for-you";
 import { useForYou, useForYouWide } from "./data";
-import { CodeChip, DealAction } from "./deal-bits";
+import { DealAction } from "./deal-bits";
 import { goUrl } from "./deal-links";
 import { errorText, PageHead } from "./ui";
 import { Watchlist } from "./watch";
@@ -21,6 +22,8 @@ const SCHEMES: { test: RegExp; id: string }[] = [
 ];
 
 const PAGE = 30;
+
+const OFFERS_LINE = "From the shops’ own pages. A price, code or end date shows only when the page states it.";
 
 /** Near you first, then the shops this person already uses. */
 /** A deal with something to check first ("only some areas") ranks below one that plainly works. */
@@ -52,18 +55,29 @@ export function DealTerms({ deal }: { deal: PersonalDeal }) {
 }
 
 export function DealCard({ deal, showReason = true }: { deal: PersonalDeal; showReason?: boolean }) {
+  const shop = deal.merchant || deal.source;
   return (
-    <li className="panel p-4">
-      <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-sm text-muted">
-        <span>{deal.merchant || deal.source}</span>
-        {deal.local ? <span className="rounded-full bg-mist px-2 py-0.5 text-xs text-forest-deep">Near you</span> : null}
-        {deal.yours ? <span className="rounded-full bg-sand px-2 py-0.5 text-xs text-ink">Your shop</span> : null}
+    <li className="panel flex flex-col gap-2 px-4 py-3.5">
+      <div className="flex items-center gap-2.5">
+        <span aria-hidden="true" className="initial initial-amber size-9 text-[0.9375rem]">{(shop.trim().charAt(0) || "·").toUpperCase()}</span>
+        <div className="flex min-w-0 flex-1 flex-col">
+          <span className="truncate text-sm font-extrabold">{shop}</span>
+          <span className="truncate text-xs text-muted">
+            {deal.local ? "Near you" : deal.elsewhere ? "Could cost less than your usual" : deal.source && deal.source !== shop ? `From ${deal.source}` : "Across the UK"}
+          </span>
+        </div>
+        {deal.yours ? <span className="badge">Your shop</span> : null}
       </div>
-      <p className="mt-1 font-medium">{deal.title}</p>
-      {deal.detail ? <p className="mt-1 text-sm">{deal.detail}</p> : null}
-      {deal.saving ? <p className="mt-1 text-sm font-medium text-forest">{deal.saving}</p> : null}
-      <DealTerms deal={deal} />
-      {showReason && deal.reason ? <p className="mt-2 text-sm text-muted">{deal.reason}</p> : null}
+      <a href={goUrl(deal)} className="text-base leading-[1.35] font-extrabold" target="_blank" rel="noreferrer">
+        {deal.title}
+      </a>
+      {deal.detail ? <p className="text-sm text-ink-soft">{deal.detail}</p> : null}
+      {deal.saving ? <p className="text-[0.8125rem] font-semibold text-forest">{deal.saving}</p> : null}
+      {deal.check ? (
+        <p className={`text-[0.8125rem] leading-snug font-semibold ${deal.works ? "text-forest" : "text-clay"}`}>{deal.check}</p>
+      ) : null}
+      {showReason && deal.reason ? <p className="text-[0.8125rem] text-muted">{deal.reason}</p> : null}
+      {deal.endsOn ? <p className="text-xs text-muted">Ends {shortDay(deal.endsOn)}</p> : null}
       <DealAction deal={deal} />
     </li>
   );
@@ -120,9 +134,15 @@ export function OffersView() {
   const hasHabits = (taste?.interests.length ?? 0) > 0;
   const wide = useForYouWide(hasHabits);
   const [pages, setPages] = useState(1);
-  const [learnedOpen, setLearnedOpen] = useState(false);
+  const [view, setView] = useState<"for-you" | "shops" | "elsewhere" | "watch">("for-you");
+  const [find, setFind] = useState("");
   const [adding, setAdding] = useState(false);
   const [busyKey, setBusyKey] = useState("");
+
+  // Plan's "See your Watchlist" opens Offers on the Watchlist.
+  useEffect(() => {
+    if (typeof window !== "undefined" && window.location.hash === "#watchlist") setView("watch");
+  }, []);
 
   useEffect(() => {
     if (!adding) return;
@@ -176,7 +196,7 @@ export function OffersView() {
   if (mine.isPending) {
     return (
       <div>
-        <PageHead kicker="Offers" title="For you" />
+        <PageHead title="Offers" sub={OFFERS_LINE} />
         <div className="space-y-3">
           <div className="h-24 animate-pulse rounded-lg bg-sand" />
           <div className="h-40 animate-pulse rounded-lg bg-sand" />
@@ -189,7 +209,7 @@ export function OffersView() {
   if (mine.isError || !taste) {
     return (
       <div>
-        <PageHead kicker="Offers" title="For you" />
+        <PageHead title="Offers" sub={OFFERS_LINE} />
         <p className="panel p-5 text-sm">{errorText(mine.error, "Couldn’t load your offers just now.")}</p>
         <button type="button" className="btn btn-quiet mt-3" onClick={() => void mine.refetch()}>
           Try again
@@ -208,14 +228,12 @@ export function OffersView() {
   );
   const learned = taste.interests.filter((row) => row.occasions > 0).slice(0, 4).map((row) => row.label);
   const topShops = taste.shops.slice(0, 3).map((shop) => shop.name);
-  const groupTotal = groups.reduce((sum, group) => sum + group.deals.length, 0);
-  let room = pages * PAGE;
 
   const addSheet = adding ? (
     <div className="fixed inset-0 z-40 flex items-end">
       <button type="button" className="absolute inset-0 bg-ink/40" aria-label="Close" onClick={closeAdd} />
       <div className="relative max-h-[70dvh] w-full overflow-y-auto rounded-t-2xl bg-card px-4 pt-4 pb-[max(1rem,env(safe-area-inset-bottom))]">
-        <p className="font-medium">What else do you buy?</p>
+        <p className="font-bold">What else do you buy?</p>
         <p className="mt-1 text-sm text-muted">Pence will look for deals on it.</p>
         <ul className="mt-2 divide-y divide-line">
           {addable.map((item) => (
@@ -241,9 +259,9 @@ export function OffersView() {
   if (!hasHabits) {
     return (
       <div>
-        <PageHead kicker="Offers" title="For you" />
+        <PageHead title="Offers" sub={OFFERS_LINE} />
         <section className="panel p-5">
-          <p className="font-medium">Pence learns what you buy</p>
+          <p className="font-bold">Pence learns what you buy</p>
           <p className="mt-1 text-sm text-muted">
             Add a few receipts or payments. Pence will see what you buy, where, and how often, then look for cheaper ways to buy it.
           </p>
@@ -265,185 +283,239 @@ export function OffersView() {
     );
   }
 
+  const needle = find.trim().toLowerCase();
+  const matches = (deal: PersonalDeal) =>
+    !needle || `${deal.title} ${deal.merchant} ${deal.source} ${deal.detail}`.toLowerCase().includes(needle);
+  const shownDeals = deals.filter(matches).filter((deal) => (view === "elsewhere" ? deal.elsewhere : true));
+  const near = shownDeals.filter((deal) => deal.local).sort(rank);
+  const nearUrls = new Set(near.map((deal) => deal.url));
+  const ukGroups = groups
+    .map((group) => ({ ...group, deals: group.deals.filter((deal) => !nearUrls.has(deal.url) && shownDeals.includes(deal)) }))
+    .filter((group) => group.deals.length > 0);
+  const comingDeals = coming.flatMap((row) => row.deals).filter((deal) => !nearUrls.has(deal.url) && shownDeals.includes(deal));
+  const ukTotal = comingDeals.length + ukGroups.reduce((sum, group) => sum + group.deals.length, 0);
+  let room = pages * PAGE - near.length;
+  const city = mine.data?.city?.trim();
+
+  const chips = (
+    <div role="group" aria-label="Show" className="-mx-5 flex gap-2 overflow-x-auto px-5 pb-0.5">
+      <button type="button" className="chip" aria-pressed={view === "for-you"} onClick={() => setView("for-you")}>
+        For you
+      </button>
+      <button type="button" className="chip" aria-pressed={view === "shops"} onClick={() => setView("shops")}>
+        Your shops
+      </button>
+      <Link to="/bills" className="chip">
+        Bills
+      </Link>
+      <button type="button" className="chip" aria-pressed={view === "elsewhere"} onClick={() => setView("elsewhere")}>
+        Cheaper elsewhere
+      </button>
+      <button type="button" className="chip" aria-pressed={view === "watch"} onClick={() => setView("watch")}>
+        Watchlist
+      </button>
+    </div>
+  );
+
   return (
-    <div>
-      <PageHead kicker="Offers" title="For you" />
+    <div className="flex flex-col gap-4">
+      <PageHead title="Offers" sub={OFFERS_LINE} flush />
 
-      <Watchlist />
+      <label className="field">
+        <span className="field-label">Search offers</span>
+        <input
+          type="search"
+          className="control"
+          placeholder="Shop or product"
+          value={find}
+          onChange={(event) => setFind(event.target.value)}
+        />
+      </label>
 
-      <section className="panel mt-6 p-4">
-        <p className="text-sm text-muted">
-          {taste.usingSamples ? "Learned from the sample month" : `Learned from ${taste.basedOn} spends`}
-        </p>
-        <p className="mt-1 font-medium">
-          {learned.length > 0 ? `You buy: ${learned.join(", ")}` : "You told Pence what you buy"}
-        </p>
-        {topShops.length > 0 ? <p className="mt-1 text-sm text-muted">Mostly at {topShops.join(", ")}</p> : null}
-        <button
-          type="button"
-          className="mt-2 min-h-11 text-sm font-medium text-forest"
-          aria-expanded={learnedOpen}
-          onClick={() => setLearnedOpen((open) => !open)}
-        >
-          {learnedOpen ? "Close" : "What Pence knows"}
-        </button>
-        {learnedOpen ? (
-          <div className="mt-1">
-            <ul className="divide-y divide-line border-t border-line">
-              {taste.interests.map((row) => (
-                <li key={row.key} className="flex items-center justify-between gap-3 py-3">
-                  <div className="min-w-0">
-                    <p className="font-medium">{row.label}</p>
-                    <p className="text-sm text-muted">{habitLine(row)}</p>
-                  </div>
-                  <button
-                    type="button"
-                    className="shrink-0 rounded-md border border-line px-3 py-2 text-sm"
-                    disabled={busyKey === row.key}
-                    onClick={() =>
-                      void change(row.key, row.added && row.occasions === 0 ? "clear" : "muted", row.label)
-                    }
-                  >
-                    {row.added && row.occasions === 0 ? "Remove" : "Not me"}
-                  </button>
-                </li>
-              ))}
-            </ul>
-            {taste.shops.length > 0 ? (
-              <>
-                <p className="mt-4 text-sm font-medium">Your shops</p>
-                <ul className="mt-1 divide-y divide-line border-t border-line">
-                  {taste.shops.map((shop) => (
-                    <li key={shop.key} className="py-2">
-                      <p className="font-medium">{shop.name}</p>
-                      <p className="text-sm text-muted">
-                        {shop.about ||
-                          (shop.interestId ? interestDef(shop.interestId)?.label : "") ||
-                          "Pence is still finding out what this shop sells."}
-                      </p>
-                    </li>
-                  ))}
-                </ul>
-              </>
-            ) : null}
-            {addable.length > 0 ? (
-              <button type="button" className="btn btn-quiet mt-3" onClick={openAdd}>
-                Add something you buy
-              </button>
-            ) : null}
-            {taste.hidden.length > 0 ? <HiddenList taste={taste} busyKey={busyKey} onShow={change} /> : null}
-          </div>
-        ) : null}
-      </section>
+      {chips}
 
-      {coming.length > 0 ? (
-        <section className="mt-6">
-          <h2 className="font-display text-2xl">Coming up</h2>
-          <ul className="mt-3 space-y-3">
-            {coming.map(({ up, deals: picks }) => (
-              <li key={up.key} className="panel p-4">
-                <div className="flex items-baseline justify-between gap-3">
-                  <p className="font-medium">
-                    {up.title}
-                    {up.kind && up.kind !== up.title ? <span className="font-normal text-muted"> · {up.kind}</span> : null}
-                  </p>
-                  <p className="shrink-0 text-sm text-forest">{whenText(up.nextOn, taste.today)}</p>
-                </div>
-                <p className="mt-1 text-sm text-muted">{up.line}</p>
-                {picks.length > 0 ? (
-                  <ul className="mt-3 space-y-2 border-t border-line pt-3">
-                    {picks.map((deal) => (
-                      <li key={deal.url}>
-                        <a href={goUrl(deal)} className="block font-medium" target="_blank" rel="noreferrer">
-                          {deal.title}
-                        </a>
-                        <p className="text-sm text-muted">
-                          {deal.merchant || deal.source}
-                          {deal.local ? " · near you" : ""}
-                        </p>
-                        {deal.saving ? <p className="text-sm font-medium text-forest">{deal.saving}</p> : null}
-                        <DealTerms deal={deal} />
-                        {deal.code ? <CodeChip code={deal.code} /> : null}
-                      </li>
-                    ))}
-                  </ul>
-                ) : null}
-              </li>
-            ))}
-          </ul>
-        </section>
+      {view === "watch" ? <Watchlist /> : null}
+
+      {view === "shops" ? (
+        <YourShops
+          taste={taste}
+          schemes={schemes}
+          addable={addable.length > 0}
+          busyKey={busyKey}
+          onChange={change}
+          onAdd={openAdd}
+        />
       ) : null}
 
-      {groups.map((group) => {
-        if (room <= 0) return null;
-        const shown = group.deals.slice(0, room);
-        room -= shown.length;
-        const here = shown.filter((deal) => !deal.elsewhere);
-        const away = shown.filter((deal) => deal.elsewhere);
-        return (
-          <section key={group.id} className="mt-6">
-            <h2 className="font-display text-2xl">{group.label}</h2>
-            {group.line ? <p className="text-sm text-muted">{group.line}</p> : null}
-            {here.length > 0 ? (
-              <ul className="mt-3 space-y-3">
-                {here.map((deal, index) => (
-                  // The same reason on every card in a group is noise: say it once, then only when it changes.
-                  <DealCard key={deal.url} deal={deal} showReason={index === 0 || here[index - 1].reason !== deal.reason} />
+      {view === "for-you" || view === "elsewhere" ? (
+        <>
+          <p className="text-[0.8125rem] text-muted">
+            {taste.usingSamples ? "Learned from the sample month" : `Learned from ${taste.basedOn} spends`}
+            {learned.length > 0 ? `: ${learned.join(", ")}` : ""}
+            {topShops.length > 0 ? `, mostly at ${topShops.join(", ")}` : ""}.
+          </p>
+
+          {near.length > 0 ? (
+            <section aria-label="Near you" className="flex flex-col gap-2.5">
+              <h2 className="section-title flex items-center gap-1.5">
+                <MapPin className="size-[18px] text-forest" strokeWidth={2} aria-hidden="true" />
+                {city ? `Near ${city}` : "Near you"}
+              </h2>
+              <ul className="flex flex-col gap-2.5">
+                {near.slice(0, pages * PAGE).map((deal) => (
+                  <DealCard key={deal.url} deal={deal} />
                 ))}
               </ul>
-            ) : null}
-            {away.length > 0 ? (
-              <>
-                <h3 className="mt-4 text-sm font-medium text-forest">Could cost less elsewhere</h3>
-                <ul className="mt-2 space-y-3">
-                  {away.map((deal) => (
-                    <DealCard key={deal.url} deal={deal} />
-                  ))}
+            </section>
+          ) : null}
+
+          {ukTotal > 0 && room > 0 ? (
+            <section aria-label="Across the UK" className="flex flex-col gap-2.5">
+              <h2 className="section-title">Across the UK</h2>
+              {comingDeals.length > 0 ? (
+                <ul className="flex flex-col gap-2.5">
+                  {comingDeals.slice(0, Math.max(room, 0)).map((deal) => {
+                    room -= 1;
+                    return <DealCard key={deal.url} deal={deal} />;
+                  })}
                 </ul>
-              </>
-            ) : null}
-          </section>
-        );
-      })}
+              ) : null}
+              {ukGroups.map((group) => {
+                if (room <= 0) return null;
+                const shown = group.deals.slice(0, room);
+                room -= shown.length;
+                return (
+                  <div key={group.id} className="flex flex-col gap-2.5">
+                    <p className="mt-1 text-[0.8125rem] font-bold text-muted">
+                      {group.label}
+                      {group.line ? <span className="font-normal"> · {group.line}</span> : null}
+                    </p>
+                    <ul className="flex flex-col gap-2.5">
+                      {shown.map((deal, index) => (
+                        <DealCard
+                          key={deal.url}
+                          deal={deal}
+                          showReason={index === 0 || shown[index - 1].reason !== deal.reason}
+                        />
+                      ))}
+                    </ul>
+                  </div>
+                );
+              })}
+            </section>
+          ) : null}
 
-      {groupTotal > pages * PAGE ? (
-        <button type="button" className="btn btn-quiet mt-4" onClick={() => setPages((n) => n + 1)}>
-          More
-        </button>
+          {near.length + ukTotal > pages * PAGE ? (
+            <button type="button" className="btn btn-quiet" onClick={() => setPages((n) => n + 1)}>
+              More offers
+            </button>
+          ) : null}
+
+          {wide.isFetching && !wide.data ? (
+            <div className="panel p-4">
+              <p className="text-sm text-muted">Searching more of the web for your habits. The first look of the day can take a minute.</p>
+              <div className="mt-3 h-16 animate-pulse rounded-xl bg-sand" />
+            </div>
+          ) : null}
+
+          {!wide.isFetching && shownDeals.length === 0 ? (
+            <p className="panel p-4 text-sm text-muted">
+              {needle
+                ? "No offer matches that. Try a shop name or a simpler word."
+                : view === "elsewhere"
+                  ? "Nothing cheaper elsewhere turned up today."
+                  : "Nothing current turned up for your habits today. Check each shop’s own app before you pay."}
+            </p>
+          ) : null}
+
+          {wide.data?.note && deals.length > 0 ? <p className="text-[0.8125rem] text-muted">{wide.data.note}</p> : null}
+        </>
       ) : null}
-
-      {wide.isFetching && !wide.data ? (
-        <div className="panel mt-6 p-4">
-          <p className="text-sm text-muted">Searching more of the web for your habits. The first look of the day can take a minute.</p>
-          <div className="mt-3 h-16 animate-pulse rounded-md bg-sand" />
-        </div>
-      ) : null}
-
-      {!wide.isFetching && deals.length === 0 ? (
-        <p className="panel mt-6 p-4 text-sm text-muted">
-          Nothing current turned up for your habits today. Check each shop’s own app before you pay.
-        </p>
-      ) : null}
-
-      {schemes.length > 0 ? (
-        <section className="mt-6">
-          <h2 className="font-display text-2xl">Cards and apps for your shops</h2>
-          <ul className="mt-3 space-y-3">
-            {schemes.map((item) => (
-              <li key={item.id} className="panel p-4">
-                <p className="font-medium">{item.name}</p>
-                <p className="mt-1 text-sm">{item.detail}</p>
-                <a href={item.href} className="mt-2 inline-block text-sm font-medium text-forest" target="_blank" rel="noreferrer">
-                  Open {item.name}
-                </a>
-              </li>
-            ))}
-          </ul>
-        </section>
-      ) : null}
-
-      {wide.data?.note && deals.length > 0 ? <p className="mt-4 text-sm text-muted">{wide.data.note}</p> : null}
       {addSheet}
+    </div>
+  );
+}
+
+/** Your shops: where you spend, what Pence knows, and the cards or apps that save money there. */
+function YourShops({
+  taste,
+  schemes,
+  addable,
+  busyKey,
+  onChange,
+  onAdd,
+}: {
+  taste: TasteProfile;
+  schemes: typeof PROGRAMMES;
+  addable: boolean;
+  busyKey: string;
+  onChange: (key: string, mode: "muted" | "added" | "clear", label: string) => Promise<void>;
+  onAdd: () => void;
+}) {
+  return (
+    <div className="flex flex-col gap-4">
+      <p className="text-sm leading-[1.45] text-muted">
+        Where you spend most, and the cards or apps that can save you money there.
+      </p>
+      {taste.shops.length > 0 ? (
+        <ul className="flex flex-col gap-2.5">
+          {taste.shops.map((shop) => {
+            const scheme = schemes.find((item) =>
+              SCHEMES.some((rule) => rule.id === item.id && rule.test.test(shop.name.toLowerCase())),
+            );
+            return (
+              <li key={shop.key} className="panel flex flex-col gap-2 px-4 py-3.5">
+                <div className="flex items-center gap-3">
+                  <span aria-hidden="true" className="initial">{(shop.name.trim().charAt(0) || "·").toUpperCase()}</span>
+                  <div className="flex min-w-0 flex-1 flex-col">
+                    <span className="truncate text-[0.9375rem] font-extrabold">{shop.name}</span>
+                    <span className="truncate text-[0.8125rem] text-muted">
+                      {shop.occasions} visit{shop.occasions === 1 ? "" : "s"}
+                      {shop.about ? ` · ${shop.about}` : shop.interestId ? ` · ${interestDef(shop.interestId)?.label ?? ""}` : ""}
+                    </span>
+                  </div>
+                  <span className="shrink-0 text-[0.9375rem] font-extrabold tabular-nums">{formatGBP(shop.totalPence)}</span>
+                </div>
+                {scheme ? (
+                  <a href={scheme.href} className="text-[0.8125rem] font-semibold text-forest" target="_blank" rel="noreferrer">
+                    {scheme.name}: {scheme.detail}
+                  </a>
+                ) : null}
+              </li>
+            );
+          })}
+        </ul>
+      ) : (
+        <p className="panel p-4 text-sm text-muted">Add a few spends and your shops show here.</p>
+      )}
+
+      <section className="flex flex-col gap-2.5">
+        <h2 className="section-title">What Pence knows you buy</h2>
+        <div className="rows">
+          {taste.interests.map((row) => (
+            <div key={row.key} className="row">
+              <div className="min-w-0 flex-1">
+                <p className="text-[0.9375rem] font-bold">{row.label}</p>
+                <p className="text-[0.8125rem] text-muted">{habitLine(row)}</p>
+              </div>
+              <button
+                type="button"
+                className="chip shrink-0"
+                disabled={busyKey === row.key}
+                onClick={() => void onChange(row.key, row.added && row.occasions === 0 ? "clear" : "muted", row.label)}
+              >
+                {row.added && row.occasions === 0 ? "Remove" : "Not me"}
+              </button>
+            </div>
+          ))}
+        </div>
+        {addable ? (
+          <button type="button" className="btn btn-quiet" onClick={onAdd}>
+            Add something you buy
+          </button>
+        ) : null}
+        {taste.hidden.length > 0 ? <HiddenList taste={taste} busyKey={busyKey} onShow={onChange} /> : null}
+      </section>
     </div>
   );
 }
@@ -466,7 +538,7 @@ function HiddenList({
             <span className="text-sm">{row.label}</span>
             <button
               type="button"
-              className="shrink-0 rounded-md border border-line px-3 py-2 text-sm"
+              className="chip shrink-0"
               disabled={busyKey === row.key}
               onClick={() => void onShow(row.key, "clear", row.label)}
             >

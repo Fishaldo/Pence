@@ -101,7 +101,7 @@ export function PhoneAlerts({ what = "when Pence finds an offer", onChange }: { 
 
   if (state == null || state === "unsupported") return null;
   return (
-    <div className="mt-3 rounded-md bg-sand px-4 py-3">
+    <div className="mt-3 rounded-xl bg-paper px-4 py-3">
       {state === "on" ? (
         <>
           <div className="flex items-center justify-between gap-3">
@@ -109,7 +109,7 @@ export function PhoneAlerts({ what = "when Pence finds an offer", onChange }: { 
             <div className="flex shrink-0 items-center gap-3">
               <button
                 type="button"
-                className="min-h-11 text-sm font-medium text-forest"
+                className="min-h-11 text-sm font-bold text-forest"
                 disabled={busy}
                 onClick={() => void sendTest()}
               >
@@ -131,7 +131,7 @@ export function PhoneAlerts({ what = "when Pence finds an offer", onChange }: { 
           <p className="text-sm">Get a message on this phone {what}.</p>
           <button
             type="button"
-            className="min-h-11 shrink-0 rounded-md bg-forest px-4 text-sm font-medium text-foam"
+            className="btn-pill shrink-0"
             disabled={busy}
             onClick={() => void turnOn()}
           >

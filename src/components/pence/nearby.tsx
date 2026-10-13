@@ -36,8 +36,9 @@ export function NearbyPanel() {
   const from = chosen ? (chosen.isPhone ? "this phone" : chosen.label) : "the town in settings";
 
   return (
-    <section className="mt-6">
-      <h2 className="font-display text-2xl">Another shop</h2>
+    <section className="panel flex flex-col p-[1.125rem]" aria-label="Another shop">
+      <h2 className="section-title">Another shop near you</h2>
+      <p className="mt-1 text-sm text-muted">Shops near {from} that sell what you already buy, with their current offers.</p>
       {saved.length > 1 ? (
         <label className="mt-3 block">
           <span className="field-label">Place</span>
@@ -51,7 +52,7 @@ export function NearbyPanel() {
           </select>
         </label>
       ) : null}
-      <div className="mt-3 flex flex-col gap-2 sm:flex-row">
+      <div className="mt-3 flex flex-col gap-2">
         <button type="button" className="btn btn-primary" onClick={() => void compare()} disabled={busy}>
           {busy ? "Looking…" : "Compare shops"}
         </button>
@@ -65,7 +66,7 @@ export function NearbyPanel() {
         <ul className="mt-3 space-y-2">
           {nearby.map((shop) => (
             <li key={shop.name} className="panel px-4 py-3 text-sm">
-              <span className="font-medium">{shop.name}</span>
+              <span className="font-bold">{shop.name}</span>
               {shop.km != null ? <span className="text-muted"> · {shop.km} km from {from}</span> : null}
             </li>
           ))}
@@ -76,7 +77,7 @@ export function NearbyPanel() {
           {offers.map((offer) => (
             <li key={offer.url} className="panel p-4">
               <p className="text-sm text-muted">{offer.shop}</p>
-              <p className="mt-1 font-medium">{offer.title}</p>
+              <p className="mt-1 font-bold">{offer.title}</p>
               <p className="mt-1 text-sm">{offer.detail}</p>
               <DealAction deal={{ url: offer.url, merchant: offer.shop, code: offer.code }} />
             </li>

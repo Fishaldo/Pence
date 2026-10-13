@@ -42,7 +42,7 @@ export function HotView() {
 
   return (
     <div>
-      <PageHead kicker="Trending" title="Hot deals" />
+      <PageHead back="/offers" title="Popular now in the UK" sub="Deals people are using right now, from public UK deal pages." />
       {deals == null ? <div className="mb-4 h-40 animate-pulse rounded-lg bg-sand" /> : null}
       {deals && deals.length === 0 ? <p className="panel p-5 text-sm">Nothing trending just now.</p> : null}
       {deals && deals.length > 0 ? (
@@ -50,7 +50,7 @@ export function HotView() {
           {deals.slice(0, shown).map((deal) => (
             <li key={deal.url} className="panel p-4">
               <p className="text-sm text-muted">{deal.merchant || deal.source}</p>
-              <p className="mt-1 font-medium">{deal.title}</p>
+              <p className="mt-1 font-bold">{deal.title}</p>
               <DealAction deal={deal} />
             </li>
           ))}

@@ -71,3 +71,8 @@ export function isBill(item: Regular): boolean {
   return item.subscription || item.category === "bills" || item.category === "housing" || item.category === "subscriptions";
 }
 
+
+/** Today in words: "Tuesday 13 October". */
+export function longToday(d = new Date()): string {
+  return d.toLocaleDateString("en-GB", { weekday: "long", day: "numeric", month: "long" });
+}
