@@ -6,7 +6,9 @@ import { dayNum, isoOf } from "@/lib/spend/habits";
 import {
   findRegulars,
   isFreq,
+  contractEndMessage,
   reminderMessage,
+  riseMessage,
   remindersDue,
   type Freq,
   type Regular,
@@ -64,6 +66,7 @@ type SettingRow = {
   stopped: unknown;
   stopped_on: unknown;
   remind: unknown;
+  contract_end?: unknown;
 };
 
 function mapSetting(row: SettingRow): RegularSetting {
@@ -76,13 +79,14 @@ function mapSetting(row: SettingRow): RegularSetting {
     stopped: asBool(row.stopped),
     stoppedOn: dateOrNull(row.stopped_on),
     remind: row.remind == null ? true : asBool(row.remind),
+    contractEnd: dateOrNull(row.contract_end),
   };
 }
 
 async function loadSettings(userId: string): Promise<RegularSetting[]> {
   const sql = await getSql();
   const rows = await sql<SettingRow>`
-    select key, name, amount_pence, freq, next_due, stopped, stopped_on, remind
+    select key, name, amount_pence, freq, next_due, stopped, stopped_on, remind, contract_end
     from regulars where user_id = ${userId}`;
   return rows.map(mapSetting);
 }
@@ -140,6 +144,7 @@ type SaveInput = {
   nextDue?: string | null;
   remind?: boolean;
   stopped?: boolean;
+  contractEnd?: string | null;
 };
 
 function readSave(input: unknown): SaveInput {
@@ -172,6 +177,15 @@ function readSave(input: unknown): SaveInput {
   }
   if (typeof row.remind === "boolean") out.remind = row.remind;
   if (typeof row.stopped === "boolean") out.stopped = row.stopped;
+  if ("contractEnd" in row) {
+    const end = dateOrNull(row.contractEnd);
+    if (row.contractEnd && !end) throw new Error("Check the contract end date.");
+    if (end) {
+      const today = londonToday();
+      if (dayNum(end) < dayNum(today) - 3650 || dayNum(end) > dayNum(today) + 3650) throw new Error("Check the contract end date.");
+    }
+    out.contractEnd = end;
+  }
   return out;
 }
 
@@ -202,11 +216,12 @@ export const saveRegular = createServerFn({ method: "POST" })
       nextDue: data.nextDue !== undefined ? data.nextDue : (existing?.nextDue ?? null),
       remind: data.remind ?? existing?.remind ?? true,
       stopped: data.stopped ?? existing?.stopped ?? false,
+      contractEnd: data.contractEnd !== undefined ? data.contractEnd : (existing?.contractEnd ?? null),
     };
     const stoppedOn = merged.stopped ? (existing?.stopped ? (existing.stoppedOn ?? londonToday()) : londonToday()) : null;
-    await sql`insert into regulars (user_id, key, name, amount_pence, freq, next_due, stopped, stopped_on, remind)
+    await sql`insert into regulars (user_id, key, name, amount_pence, freq, next_due, stopped, stopped_on, remind, contract_end)
               values (${context.userId}, ${key}, ${merged.name}, ${merged.amountPence}, ${merged.freq},
-                      ${merged.nextDue}, ${merged.stopped}, ${stoppedOn}, ${merged.remind})
+                      ${merged.nextDue}, ${merged.stopped}, ${stoppedOn}, ${merged.remind}, ${merged.contractEnd})
               on conflict (user_id, key) do update set
                 name = excluded.name,
                 amount_pence = excluded.amount_pence,
@@ -214,7 +229,8 @@ export const saveRegular = createServerFn({ method: "POST" })
                 next_due = excluded.next_due,
                 stopped = excluded.stopped,
                 stopped_on = excluded.stopped_on,
-                remind = excluded.remind`;
+                remind = excluded.remind,
+                contract_end = excluded.contract_end`;
     return { key };
   });
 
@@ -234,7 +250,7 @@ export const removeRegular = createServerFn({ method: "POST" })
   });
 
 /**
- * Remind people a week, three days and a day before a regular payment comes out.
+ * Remind people a week, three days and two working days before a regular payment comes out.
  * Called by the daily check. Each step is sent once per due date, so running
  * it more often never repeats a reminder.
  */
@@ -265,6 +281,28 @@ export async function sendDueReminders(options: { budgetMs?: number } = {}): Pro
           on conflict do nothing
           returning key`;
         if (inserted.length > 0) due.push(item);
+      }
+      // A bill or subscription that went up: told once, soon after the higher payment.
+      for (const item of items) {
+        const rise = item.rise;
+        if (!rise || item.stopped || rise.on < isoOf(dayNum(today) - 30)) continue;
+        const marked = await sql<{ key: string }>`
+          insert into reminders_sent (user_id, key, due, days_before)
+          values (${userId}, ${item.key}, ${rise.on}, ${-1})
+          on conflict do nothing
+          returning key`;
+        if (marked.length > 0) await pushUser(userId, riseMessage(item.name, rise));
+      }
+      // A contract or deal ending within a month: told once, while there is time to switch.
+      for (const item of items) {
+        const end = item.contractEnd;
+        if (!end || item.stopped || end < today || dayNum(end) - dayNum(today) > 30) continue;
+        const marked = await sql<{ key: string }>`
+          insert into reminders_sent (user_id, key, due, days_before)
+          values (${userId}, ${item.key}, ${end}, ${-3})
+          on conflict do nothing
+          returning key`;
+        if (marked.length > 0) await pushUser(userId, contractEndMessage(item.name, end));
       }
       if (due.length === 0) continue;
       await pushUser(userId, reminderMessage(due));

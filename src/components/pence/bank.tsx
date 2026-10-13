@@ -2,10 +2,12 @@ import { useNavigate } from "@tanstack/react-router";
 import { useRef, useState } from "react";
 import { toast } from "sonner";
 import { CATEGORIES, formatGBP, type CategoryId } from "@/lib/spend/model";
-import { parseStatement, type StatementRow } from "@/lib/spend/statement";
+import { parseMoneyIn, parseStatement, type StatementRow } from "@/lib/spend/statement";
+import type { MoneyIn } from "@/lib/spend/payday";
 import { deleteSpend, findClashes, importBank, type Clash } from "@/server/ledger";
 import { SamePayment, type ClashChoice } from "./clash";
-import { useRefreshLedger } from "./data";
+import { useLedger, useRefreshLedger } from "./data";
+import { PaySpotted } from "./money-cards";
 import { errorText, PageHead } from "./ui";
 
 export function BankView() {
@@ -14,6 +16,8 @@ export function BankView() {
   const fileRef = useRef<HTMLInputElement>(null);
   const [text, setText] = useState("");
   const [rows, setRows] = useState<StatementRow[] | null>(null);
+  const [moneyIn, setMoneyIn] = useState<MoneyIn[]>([]);
+  const { profile } = useLedger();
   const [clashes, setClashes] = useState<Clash[] | null>(null);
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
@@ -23,6 +27,7 @@ export function BankView() {
     setError("");
     const parsed = parseStatement(value);
     setRows(parsed.length > 0 ? parsed : null);
+    setMoneyIn(parseMoneyIn(value));
     if (value.trim() && parsed.length === 0) {
       setError("No outgoing spends in that. Income and money in are left out.");
     }
@@ -96,6 +101,11 @@ export function BankView() {
   return (
     <div>
       <PageHead kicker="Bank" title="From your bank" />
+      {moneyIn.length > 0 ? (
+        <div className="mb-4">
+          <PaySpotted rows={moneyIn} usualPence={profile.data?.monthlyIncomePence ?? 0} />
+        </div>
+      ) : null}
       <p className="mb-4 text-sm text-muted">
         New payments can only arrive on their own through Open Banking: you approve Pence inside your bank’s own app. This app does not have that connection, and it will not ask for your bank password.
       </p>

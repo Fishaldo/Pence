@@ -8,7 +8,9 @@
  *
  * Signs up a fresh account, fills in the first-run form, loads the sample
  * month, then opens Home, Offers, the Watchlist (adding watches), Plan, regular
- * payments (adding a free trial), Hot deals, Insights and Activity. Every console error, page error and failed request is
+ * payments (adding a free trial), Hot deals, Insights and Activity, then the
+ * payday features: safe to spend, one-tap questions, Bills, Budget, the weekly
+ * check-in, search with totals, Plan's quick questions, Add and your data. Every console error, page error and failed request is
  * written to report.json.
  */
 import { mkdirSync, writeFileSync } from "node:fs";
@@ -80,6 +82,9 @@ await step("fill in pay and town", async () => {
   await page.getByLabel("City, so tips can be local").fill("Birmingham");
   await page.getByLabel("Payday (optional)").selectOption("25");
   await page.getByRole("button", { name: "Start tracking" }).click();
+  await page.getByText("Deals near you first").waitFor({ timeout: 45_000 });
+  await shot("03a-location-once");
+  await page.getByRole("button", { name: /^Not now/ }).click();
   await page.getByText("Spent so far").waitFor({ timeout: 45_000 });
   await shot("03-home-empty");
 });
@@ -259,6 +264,104 @@ await step("open Insights", async () => {
   await shot("13-insights");
 });
 
+await step("Home: safe to spend and one-tap questions", async () => {
+  await page.goto(`${base}/`, { waitUntil: "domcontentloaded" });
+  await page.getByText(/^(Safe to spend|Over) until/).first().waitFor();
+  await settle(2500);
+  await shot("19-home-safe-to-spend");
+  const tap = page.locator("section[aria-label='Needs a tap'] li").first();
+  if ((await tap.count()) === 0) return "no questions waiting";
+  const question = (await tap.innerText()).replace(/\s+/g, " ");
+  await tap.getByRole("button").first().click();
+  await settle(2000);
+  return `answered: ${question.slice(0, 80)}`;
+});
+
+await step("Bills: list, price rises and a better deal", async () => {
+  await page.goto(`${base}/bills`, { waitUntil: "domcontentloaded" });
+  await page.getByRole("heading", { name: "Bills", exact: true }).waitFor();
+  await settle(2000);
+  await shot("20-bills");
+  const rows = page.locator("main li button[aria-expanded]");
+  if ((await rows.count()) === 0) return "no bills found";
+  await rows.first().click();
+  const look = page.getByRole("button", { name: "Look for a better deal" }).first();
+  if ((await look.count()) === 0) return "this bill cannot be switched";
+  await look.click();
+  await page
+    .getByRole("button", { name: "Looking…" })
+    .waitFor({ state: "detached", timeout: 90_000 })
+    .catch(() => undefined);
+  await settle(1500);
+  await shot("21-bills-deals");
+  return (await page.locator("main").innerText()).replace(/\s+/g, " ").slice(0, 500);
+});
+
+await step("Budget: made from past pays", async () => {
+  await page.goto(`${base}/budget`, { waitUntil: "domcontentloaded" });
+  await page.getByRole("heading", { name: "Budget", exact: true }).waitFor();
+  await page.getByRole("button", { name: "Make my budget" }).click();
+  await page.getByRole("button", { name: "Save budget" }).waitFor();
+  await shot("22-budget-draft");
+  await page.getByRole("button", { name: "Save budget" }).click();
+  await page.getByText("Planned each pay").waitFor();
+  await settle(1000);
+  await shot("23-budget");
+});
+
+await step("Weekly check-in", async () => {
+  await page.goto(`${base}/week`, { waitUntil: "domcontentloaded" });
+  await page.getByRole("heading", { name: "Your week", exact: true }).waitFor();
+  await page.getByLabel("Check-in day").selectOption("1");
+  await page.getByText("Weekly check-in on Mondays").waitFor();
+  await settle(800);
+  await shot("24-week");
+});
+
+await step("Activity: search with totals by period", async () => {
+  await page.goto(`${base}/activity`, { waitUntil: "domcontentloaded" });
+  await page.getByLabel("Search").fill("uber");
+  await page.getByRole("button", { name: "3 months", exact: true }).click();
+  await settle(800);
+  const total = await page.locator("p[aria-live='polite']").first().innerText();
+  if (!/matching “uber”/.test(total)) throw new Error(`totals read: ${total}`);
+  await shot("25-activity-search");
+  return total.replace(/\s+/g, " ");
+});
+
+await step("Plan: quick questions for eating out", async () => {
+  await page.goto(`${base}/plan`, { waitUntil: "domcontentloaded" });
+  await page.getByRole("heading", { name: "Before you spend" }).waitFor();
+  await page.locator("form .field button.control").first().click();
+  await page.getByRole("button", { name: "Dining", exact: true }).click();
+  await page.getByText("Who's going?").waitFor();
+  await page.getByRole("button", { name: "Family", exact: true }).click();
+  await page.getByRole("button", { name: "Dinner", exact: true }).click();
+  await settle(500);
+  await shot("26-plan-questions");
+});
+
+await step("Add: paste a payment message", async () => {
+  await page.goto(`${base}/capture`, { waitUntil: "domcontentloaded" });
+  await page.getByRole("button", { name: "Paste a payment message" }).click();
+  await page.getByPlaceholder("Google Pay · You paid £14.80 to Uber").waitFor();
+  await shot("27-add-paste");
+});
+
+await step("Settings: your data", async () => {
+  await page.goto(`${base}/settings`, { waitUntil: "domcontentloaded" });
+  await page.getByRole("heading", { name: "Your data" }).waitFor();
+  const [download] = await Promise.all([
+    page.waitForEvent("download", { timeout: 30_000 }),
+    page.getByRole("button", { name: "Download my data" }).click(),
+  ]);
+  const name = download.suggestedFilename();
+  if (!/^pence-data-.*\.json$/.test(name)) throw new Error(`file was ${name}`);
+  await page.getByRole("heading", { name: "Your data" }).scrollIntoViewIfNeeded();
+  await shot("28-settings-data");
+  return name;
+});
+
 await step("open Activity", async () => {
   await page.goto(`${base}/activity`, { waitUntil: "domcontentloaded" });
   await settle(2000);
@@ -275,7 +378,7 @@ await step("home on a computer screen", async () => {
 });
 
 await step("phone width has no sideways scroll", async () => {
-  for (const path of ["/", "/offers", "/plan", "/activity", "/regular"]) {
+  for (const path of ["/", "/offers", "/plan", "/activity", "/regular", "/bills", "/budget", "/week", "/settings"]) {
     await page.goto(`${base}${path}`, { waitUntil: "domcontentloaded" });
     await settle(1500);
     const wide = await page.evaluate(() => document.documentElement.scrollWidth > window.innerWidth + 1);

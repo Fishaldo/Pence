@@ -1,17 +1,32 @@
+/**
+ * Every category a payment can be filed under. `spending: false` marks money that
+ * moves but is not spent (savings, investments, transfers between your own accounts):
+ * it is kept and shown, but never counted in "spent so far".
+ */
 export const CATEGORIES = [
-  { id: "groceries", label: "Groceries" },
-  { id: "household", label: "Household" },
-  { id: "fashion", label: "Fashion" },
-  { id: "entertainment", label: "Entertainment" },
-  { id: "dining", label: "Dining" },
-  { id: "transport", label: "Transport" },
-  { id: "health", label: "Health" },
-  { id: "bills", label: "Bills" },
-  { id: "subscriptions", label: "Subscriptions" },
-  { id: "personal", label: "Personal care" },
-  { id: "travel", label: "Travel" },
-  { id: "gifts", label: "Gifts" },
-  { id: "other", label: "Other" },
+  { id: "groceries", label: "Groceries", spending: true },
+  { id: "household", label: "Household", spending: true },
+  { id: "housing", label: "Rent and housing", spending: true },
+  { id: "bills", label: "Bills", spending: true },
+  { id: "fashion", label: "Fashion", spending: true },
+  { id: "entertainment", label: "Entertainment", spending: true },
+  { id: "dining", label: "Dining", spending: true },
+  { id: "transport", label: "Transport", spending: true },
+  { id: "health", label: "Health", spending: true },
+  { id: "subscriptions", label: "Subscriptions", spending: true },
+  { id: "personal", label: "Personal care", spending: true },
+  { id: "travel", label: "Travel", spending: true },
+  { id: "gifts", label: "Gifts", spending: true },
+  { id: "kids", label: "Kids", spending: true },
+  { id: "pets", label: "Pets", spending: true },
+  { id: "education", label: "Education", spending: true },
+  { id: "charity", label: "Charity", spending: true },
+  { id: "fees", label: "Bank fees", spending: true },
+  { id: "cash", label: "Cash", spending: true },
+  { id: "other", label: "Other", spending: true },
+  { id: "savings", label: "Savings", spending: false },
+  { id: "investments", label: "Investments", spending: false },
+  { id: "transfers", label: "Transfers", spending: false },
 ] as const;
 
 export type CategoryId = (typeof CATEGORIES)[number]["id"];
@@ -35,6 +50,11 @@ export type Tx = {
   rawAlert: string;
   isSample: boolean;
   createdAt: string;
+  /**
+   * What the person said it was with one tap, as an interest id such as
+   * "perfume". "-" means they chose not to say. Empty means not asked yet.
+   */
+  kind?: string;
 };
 
 export type Profile = {
@@ -46,6 +66,10 @@ export type Profile = {
   notifyAlerts: boolean;
   lat: number | null;
   lng: number | null;
+  /** The location question after the first sign-in has been answered or skipped. */
+  locationAsked: boolean;
+  /** Day of the week for the weekly check-in, 0 is Sunday. Null means none. */
+  weeklyDay: number | null;
 };
 
 export type WalletAlert = {
@@ -77,6 +101,13 @@ export function categoryLabel(id: CategoryId): string {
   return CATEGORIES.find((c) => c.id === id)?.label ?? "Other";
 }
 
+const NOT_SPENDING = new Set<string>(CATEGORIES.filter((c) => !c.spending).map((c) => c.id));
+
+/** False for savings, investments and transfers: money moved, not spent. */
+export function countsAsSpending(id: CategoryId): boolean {
+  return !NOT_SPENDING.has(id);
+}
+
 const TONE = [
   "var(--color-forest)",
   "var(--color-tone-2)",
@@ -88,6 +119,7 @@ const TONE = [
 
 export function categoryTone(id: CategoryId): string {
   if (id === "other") return "var(--color-clay)";
+  if (!countsAsSpending(id)) return "var(--color-saved)";
   const index = CATEGORIES.findIndex((c) => c.id === id);
   return TONE[index % TONE.length] ?? TONE[0];
 }
@@ -336,9 +368,47 @@ const KEYWORDS: { category: CategoryId; words: string[] }[] = [
       "tv licence",
       "tv license",
       "bt broadband",
-      "rent",
-      "landlord",
     ],
+  },
+  {
+    category: "housing",
+    words: ["rent", "landlord", "letting", "lettings", "mortgage", "housing association"],
+  },
+  {
+    category: "kids",
+    words: ["smyths", "mothercare", "childcare", "nursery fees", "the entertainer", "kids club"],
+  },
+  {
+    category: "pets",
+    words: ["pets at home", "vets4pets", "medivet", "jollyes", "pets corner", "veterinary"],
+  },
+  {
+    category: "education",
+    words: ["udemy", "coursera", "tuition", "school fees", "open university", "exam fee"],
+  },
+  {
+    category: "charity",
+    words: ["justgiving", "donation", "gift aid", "unicef", "nspcc", "save the children", "wateraid"],
+  },
+  {
+    category: "fees",
+    words: ["overdraft fee", "overdraft interest", "late payment fee", "non-sterling", "foreign transaction fee", "account fee"],
+  },
+  {
+    category: "cash",
+    words: ["cash withdrawal", "cashpoint", "atm withdrawal", "link atm"],
+  },
+  {
+    category: "savings",
+    words: ["savings pot", "to savings", "cash isa", "premium bonds", "ns&i", "easy access saver"],
+  },
+  {
+    category: "investments",
+    words: ["vanguard", "trading 212", "hargreaves lansdown", "freetrade", "aj bell", "nutmeg", "stocks and shares isa"],
+  },
+  {
+    category: "transfers",
+    words: ["transfer to own", "own account", "to my account", "between accounts"],
   },
   {
     category: "travel",
@@ -426,21 +496,39 @@ export function parseAlert(raw: string): ParsedAlert {
   };
 }
 
+/** "About 20 pounds at ASDA, groceries" reads as "about £20 at ASDA, groceries". */
+export function spokenToAlert(text: string): string {
+  return text
+    .replace(/(\d+(?:[.,]\d{1,2})?)\s*(?:pounds?|quid|gbp)\b/gi, (_, n: string) => `£${n.replace(",", ".")}`)
+    .replace(/£\s*(\d+)\s*(?:and\s*)?(\d{1,2})\s*p(?:ence)?\b/gi, (_, a: string, b: string) => `£${a}.${b.padStart(2, "0")}`)
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
 export type MonthSummary = {
   key: string;
+  /** Money spent. Savings, investments and transfers are not in this total. */
   spent: number;
   count: number;
+  /** Money moved to savings, investments or your own accounts. Shown apart, never as spending. */
+  moved: number;
   byCategory: { id: CategoryId; amount: number }[];
   byMerchant: { name: string; amount: number; count: number }[];
 };
 
-export function summarize(txs: Tx[], key: string): MonthSummary {
-  const rows = txs.filter((t) => t.spentOn.slice(0, 7) === key);
+function summarizeRows(rows: Tx[], key: string): MonthSummary {
   const cat = new Map<CategoryId, number>();
   const merch = new Map<string, { name: string; amount: number; count: number }>();
   let spent = 0;
+  let count = 0;
+  let moved = 0;
   for (const tx of rows) {
+    if (!countsAsSpending(tx.category)) {
+      moved += tx.amountPence;
+      continue;
+    }
     spent += tx.amountPence;
+    count += 1;
     cat.set(tx.category, (cat.get(tx.category) ?? 0) + tx.amountPence);
     const slug = tx.merchant.trim().toLowerCase();
     const prev = merch.get(slug);
@@ -454,7 +542,8 @@ export function summarize(txs: Tx[], key: string): MonthSummary {
   return {
     key,
     spent,
-    count: rows.length,
+    count,
+    moved,
     byCategory: [...cat.entries()]
       .map(([id, amount]) => ({ id, amount }))
       .sort((a, b) => b.amount - a.amount),
@@ -462,32 +551,18 @@ export function summarize(txs: Tx[], key: string): MonthSummary {
   };
 }
 
+export function summarize(txs: Tx[], key: string): MonthSummary {
+  return summarizeRows(
+    txs.filter((t) => t.spentOn.slice(0, 7) === key),
+    key,
+  );
+}
+
 export function summarizeSpan(txs: Tx[], span: PaySpan): MonthSummary {
-  const rows = txs.filter((t) => t.spentOn >= span.start && t.spentOn <= span.end);
-  const cat = new Map<CategoryId, number>();
-  const merch = new Map<string, { name: string; amount: number; count: number }>();
-  let spent = 0;
-  for (const tx of rows) {
-    spent += tx.amountPence;
-    cat.set(tx.category, (cat.get(tx.category) ?? 0) + tx.amountPence);
-    const slug = tx.merchant.trim().toLowerCase();
-    const prev = merch.get(slug);
-    if (prev) {
-      prev.amount += tx.amountPence;
-      prev.count += 1;
-    } else {
-      merch.set(slug, { name: tx.merchant, amount: tx.amountPence, count: 1 });
-    }
-  }
-  return {
-    key: span.start,
-    spent,
-    count: rows.length,
-    byCategory: [...cat.entries()]
-      .map(([id, amount]) => ({ id, amount }))
-      .sort((a, b) => b.amount - a.amount),
-    byMerchant: [...merch.values()].sort((a, b) => b.amount - a.amount).slice(0, 5),
-  };
+  return summarizeRows(
+    txs.filter((t) => t.spentOn >= span.start && t.spentOn <= span.end),
+    span.start,
+  );
 }
 
 export type Habit = { name: string; amount: number; count: number };
@@ -527,7 +602,17 @@ const SPEND_SEARCH: Record<CategoryId, string | null> = {
   personal: "toiletries",
   travel: "holiday flights",
   gifts: "gifts",
+  housing: null,
+  kids: "kids toys clothes",
+  pets: "pet food",
+  education: "courses books",
+  charity: null,
+  fees: null,
+  cash: null,
   other: null,
+  savings: null,
+  investments: null,
+  transfers: null,
 };
 
 export function spendQueries(
@@ -582,8 +667,25 @@ const CATEGORY_TIP: Record<CategoryId, string> = {
     "A trip is fine when it was planned. If this one wasn’t, leave the extras for next month’s money.",
   gifts:
     "Decide the ceiling before you browse. A smaller present usually lands as well as the upgraded one.",
+  housing:
+    "Rent rarely moves mid-year. Check the council tax band and any discount you can claim, such as the single person discount.",
+  kids:
+    "Agree a list before the shop. School uniform and toy shops run offers before term and in the January sales.",
+  pets:
+    "Food in a bigger bag is usually cheaper per kilo. Compare the vet plan price with what you paid last year.",
+  education:
+    "Ask for a student or early-booking price before you pay, and check whether the course is free elsewhere.",
+  charity:
+    "Giving is a choice, not a leak. If you pay tax, Gift Aid adds to the gift at no cost to you.",
+  fees:
+    "These are avoidable. Look at what caused each one: a late payment, an overdraft, or a card used abroad.",
+  cash:
+    "Cash is hard to track. Note what it was spent on, or pay by card so Pence can see it.",
   other:
     "Give these a real category. Other is where forgotten memberships and card taps hide.",
+  savings: "Money put aside. Not counted as spending.",
+  investments: "Money invested. Not counted as spending.",
+  transfers: "Money moved between your own accounts. Not counted as spending.",
 };
 
 export function buildAdvice(input: {
@@ -640,7 +742,8 @@ export function buildAdvice(input: {
       const prev = previous.byCategory.find((p) => p.id === row.id)?.amount ?? 0;
       return { id: row.id, now: row.amount, prev, delta: row.amount - prev };
     })
-    .filter((row) => row.prev >= 800 && row.delta > row.prev * 0.15 && row.id !== top?.id)
+    // Health is never something Pence tells people to cut.
+    .filter((row) => row.prev >= 800 && row.delta > row.prev * 0.15 && row.id !== top?.id && row.id !== "health")
     .sort((a, b) => b.delta - a.delta);
 
   const rise = rises[0];

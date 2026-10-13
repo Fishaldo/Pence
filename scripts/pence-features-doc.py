@@ -15,6 +15,8 @@ SECTIONS = [
             "Email sign-in. A new person enters their name, monthly take-home pay, town or city, and payday.",
             "Settings can change those details, including whether spend reminders are wanted.",
             "Settings can save this phone’s location, and other places typed by hand, such as a partner in Essex. Plan and the shop comparison can use any of those places. Location is not required.",
+            "Right after the first sign-in, Pence asks once for this phone’s location, so deals near you come first. Not now keeps the town typed at sign-up. It can be changed in Settings.",
+            "Your data in Settings: Download my data gives everything Pence keeps about you as one file, and Download spends as a spreadsheet gives every spend. Delete all my data removes every spend, place, budget, bill and watch, then signs you out.",
         ],
     ),
     (
@@ -25,16 +27,22 @@ SECTIONS = [
             "Pence keeps what it reads, the shop, amount, date and items, and never stores the photo or PDF. While you check a scan, the picture stays on that screen only. Photos saved before this change were cleared.",
             "A photo that is not a receipt or a list of payments is rejected.",
             "A photo or PDF of a bank or card list is accepted. Money in is ignored. Each money-out line can be kept or dropped, with a category.",
-            "A wallet or bank alert can be pasted as text. Pence asks whether there is a receipt. If not, it files the spend from the alert.",
+            "A wallet or bank alert can be pasted as text, from Paste a payment message on Add. Pence asks whether there is a receipt. If not, it files the spend from the alert.",
+            "Say it, on phones whose browser can hear speech: say “About £20 at ASDA, groceries”, and Pence files it like a pasted alert.",
+            "When a statement photo, PDF or bank export shows pay coming in, Pence asks whether it is your pay, and one tap saves it as that pay period’s take-home.",
             "If a new receipt or statement line matches a payment already saved — same amount, same shop, and the same date — Pence asks whether to keep the saved one, replace it, or keep both. The same amount on a different date is not flagged.",
             "A spend can also be typed in by hand.",
             "When a payment comes in with no receipt, What did you buy? is there to add items, if you want to.",
-            "Categories for a logged spend: Groceries, Household, Fashion, Entertainment, Dining, Transport, Health, Bills, Subscriptions, Personal care, Travel, Gifts, and Other.",
+            "Categories for a logged spend: Groceries, Household, Rent and housing, Bills, Fashion, Entertainment, Dining, Transport, Health, Subscriptions, Personal care, Travel, Gifts, Kids, Pets, Education, Charity, Bank fees, Cash, and Other. Savings, Investments and Transfers are kept too, but never counted as spending.",
         ],
     ),
     (
         "Home",
         [
+            "Safe to spend until payday: take-home, less what is spent, less the regular payments still to come before payday, with the days left and about how much a day. Over shows when it has gone past.",
+            "Payday: in the first days of a pay period, Pence asks whether the usual take-home landed. Yes saves it; It was different takes the real amount. That pay period counts from it.",
+            "Needs a tap: a spend at a shop that sells many kinds of thing, with no items, such as £38 at Boots, asks what it was, with one tap. The answer files it and teaches Pence the habit. Rather not say stops the question.",
+            "A Bills card says how many bills are worth a look, or what bills cost a month. Your week shows what was spent since Monday and opens the weekly check-in.",
             "Home shows how much of the current pay is already spent. If payday is the 25th, that pay starts on the 25th of the previous month and runs until the day before the next 25th. With no payday set, it stays a calendar month.",
             "How the month is pacing against last month.",
             "Coming out soon lists regular payments and free trials due in the next 7 days. With none due, a short line opens the full list of regular payments.",
@@ -47,6 +55,7 @@ SECTIONS = [
         "Activity",
         [
             "Every spend, grouped by day. A spend can be opened, edited, or deleted.",
+            "Search by shop, item, note or category, over 1 week, 1, 3 or 6 months, 1 year, or all time, with the total and the number of spends. Savings and transfers are counted apart.",
             "Editing shows the description as it came in, such as BLD*MYPERFECTCV.CO. A new shop name or category also changes every other payment with the same description, and future ones come in named and filed the same way. Untick it to change only that one.",
             "What did you buy? lets you add items to any payment, with or without prices, such as nappies and bread on a £20.50 ASDA payment with no receipt. Pence learns your habits from them as it does from a receipt. Items without prices share the rest of the total.",
             "A spend read from a receipt says so. The photo itself is not kept.",
@@ -57,7 +66,8 @@ SECTIONS = [
         [
             "Charts for where the month went, spending by day, and the past three months side by side.",
             "Each category as a share of take-home, and whether it is up or down.",
-            "What to trim, from your own numbers, plus a closer written read when asked.",
+            "What to trim, from your own numbers, plus a closer written read when asked. Pence never tells you to cut health.",
+            "Money saved, invested or moved between your accounts is shown apart, never as spending.",
             "Another shop lists other big chains actually near this phone, with the distance. A price or an online offer is shown only when a page states it.",
         ],
     ),
@@ -105,12 +115,39 @@ SECTIONS = [
             "Payments with the same statement description count as one, so a renamed payee stays one entry.",
             "Pence works out the next date from the last payment. When it has only one payment, it guesses every month and says so. Change fixes the name, amount, how often, and the next date.",
             "Add a payment or free trial covers what the bank does not show yet, such as a trial that starts charging. Once means a free trial or a single payment; it drops off a few days after its date.",
-            "A phone alert comes 7 days, 3 days, and 1 day before each payment, naming it and the amount. Each reminder can be turned off. Phone alerts are turned on from the same page.",
+            "A phone alert comes a week, 3 days, and 2 working days before each payment, naming it and the amount. Weekends and bank holidays in England and Wales are not working days. Each reminder can be turned off. Phone alerts are turned on from the same page.",
+            "A bill or subscription that goes up shows the old and new amount, and a phone alert says so once.",
             "Send a test shows an alert on this phone straight away, to check alerts arrive. The panel also says when the morning check last ran. If the morning check misses a day, the next visit to Pence runs it.",
             "I’ve cancelled it moves a payment to Cancelled. If it is paid again after that, Pence shows it at the top under Check this.",
             "Not seen lately lists payments that have not come out for longer than usual, to mark as cancelled or still paying.",
             "How to cancel opens a web search for that service.",
             "Opened from Home, from Settings, or from the side menu on a computer.",
+        ],
+    ),
+    (
+        "Bills",
+        [
+            "Every bill and subscription in one list, with what they cost a month. Opened from Home, Settings, or the side menu on a computer.",
+            "Worth a look comes first: a bill that went up, a contract that has ended, or one ending in the next 45 days.",
+            "Each bill can have the date its contract or deal ends. Pence then reminds you before it ends.",
+            "Look for a better deal searches public UK deal pages for that kind of bill: energy, broadband, mobile, TV, insurance, streaming or a gym. A monthly price shows only when the page states it. How to switch opens a web search for switching that kind of provider.",
+            "Water, council tax and the TV licence cannot be switched, and the bill says so, with what can still help.",
+        ],
+    ),
+    (
+        "Budget",
+        [
+            "Make my budget builds one from your last pays: each category’s average, rounded up to the next £5. Every line can be changed, removed or added, including your own lines such as perfume.",
+            "Rent, bills, health, kids and education are marked Never cut. Pence never suggests trimming them.",
+            "Each line shows what is spent this pay and what is left, or how far over.",
+        ],
+    ),
+    (
+        "Weekly check-in",
+        [
+            "Your week: what was spent since Monday against last week by the same day, the top categories, and a category that went up.",
+            "What is safe to spend until payday, the regular payments coming out in the next 7 days, and any one-tap questions waiting.",
+            "Pick a check-in day. On that day, a phone alert opens the check-in.",
         ],
     ),
     (
@@ -131,6 +168,7 @@ SECTIONS = [
             "Saved place comes first. It offers your town, your saved places, Use my location now, and Type a place. Only Type a place shows Country and Town or city.",
             "Shop or place covers shops, restaurants, gyms, pharmacies and anywhere else.",
             "Two buttons: Find offers, and Add to Watchlist.",
+            "After What, up to three quick questions that change which places fit, one tap each, such as who is going, which meal and the food for eating out, or single or return for getting there. Every answer is used in the search, and last time’s answers come back for the same What.",
         ],
     ),
     (
@@ -161,6 +199,7 @@ SECTIONS = [
             "The bottom bar is Home, Plan, Add, Insights, and Offers. The Watchlist is in Offers.",
             "Activity on Home is the latest spends, with All Activity opening the full list. Settings is on Home. Bank import is in Settings.",
             "Regular payments opens from Coming out soon on Home, from Settings, and from the side menu on a computer.",
+            "Bills, Budget and the weekly check-in open from Home, Insights and Settings, and from the side menu on a computer.",
         ],
     ),
 ]
@@ -187,7 +226,7 @@ def main() -> None:
     sub_run.font.color.rgb = RGBColor(0x4A, 0x55, 0x4E)
 
     dated = doc.add_paragraph()
-    dated_run = dated.add_run("11 October 2026")
+    dated_run = dated.add_run("13 October 2026")
     dated_run.italic = True
     dated_run.font.size = Pt(11)
     dated_run.font.color.rgb = RGBColor(0x4A, 0x55, 0x4E)

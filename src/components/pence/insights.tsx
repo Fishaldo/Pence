@@ -1,3 +1,4 @@
+import { Link } from "@tanstack/react-router";
 import { useState } from "react";
 import {
   buildAdvice,
@@ -187,7 +188,23 @@ export function InsightsView() {
             {topMerchant ? `, most of it at ${topMerchant.name} (${formatGBP(topMerchant.amount)})` : ""}.
           </p>
         ) : null}
+        {current.moved > 0 ? (
+          <p className="mt-2 text-sm text-saved">
+            {formatGBP(current.moved)} saved, invested or moved between your accounts. Not counted as spending.
+          </p>
+        ) : null}
       </section>
+
+      <div className="mt-4 grid grid-cols-2 gap-3">
+        <Link to="/budget" className="panel px-4 py-3">
+          <span className="block font-medium">Budget</span>
+          <span className="block text-sm text-muted">Each pay, from your own spending</span>
+        </Link>
+        <Link to="/week" className="panel px-4 py-3">
+          <span className="block font-medium">This week</span>
+          <span className="block text-sm text-muted">The weekly check-in</span>
+        </Link>
+      </div>
 
       {slices.length > 0 ? (
         <section className="mt-4 panel p-5">

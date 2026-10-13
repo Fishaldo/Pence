@@ -20,6 +20,9 @@
   --color-tone-3: #8fbfa4;
   --color-tone-5: #c4b396;
   --color-tone-6: #3d3832;
+  /* Savings, investments and transfers: money moved, not spent. */
+  --color-saved: #2b5a8c;
+  --color-saved-soft: #e4ecf6;
 
   --radius-sm: 0.5rem;
   --radius-md: 0.75rem;

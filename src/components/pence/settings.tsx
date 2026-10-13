@@ -2,7 +2,9 @@ import { useState } from "react";
 import { Link } from "@tanstack/react-router";
 import { toast } from "sonner";
 import { UserButton } from "@/lib/auth/gates";
-import { poundsToPence } from "@/lib/spend/model";
+import { signOut } from "@/lib/auth/client";
+import { categoryLabel, poundsToPence } from "@/lib/spend/model";
+import { deleteMyData, exportMyData, saveWeeklyDay } from "@/server/money";
 import { addPlace, clearSamples, removePlace, savePhonePlace, saveProfile } from "@/server/ledger";
 import { useLedger, useRefreshLedger } from "./data";
 import { errorText, PageHead } from "./ui";
@@ -22,6 +24,7 @@ export function SettingsView() {
   const [placeTown, setPlaceTown] = useState("");
   const samples = (txs.data ?? []).some((row) => row.isSample);
   const saved = places.data ?? [];
+  const [confirmDelete, setConfirmDelete] = useState(false);
 
   if (!data) return <div className="h-40 animate-pulse rounded-lg bg-sand" />;
 
@@ -129,6 +132,73 @@ export function SettingsView() {
     }
   }
 
+  function download(name: string, body: string, type: string) {
+    const url = URL.createObjectURL(new Blob([body], { type }));
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = name;
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+    window.setTimeout(() => URL.revokeObjectURL(url), 2000);
+  }
+
+  async function downloadAll() {
+    setBusy(true);
+    setError("");
+    try {
+      const file = await exportMyData();
+      download(`pence-data-${new Date().toISOString().slice(0, 10)}.json`, file, "application/json");
+    } catch (err) {
+      setError(errorText(err, "Couldn’t make the file."));
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  function downloadSpends() {
+    const cell = (value: string) => `"${value.replace(/"/g, '""')}"`;
+    const lines = [
+      "Date,Shop,Amount (£),Category,Statement text,Note,Items",
+      ...(txs.data ?? []).map((tx) =>
+        [
+          tx.spentOn,
+          cell(tx.merchant),
+          (tx.amountPence / 100).toFixed(2),
+          cell(categoryLabel(tx.category)),
+          cell(tx.description),
+          cell(tx.note),
+          cell(tx.items.map((item) => item.name).join("; ")),
+        ].join(","),
+      ),
+    ];
+    download(`pence-spends-${new Date().toISOString().slice(0, 10)}.csv`, lines.join("\n"), "text/csv");
+  }
+
+  async function deleteEverything() {
+    setBusy(true);
+    setError("");
+    try {
+      await deleteMyData({ data: { confirm: "delete" } });
+      await signOut("/");
+    } catch (err) {
+      setError(errorText(err, "Couldn’t delete that. Try again."));
+      setBusy(false);
+    }
+  }
+
+  async function pickWeekly(value: string) {
+    setBusy(true);
+    try {
+      await saveWeeklyDay({ data: { day: value === "" ? null : Number(value) } });
+      await refresh();
+    } catch (err) {
+      setError(errorText(err, "Couldn’t save that."));
+    } finally {
+      setBusy(false);
+    }
+  }
+
   async function clear() {
     setBusy(true);
     try {
@@ -155,10 +225,42 @@ export function SettingsView() {
         </Link>
       </div>
       <div className="panel mb-6 p-4">
-        <p className="font-medium">Regular payments</p>
-        <p className="mt-1 text-sm text-muted">Subscriptions, bills and free trials, with a reminder 7, 3 and 1 day before each one.</p>
-        <Link to="/regular" className="btn btn-quiet mt-3">
-          See the list
+        <p className="font-medium">Bills and regular payments</p>
+        <p className="mt-1 text-sm text-muted">
+          Subscriptions, bills and free trials, with a reminder a week, 3 days and 2 working days before each one. Bills shows price rises and
+          contract ends.
+        </p>
+        <div className="mt-3 flex flex-wrap gap-2">
+          <Link to="/bills" className="btn btn-quiet">
+            Bills
+          </Link>
+          <Link to="/regular" className="btn btn-quiet">
+            Regular payments
+          </Link>
+          <Link to="/budget" className="btn btn-quiet">
+            Budget
+          </Link>
+        </div>
+      </div>
+      <div className="panel mb-6 p-4">
+        <label className="field">
+          <span className="field-label">Weekly check-in</span>
+          <select
+            className="control"
+            value={data.weeklyDay == null ? "" : String(data.weeklyDay)}
+            disabled={busy}
+            onChange={(event) => void pickWeekly(event.target.value)}
+          >
+            <option value="">No reminder</option>
+            {["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"].map((day, index) => (
+              <option key={day} value={index}>
+                {day}
+              </option>
+            ))}
+          </select>
+        </label>
+        <Link to="/week" className="mt-2 inline-flex min-h-11 items-center text-sm font-medium text-forest">
+          Open this week’s check-in
         </Link>
       </div>
       <form onSubmit={save} className="flex flex-col gap-4">
@@ -249,6 +351,38 @@ export function SettingsView() {
           Remove sample spends
         </button>
       ) : null}
+      <section className="mt-8">
+        <h2 className="font-display text-2xl">Your data</h2>
+        <p className="mt-1 text-sm text-muted">Everything Pence keeps about you. Receipt photos are never kept.</p>
+        <div className="mt-3 flex flex-col gap-2 sm:flex-row">
+          <button type="button" className="btn btn-quiet" disabled={busy} onClick={() => void downloadAll()}>
+            Download my data
+          </button>
+          <button type="button" className="btn btn-quiet" disabled={busy || (txs.data ?? []).length === 0} onClick={downloadSpends}>
+            Download spends as a spreadsheet
+          </button>
+        </div>
+        {confirmDelete ? (
+          <div className="mt-3 rounded-lg bg-clay-soft p-4">
+            <p className="font-medium">Delete everything?</p>
+            <p className="mt-1 text-sm">
+              Every spend, place, budget, bill and watch is removed now, and you are signed out. This can’t be undone.
+            </p>
+            <div className="mt-3 flex flex-col gap-2 sm:flex-row">
+              <button type="button" className="btn btn-primary bg-clay" disabled={busy} onClick={() => void deleteEverything()}>
+                Yes, delete everything
+              </button>
+              <button type="button" className="btn btn-quiet" onClick={() => setConfirmDelete(false)}>
+                Keep my data
+              </button>
+            </div>
+          </div>
+        ) : (
+          <button type="button" className="mt-3 min-h-11 text-sm font-medium text-clay" onClick={() => setConfirmDelete(true)}>
+            Delete all my data
+          </button>
+        )}
+      </section>
       <div className="panel mt-6 p-4">
         <UserButton />
       </div>

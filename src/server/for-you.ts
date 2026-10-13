@@ -154,7 +154,8 @@ async function loadTaste(
       items_json: string;
       raw_alert: string;
       is_sample: unknown;
-    }>`select merchant, description, amount_pence, category, spent_on, source, note, items_json, raw_alert, is_sample
+      kind: string | null;
+    }>`select merchant, description, amount_pence, category, spent_on, source, note, items_json, raw_alert, is_sample, kind
        from transactions
        where user_id = ${userId} and spent_on >= ${since}
        order by spent_on desc
@@ -175,6 +176,7 @@ async function loadTaste(
     rawAlert: row.raw_alert ?? "",
     items: asItems(row.items_json),
     isSample: asBool(row.is_sample),
+    kind: row.kind && row.kind !== "-" ? row.kind : undefined,
   }));
   const paydayRaw = profile[0]?.payday;
   const payday = paydayRaw == null ? null : asInt(paydayRaw);

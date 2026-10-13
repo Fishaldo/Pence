@@ -3,6 +3,7 @@ import { getProfile, listAlerts, listPlaces, listTransactions } from "@/server/l
 import { forYou, forYouWide } from "@/server/for-you";
 import { listWatches } from "@/server/watch";
 import { listRegulars } from "@/server/regular";
+import { listBudget, listPay, listTaps } from "@/server/money";
 
 export function useLedger() {
   const profile = useQuery({ queryKey: ["profile"], queryFn: () => getProfile() });
@@ -37,6 +38,20 @@ export function useRegulars() {
   return useQuery({ queryKey: ["regulars"], queryFn: () => listRegulars(), staleTime: 60_000 });
 }
 
+/** Take-home confirmed for each pay period. */
+export function usePay() {
+  return useQuery({ queryKey: ["pay"], queryFn: () => listPay(), staleTime: 60_000 });
+}
+
+/** One-tap questions waiting: "£38 at Boots: perfume, pharmacy or toiletries?" */
+export function useTaps() {
+  return useQuery({ queryKey: ["taps"], queryFn: () => listTaps(), staleTime: 60_000 });
+}
+
+export function useBudget() {
+  return useQuery({ queryKey: ["budget"], queryFn: () => listBudget(), staleTime: 60_000 });
+}
+
 export function useRefreshLedger() {
   const client = useQueryClient();
   return async () => {
@@ -47,5 +62,7 @@ export function useRefreshLedger() {
     await client.invalidateQueries({ queryKey: ["forYou"] });
     await client.invalidateQueries({ queryKey: ["forYouWide"] });
     await client.invalidateQueries({ queryKey: ["regulars"] });
+    await client.invalidateQueries({ queryKey: ["taps"] });
+    await client.invalidateQueries({ queryKey: ["pay"] });
   };
 }

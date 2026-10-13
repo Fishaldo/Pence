@@ -1,14 +1,16 @@
 import { useNavigate } from "@tanstack/react-router";
-import { Camera, FileText, ImagePlus } from "lucide-react";
+import { Camera, ClipboardPaste, FileText, ImagePlus, Mic } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 import { fileToImages } from "@/lib/spend/files";
 import type { StatementRow } from "@/lib/spend/statement";
+import { looksLikePay, type MoneyIn } from "@/lib/spend/payday";
 import {
   CATEGORIES,
   categoryLabel,
   formatGBP,
   poundsToPence,
+  spokenToAlert,
   todayISO,
   type CategoryId,
   type LineItem,
@@ -19,6 +21,7 @@ import { createAlert, deleteSpend, dismissAlert, findClashes, importBank, readRe
 import { SamePayment, type ClashChoice } from "./clash";
 import { ItemsEditor, type DraftItem } from "./items-editor";
 import { useLedger, useRefreshLedger } from "./data";
+import { PaySpotted } from "./money-cards";
 import { errorText, PageHead } from "./ui";
 
 type Draft = {
@@ -44,7 +47,7 @@ type Phase =
   | { kind: "busy"; label: string }
   | { kind: "ask"; alert: WalletAlert }
   | { kind: "wrong"; note: string; imageDataUrl: string | null; alert?: WalletAlert }
-  | { kind: "statement"; rows: StatementRow[]; skippedIn: number; after: number }
+  | { kind: "statement"; rows: StatementRow[]; skippedIn: number; after: number; moneyIn?: MoneyIn[] }
   | { kind: "review"; draft: Draft; remaining: number }
   | { kind: "clash"; clashes: Clash[]; draft: Draft | null; rows: StatementRow[] | null };
 
@@ -96,6 +99,25 @@ function blankDraft(partial: Partial<Draft>): Draft {
   };
 }
 
+type Recognition = {
+  lang: string;
+  interimResults: boolean;
+  maxAlternatives: number;
+  onresult: ((event: { results: ArrayLike<ArrayLike<{ transcript: string }>> }) => void) | null;
+  onerror: ((event: { error: string }) => void) | null;
+  onend: (() => void) | null;
+  start: () => void;
+  stop: () => void;
+};
+
+/** The browser's speech-to-text, where it has one (Chrome on Android does). */
+function speechRecognition(): Recognition | null {
+  if (typeof window === "undefined") return null;
+  const w = window as unknown as { SpeechRecognition?: new () => Recognition; webkitSpeechRecognition?: new () => Recognition };
+  const Ctor = w.SpeechRecognition ?? w.webkitSpeechRecognition;
+  return Ctor ? new Ctor() : null;
+}
+
 export function CaptureView() {
   const navigate = useNavigate();
   const refresh = useRefreshLedger();
@@ -109,6 +131,37 @@ export function CaptureView() {
   const [phase, setPhase] = useState<Phase>({ kind: "choose" });
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
+  const [canSpeak, setCanSpeak] = useState(false);
+  const [listening, setListening] = useState(false);
+  const listener = useRef<Recognition | null>(null);
+
+  useEffect(() => {
+    setCanSpeak(speechRecognition() != null);
+  }, []);
+
+  function sayIt() {
+    const rec = speechRecognition();
+    if (!rec) return;
+    listener.current = rec;
+    rec.lang = "en-GB";
+    rec.interimResults = false;
+    rec.maxAlternatives = 1;
+    let heard = "";
+    rec.onresult = (event) => {
+      heard = event.results[0]?.[0]?.transcript ?? "";
+    };
+    rec.onerror = (event) => {
+      setListening(false);
+      setError(event.error === "not-allowed" ? "The microphone is off for Pence. Type it in instead." : "Didn’t catch that. Try again, or type it in.");
+    };
+    rec.onend = () => {
+      setListening(false);
+      if (heard.trim()) void submitPaste(spokenToAlert(heard));
+    };
+    setError("");
+    setListening(true);
+    rec.start();
+  }
 
   useEffect(() => {
     const id = sessionStorage.getItem("pence-open-alert");
@@ -161,6 +214,7 @@ export function CaptureView() {
     }
     const drafts: Draft[] = [];
     const rows: StatementRow[] = [];
+    const moneyIn: MoneyIn[] = [];
     let skippedIn = 0;
     for (let index = 0; index < images.length; index += 1) {
       const image = images[index];
@@ -170,13 +224,15 @@ export function CaptureView() {
       });
       try {
         const read = await readReceipt({ data: { imageDataUrl: image.url } });
+        moneyIn.push(...(read.moneyIn ?? []));
         if (read.kind === "statement" && read.spends.length > 0) {
           rows.push(...read.spends);
           skippedIn += read.skippedIn;
           continue;
         }
         if (!read.isSpend) {
-          wrong.push(image.name);
+          // A screen that only shows pay coming in is still useful: it can set this pay's take-home.
+          if (looksLikePay(read.moneyIn ?? [], profile.data?.monthlyIncomePence ?? 0).length === 0) wrong.push(image.name);
           continue;
         }
         const useAlert = Boolean(alert) && drafts.length === 0 && rows.length === 0;
@@ -208,9 +264,9 @@ export function CaptureView() {
     if (skipped.length > 0 && (rows.length > 0 || drafts.length > 0)) {
       toast(`${skipped.length} skipped. ${skipped.slice(0, 2).join(", ")}`);
     }
-    if (rows.length > 0) {
+    if (rows.length > 0 || (drafts.length === 0 && looksLikePay(moneyIn, profile.data?.monthlyIncomePence ?? 0).length > 0)) {
       later.current = drafts;
-      setPhase({ kind: "statement", rows, skippedIn, after: drafts.length });
+      setPhase({ kind: "statement", rows, skippedIn, after: drafts.length, moneyIn });
       return;
     }
     if (drafts[0]) {
@@ -479,6 +535,22 @@ export function CaptureView() {
           <button type="button" className="btn btn-quiet" onClick={() => { retryAlert.current = undefined; filesRef.current?.click(); }}>
             <FileText className="size-5" /> Files
           </button>
+          <button type="button" className="btn btn-quiet" onClick={() => setPhase({ kind: "paste", text: "" })}>
+            <ClipboardPaste className="size-5" /> Paste a payment message
+          </button>
+          {canSpeak ? (
+            <button
+              type="button"
+              className="btn btn-quiet"
+              aria-pressed={listening}
+              onClick={() => (listening ? listener.current?.stop() : sayIt())}
+            >
+              <Mic className="size-5" /> {listening ? "Listening… tap to stop" : "Say it"}
+            </button>
+          ) : null}
+          {canSpeak ? (
+            <p className="-mt-1 text-sm text-muted">Say it like “About £20 at ASDA, groceries”.</p>
+          ) : null}
           <button
             type="button"
             className="text-sm font-medium text-forest"
@@ -614,13 +686,25 @@ export function CaptureView() {
         </div>
       ) : null}
 
-      {phase.kind === "statement" ? (
+      {phase.kind === "statement" && (phase.moneyIn?.length ?? 0) > 0 ? (
+        <div className="mb-4">
+          <PaySpotted rows={phase.moneyIn ?? []} usualPence={profile.data?.monthlyIncomePence ?? 0} />
+        </div>
+      ) : null}
+
+      {phase.kind === "statement" && phase.rows.length === 0 ? (
+        <button type="button" className="btn btn-quiet w-full" onClick={() => setPhase({ kind: "choose" })}>
+          Done
+        </button>
+      ) : null}
+
+      {phase.kind === "statement" && phase.rows.length > 0 ? (
         <StatementReview
           rows={phase.rows}
           skippedIn={phase.skippedIn}
           after={phase.after}
           busy={busy}
-          onChange={(rows) => setPhase({ kind: "statement", rows, skippedIn: phase.skippedIn, after: phase.after })}
+          onChange={(rows) => setPhase({ kind: "statement", rows, skippedIn: phase.skippedIn, after: phase.after, moneyIn: phase.moneyIn })}
           onSave={() => void fileStatement(phase.rows)}
           onBack={() => {
             later.current = [];

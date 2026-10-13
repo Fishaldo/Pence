@@ -1,12 +1,15 @@
 import { Link, useRouterState } from "@tanstack/react-router";
 import {
   Calendar,
+  CalendarCheck,
   House,
   PieChart,
   Plus,
+  Receipt,
   Repeat,
   Settings,
   Tag,
+  Wallet,
 } from "lucide-react";
 import type { ReactNode } from "react";
 import { cn } from "@/lib/cn";
@@ -64,6 +67,13 @@ const NAV = [
   { to: "/offers", label: "Offers", icon: Tag },
 ] as const;
 
+const MORE = [
+  { to: "/bills", label: "Bills", icon: Receipt },
+  { to: "/regular", label: "Regular payments", icon: Repeat },
+  { to: "/budget", label: "Budget", icon: Wallet },
+  { to: "/week", label: "Weekly check-in", icon: CalendarCheck },
+] as const;
+
 export function Shell({ children }: { children: ReactNode }) {
   const path = useRouterState({ select: (s) => s.location.pathname });
   const { profile } = useLedger();
@@ -98,16 +108,22 @@ export function Shell({ children }: { children: ReactNode }) {
               );
             })}
           </nav>
-          <Link
-            to="/regular"
-            className={cn(
-              "flex h-11 items-center gap-3 rounded-md px-3 text-sm",
-              path === "/regular" ? "bg-mist font-medium text-forest-deep" : "text-ink hover:bg-sand",
-            )}
-          >
-            <Repeat className="size-4" strokeWidth={1.75} />
-            <span className="flex-1">Regular payments</span>
-          </Link>
+          {MORE.map((item) => {
+            const Icon = item.icon;
+            return (
+              <Link
+                key={item.to}
+                to={item.to}
+                className={cn(
+                  "flex h-11 items-center gap-3 rounded-md px-3 text-sm",
+                  path === item.to ? "bg-mist font-medium text-forest-deep" : "text-ink hover:bg-sand",
+                )}
+              >
+                <Icon className="size-4" strokeWidth={1.75} />
+                <span className="flex-1">{item.label}</span>
+              </Link>
+            );
+          })}
           <Link
             to="/settings"
             className="mt-4 flex items-center gap-3 rounded-md px-3 py-2 text-sm text-muted hover:bg-sand hover:text-ink"

@@ -22,6 +22,8 @@ import { useForYou, useLedger, useRefreshLedger } from "./data";
 import { CodeChip } from "./deal-bits";
 import { goUrl } from "./deal-links";
 import { DealTerms } from "./offers";
+import { BillsCard, NeedsTap, PaydayCard, SafeCard, WeekCard } from "./money-cards";
+import { useThisPay } from "./this-pay";
 import { ComingOut } from "./regular";
 import { WatchSummary } from "./watch";
 import { errorText, Money, PageHead } from "./ui";
@@ -62,6 +64,7 @@ export function HomeView() {
   const [error, setError] = useState("");
   const [trending, setTrending] = useState<HotDeal[] | null>(null);
   const picks = picksFor(mine.data?.deals ?? [], mine.data?.taste);
+  const thisPay = useThisPay(profile.data, txs.data ?? []);
   const needTrending = !mine.isPending && picks.length === 0;
   const kindKey = spendQueries(
     (txs.data ?? []).map((tx) => ({ category: tx.category, amountPence: tx.amountPence, isSample: tx.isSample })),
@@ -101,12 +104,10 @@ export function HomeView() {
   const current = summarizeSpan(rows, span);
   const previous = summarizeSpan(rows, prevSpan);
   const progress = spanProgress(span, today);
-  const income = profile.data?.monthlyIncomePence ?? 0;
+  // This pay's take-home: what the person confirmed on payday, else their usual.
+  const income = thisPay.takeHomePence;
   const name = profile.data?.displayName?.split(" ")[0] || "there";
   const projected = projectedSpend(current.spent, progress.day, progress.days);
-  const left = income - current.spent;
-  const daysLeft = Math.max(1, progress.days - progress.day + 1);
-  const perDay = Math.floor(left / daysLeft);
   const ratio = income > 0 ? Math.min(1, current.spent / income) : 0;
   const over = income > 0 && current.spent > income;
   const top = current.byCategory[0];
@@ -168,9 +169,13 @@ export function HomeView() {
         }
       />
 
-      <section className="panel p-5">
+      {income > 0 ? <SafeCard pay={thisPay} hasPayday={payday != null} /> : null}
+
+      {profile.data ? <PaydayCard pay={thisPay} profile={profile.data} /> : null}
+
+      <section className={income > 0 ? "panel mt-4 p-5" : "panel p-5"}>
         <p className="text-sm text-muted">Spent so far</p>
-        <p className="mt-1 font-display text-5xl leading-none">
+        <p className={income > 0 ? "mt-1 font-display text-3xl leading-none" : "mt-1 font-display text-5xl leading-none"}>
           <Money pence={current.spent} />
         </p>
         <p className="mt-2 text-sm text-muted">
@@ -202,24 +207,19 @@ export function HomeView() {
             style={{ width: `${income > 0 ? Math.max(4, ratio * 100) : 0}%` }}
           />
         </div>
-        {income > 0 ? (
-          <div className="mt-4 grid grid-cols-2 gap-3">
-            <div>
-              <p className="text-xs text-muted">{over ? "Over by" : payday ? "Left this pay" : "Left this month"}</p>
-              <p className={`mt-1 text-lg font-medium tabular-nums ${over ? "text-clay" : "text-ink"}`}>
-                {formatGBP(Math.abs(left))}
-              </p>
-            </div>
-            <div>
-              <p className="text-xs text-muted">{over ? "Stop here" : "About a day"}</p>
-              <p className="mt-1 text-lg font-medium tabular-nums">
-                {over ? "—" : formatGBP(Math.max(0, perDay))}
-              </p>
-            </div>
-          </div>
-        ) : null}
         <p className="mt-4 text-sm text-muted">{pace}</p>
+        {current.moved > 0 ? (
+          <p className="mt-2 text-sm text-saved">
+            {formatGBP(current.moved)} saved, invested or moved this {cycle}. Not counted as spending.
+          </p>
+        ) : null}
       </section>
+
+      <NeedsTap />
+
+      <BillsCard />
+
+      <WeekCard txs={rows} />
 
       <WatchSummary />
 

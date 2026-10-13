@@ -8,7 +8,8 @@ import { descKey } from "./payee.ts";
  * Every payment filed as a subscription is on the list. Other payments join it
  * when they come back on a steady rhythm for about the same amount, like rent
  * or a phone contract. Pence works out when each one is next due, so it can
- * remind the person a week, three days and a day before it comes out.
+ * remind the person a week, three days and two working days before it comes out.
+ * It also notices when a bill or subscription goes up.
  */
 
 export type Freq = "once" | "weekly" | "monthly" | "quarterly" | "yearly";
@@ -49,7 +50,12 @@ export type RegularSetting = {
   /** The day they said they cancelled it. */
   stoppedOn?: string | null;
   remind: boolean;
+  /** When the contract or deal ends, if the person told Pence. */
+  contractEnd?: string | null;
 };
+
+/** A payment that went up: the old amount, the new one, and when the new one was first paid. */
+export type Rise = { fromPence: number; toPence: number; on: string };
 
 export type Regular = {
   key: string;
@@ -71,7 +77,33 @@ export type Regular = {
   paidAfterStop: boolean;
   monthlyPence: number;
   subscription: boolean;
+  /** The category of the latest payment, such as bills or subscriptions. */
+  category: CategoryId;
+  /** The amount of the latest payment, which can differ from the usual amount. */
+  lastPence: number | null;
+  /** Set when the latest payment is higher than the steady amount before it. */
+  rise: Rise | null;
+  contractEnd: string | null;
 };
+
+/** Categories where a payment going up is worth telling the person about. */
+const RISE_WATCHED = new Set<CategoryId>(["bills", "subscriptions", "housing"]);
+
+/**
+ * The latest payment is higher than the one before, which matched the one
+ * before that (when there is one). A bill that moves every month by usage is
+ * not a price rise, so a wobbly history is left alone.
+ */
+export function findRise(history: { amountPence: number; spentOn: string }[]): Rise | null {
+  if (history.length < 2) return null;
+  const last = history[history.length - 1];
+  const prev = history[history.length - 2];
+  const before = history[history.length - 3];
+  const up = last.amountPence - prev.amountPence;
+  if (up < Math.max(50, Math.round(prev.amountPence * 0.03))) return null;
+  if (before && Math.abs(prev.amountPence - before.amountPence) > Math.max(20, prev.amountPence * 0.02)) return null;
+  return { fromPence: prev.amountPence, toPence: last.amountPence, on: last.spentOn };
+}
 
 /** Categories whose spends are never "regular payments", however steady. */
 const NOT_REGULAR = new Set<CategoryId>(["groceries", "dining", "fashion", "gifts", "entertainment", "travel"]);
@@ -129,7 +161,7 @@ export function payeeKey(spend: Pick<RegularSpend, "merchant" | "description">):
   return `p:${key.slice(0, 80)}`;
 }
 
-type Found = Omit<Regular, "daysLeft" | "stopped" | "remind" | "manual" | "monthlyPence" | "paidAfterStop"> & {
+type Found = Omit<Regular, "daysLeft" | "stopped" | "remind" | "manual" | "monthlyPence" | "paidAfterStop" | "contractEnd"> & {
   anchorDay: number;
 };
 
@@ -159,7 +191,7 @@ function detect(spends: RegularSpend[]): Found[] {
       freq = gapFreq ?? "monthly";
       guessed = gapFreq == null;
     } else if (gapFreq && steady && !NOT_REGULAR.has(category)) {
-      const enough = days.length >= 3 || (category === "bills" && days.length >= 2);
+      const enough = days.length >= 3 || ((category === "bills" || category === "housing") && days.length >= 2);
       if (enough) freq = gapFreq;
     }
     if (!freq) continue;
@@ -170,9 +202,10 @@ function detect(spends: RegularSpend[]): Found[] {
       dayCounts.set(dom, (dayCounts.get(dom) ?? 0) + 1);
     }
     const anchorDay = [...dayCounts.entries()].sort((a, b) => b[1] - a[1] || b[0] - a[0])[0][0];
+    const latest = list[list.length - 1];
     found.push({
       key,
-      name: list[list.length - 1].merchant.trim(),
+      name: latest.merchant.trim(),
       amountPence: amount,
       freq,
       lastPaid,
@@ -182,6 +215,9 @@ function detect(spends: RegularSpend[]): Found[] {
       lapsed: false,
       subscription,
       anchorDay,
+      category,
+      lastPence: latest.amountPence,
+      rise: subscription || RISE_WATCHED.has(category) ? findRise(list) : null,
     });
   }
   return found;
@@ -218,6 +254,7 @@ export function findRegulars(spends: RegularSpend[], settings: RegularSetting[],
       lapsed: lapsed && !paidAfterStop,
       paidAfterStop,
       monthlyPence: monthlyOf(amountPence, freq),
+      contractEnd: set?.contractEnd ?? null,
     });
   }
 
@@ -245,6 +282,10 @@ export function findRegulars(spends: RegularSpend[], settings: RegularSetting[],
       paidAfterStop: false,
       monthlyPence: monthlyOf(amountPence, freq),
       subscription: true,
+      category: "subscriptions",
+      lastPence: null,
+      rise: null,
+      contractEnd: set.contractEnd ?? null,
     });
   }
 
@@ -253,14 +294,40 @@ export function findRegulars(spends: RegularSpend[], settings: RegularSetting[],
 }
 
 /**
- * The reminder step for a payment this many days away: a week, three days, and
- * a day before. Each step covers the days up to the next one, so a missed daily
- * check, or a payment added five days out, still gets its reminder. Send a step
- * only when no step at or below it was sent for that due date.
+ * Bank holidays in England and Wales, from gov.uk/bank-holidays.json. Banks do
+ * not send payments on them, so they are not counted as working days.
  */
-export function reminderStep(daysLeft: number | null): 7 | 3 | 1 | null {
+export const BANK_HOLIDAYS = new Set([
+  "2025-12-25", "2025-12-26",
+  "2026-01-01", "2026-04-03", "2026-04-06", "2026-05-04", "2026-05-25", "2026-08-31", "2026-12-25", "2026-12-28",
+  "2027-01-01", "2027-03-26", "2027-03-29", "2027-05-03", "2027-05-31", "2027-08-30", "2027-12-27", "2027-12-28",
+  "2028-01-03", "2028-04-14", "2028-04-17", "2028-05-01", "2028-05-29", "2028-08-28", "2028-12-25", "2028-12-26",
+]);
+
+/** Working days after `from`, up to and including `to`. Weekends and bank holidays are left out. */
+export function workingDaysUntil(from: string, to: string, holidays: Set<string> = BANK_HOLIDAYS): number {
+  let count = 0;
+  for (let day = dayNum(from) + 1; day <= dayNum(to); day += 1) {
+    const weekday = new Date(day * 86_400_000).getUTCDay();
+    if (weekday === 0 || weekday === 6 || holidays.has(isoOf(day))) continue;
+    count += 1;
+  }
+  return count;
+}
+
+export type ReminderStep = 7 | 3 | 2;
+
+/**
+ * The reminder step for a payment this many days away: a week, three days, and
+ * two working days before. Each step covers the days up to the next one, so a
+ * missed daily check, or a payment added five days out, still gets its
+ * reminder. Send a step only when no step at or below it was sent for that due
+ * date. Without a working-day count, calendar days stand in for it.
+ */
+export function reminderStep(daysLeft: number | null, workingLeft?: number | null): ReminderStep | null {
   if (daysLeft == null || daysLeft < 0 || daysLeft > 7) return null;
-  return daysLeft <= 1 ? 1 : daysLeft <= 3 ? 3 : 7;
+  if ((workingLeft ?? daysLeft) <= 2) return 2;
+  return daysLeft <= 3 ? 3 : 7;
 }
 
 /** "in 3 days", "tomorrow", "today". */
@@ -282,10 +349,12 @@ export type SentReminder = { key: string; due: string; daysBefore: number };
  * The payments to remind about now, each with its step. A step is skipped when
  * that step, or a later one, was already sent for the same due date.
  */
-export function remindersDue(items: Regular[], sent: SentReminder[]): { item: Regular; step: 7 | 3 | 1 }[] {
-  const out: { item: Regular; step: 7 | 3 | 1 }[] = [];
+export function remindersDue(items: Regular[], sent: SentReminder[]): { item: Regular; step: ReminderStep }[] {
+  const out: { item: Regular; step: ReminderStep }[] = [];
   for (const item of items) {
-    const step = reminderStep(item.daysLeft);
+    const today = item.nextDue && item.daysLeft != null ? isoOf(dayNum(item.nextDue) - item.daysLeft) : null;
+    const working = today && item.nextDue ? workingDaysUntil(today, item.nextDue) : null;
+    const step = reminderStep(item.daysLeft, working);
     if (!step || !item.nextDue || !item.remind || item.stopped || item.lapsed) continue;
     const already = sent.some((row) => row.key === item.key && row.due === item.nextDue && row.daysBefore <= step);
     if (!already) out.push({ item, step });
@@ -330,5 +399,26 @@ export function reminderMessage(due: Regular[]): { title: string; body: string; 
     body: `${list}${due.length > 4 ? "…" : ""}. Still need them all?`,
     url: "/regular",
     tag: "due",
+  };
+}
+
+/** The words on the phone when a contract or deal ends soon. */
+export function contractEndMessage(name: string, end: string): { title: string; body: string; url: string; tag: string } {
+  return {
+    title: `${name}: contract ends ${shortDay(end)}`,
+    body: "Prices often go up after a deal ends. Look for a better one before then.",
+    url: "/bills",
+    tag: `contract-${name}`,
+  };
+}
+
+/** The words on the phone when a bill or subscription goes up. */
+export function riseMessage(name: string, rise: Rise): { title: string; body: string; url: string; tag: string } {
+  const up = rise.toPence - rise.fromPence;
+  return {
+    title: `${name} went up ${pounds(up)}`,
+    body: `${pounds(rise.toPence)} on ${shortDay(rise.on)}, from ${pounds(rise.fromPence)}. Worth checking for a better deal.`,
+    url: "/bills",
+    tag: `rise-${name}`,
   };
 }

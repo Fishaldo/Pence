@@ -6,6 +6,7 @@ import { findOffers, type Offer } from "@/server/plan";
 import { hotDeals, type HotDeal } from "@/server/hotukdeals";
 import { publicDeals } from "@/server/public-deals";
 import { mergeDeals } from "@/lib/spend/deals";
+import { answerBrief, answerWords, questionsFor, type PlanAnswers } from "@/lib/spend/plan-questions";
 import { savePhonePlace } from "@/server/ledger";
 import { addWatch, checkWatchNow } from "@/server/watch";
 import { useLedger } from "./data";
@@ -139,6 +140,32 @@ export function PlanView() {
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
   const [whatOpen, setWhatOpen] = useState(false);
+  const [answers, setAnswers] = useState<PlanAnswers>({});
+  const questions = questionsFor(kind);
+
+  // Last time's answers for this What come back, so only what is different needs a tap.
+  useEffect(() => {
+    try {
+      const saved = window.localStorage.getItem(`pence-plan-${kind}`);
+      setAnswers(saved ? (JSON.parse(saved) as PlanAnswers) : {});
+    } catch {
+      setAnswers({});
+    }
+  }, [kind]);
+
+  function answer(id: string, label: string) {
+    setAnswers((current) => {
+      const next = { ...current };
+      if (next[id] === label) delete next[id];
+      else next[id] = label;
+      try {
+        window.localStorage.setItem(`pence-plan-${kind}`, JSON.stringify(next));
+      } catch {
+        /* remembering is a convenience only */
+      }
+      return next;
+    });
+  }
   const firstChoice = cityDefault ? "home" : saved[0] ? `place:${saved[0].id}` : "manual";
   const choice = where || firstChoice;
   const chosenPlace = choice.startsWith("place:") ? saved.find((item) => `place:${item.id}` === choice) : undefined;
@@ -244,13 +271,17 @@ export function PlanView() {
     const label = GROUPS.flatMap((group) => group.kinds).find(([id]) => id === kind)?.[1] ?? "";
     setWatched(null);
     const inBritain = /united kingdom|\buk\b|england|scotland|wales|britain/i.test(placeCountry);
+    const extra = answerWords(kind, answers);
     if (inBritain) {
       const focus = items.trim();
       const category = BOARD[kind] || label;
       const local = town.trim();
+      const base = focus || category;
       const queries = [
-        local ? `${local} ${focus || category}` : "",
-        focus || category,
+        local ? `${local} ${base}${extra ? ` ${extra}` : ""}` : "",
+        extra ? `${base} ${extra}` : "",
+        local ? `${local} ${base}` : "",
+        base,
         focus ? `${local ? `${local} ` : ""}${category}` : "",
         place.trim(),
         ...(focus ? [] : (EXTRA[kind] ?? [])),
@@ -267,7 +298,7 @@ export function PlanView() {
     }
     try {
       const result = await findOffers({
-        data: { kind, place, budget, country: placeCountry, city: town, when, items },
+        data: { kind, place, budget, country: placeCountry, city: town, when, items, details: answerBrief(kind, answers) },
       });
       setOffers(result.offers);
       setNote(result.note);
@@ -317,6 +348,27 @@ export function PlanView() {
             {whatLabel}
           </button>
         </div>
+        {questions.map((question) => (
+          <fieldset key={question.id} className="field">
+            <legend className="field-label">{question.label}</legend>
+            <div className="mt-1 flex flex-wrap gap-2">
+              {question.choices.map((choice) => {
+                const on = answers[question.id] === choice.label;
+                return (
+                  <button
+                    key={choice.label}
+                    type="button"
+                    aria-pressed={on}
+                    className={`min-h-11 rounded-full px-4 text-sm font-medium ${on ? "bg-forest text-foam" : "border border-line bg-card text-ink"}`}
+                    onClick={() => answer(question.id, choice.label)}
+                  >
+                    {choice.label}
+                  </button>
+                );
+              })}
+            </div>
+          </fieldset>
+        ))}
         <label className="field">
           <span className="field-label">Saved place</span>
           <select

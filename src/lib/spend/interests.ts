@@ -1809,7 +1809,17 @@ export const CATEGORY_HOME: Record<CategoryId, string | null> = {
   personal: "toiletries",
   travel: "holidays",
   gifts: "gifts",
+  housing: "housing",
+  kids: "kids",
+  pets: "pets",
+  education: "career",
+  charity: null,
+  fees: null,
+  cash: null,
   other: null,
+  savings: null,
+  investments: null,
+  transfers: null,
 };
 
 export const BRAND: Record<string, string> = {
