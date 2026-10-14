@@ -271,7 +271,7 @@ export async function checkWatch(
     await pushUser(watch.user_id, {
       title: shopOnly ? `A promotion at ${goal.shop}` : "Pence found an offer",
       body: `${watch.what}: ${found} new offer${found === 1 ? "" : "s"} on your Watchlist. Tap to see if it’s right for you.`,
-      url: "/offers#watchlist",
+      url: "/watchlist",
     });
   }
   return { found, web };

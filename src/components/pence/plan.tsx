@@ -517,7 +517,7 @@ export function PlanView({ embedded = false }: { embedded?: boolean }) {
           <p className="font-extrabold">{watched.existing ? "Already on your Watchlist" : "Added to your Watchlist"}</p>
           <p className="text-sm">{watched.label}</p>
           <p className="text-sm text-muted">Pence is looking now, then every day. Offers it finds show in Offers.</p>
-          <Link to="/offers" hash="watchlist" className="link self-start">
+          <Link to="/watchlist" className="link self-start">
             See your Watchlist
           </Link>
         </section>

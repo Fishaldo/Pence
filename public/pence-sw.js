@@ -32,14 +32,14 @@ self.addEventListener("push", (event) => {
       icon: "/__grok/icon-180.png",
       tag: typeof data.tag === "string" ? data.tag : "pence-watch",
       renotify: true,
-      data: { url: typeof data.url === "string" && data.url.startsWith("/") ? data.url : "/offers#watchlist" },
+      data: { url: typeof data.url === "string" && data.url.startsWith("/") ? data.url : "/watchlist" },
     }),
   );
 });
 
 self.addEventListener("notificationclick", (event) => {
   event.notification.close();
-  const target = new URL((event.notification.data && event.notification.data.url) || "/offers#watchlist", self.location.origin).href;
+  const target = new URL((event.notification.data && event.notification.data.url) || "/watchlist", self.location.origin).href;
   event.waitUntil(
     self.clients.matchAll({ type: "window", includeUncontrolled: true }).then((windows) => {
       for (const client of windows) {

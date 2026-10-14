@@ -144,8 +144,18 @@ await step("Plan: add a shop to the Watchlist", async () => {
   await page.getByText("Added to your Watchlist").waitFor();
 });
 
-await step("Offers: the Watchlist", async () => {
+await step("Offers: the Watchlist is its own screen, with Back", async () => {
+  // Opened from the Offers button; Back returns to Offers.
+  await page.goto(`${base}/offers`, { waitUntil: "domcontentloaded" });
+  await page.getByRole("heading", { name: "Offers", exact: true }).waitFor();
+  await page.getByRole("link", { name: /^Watchlist/ }).click();
+  await page.waitForURL(/\/watchlist$/);
+  await page.getByRole("heading", { name: "Watchlist", exact: true }).waitFor();
+  await page.getByRole("link", { name: "Back" }).click();
+  await page.getByRole("heading", { name: "Offers", exact: true }).waitFor();
+  // Links from alerts sent before the move still land on it.
   await page.goto(`${base}/offers#watchlist`, { waitUntil: "domcontentloaded" });
+  await page.waitForURL(/\/watchlist$/);
   await page.getByRole("heading", { name: "Watchlist", exact: true }).waitFor();
   await page.waitForTimeout(3000);
   await page
@@ -406,7 +416,7 @@ await step("home on a computer screen", async () => {
 });
 
 await step("phone width has no sideways scroll", async () => {
-  for (const path of ["/", "/offers", "/plan", "/activity", "/regular", "/bills", "/plan#budget", "/week", "/settings"]) {
+  for (const path of ["/", "/offers", "/plan", "/activity", "/regular", "/bills", "/plan#budget", "/watchlist", "/week", "/settings"]) {
     await page.goto(`${base}${path}`, { waitUntil: "domcontentloaded" });
     await settle(1500);
     const wide = await page.evaluate(() => document.documentElement.scrollWidth > window.innerWidth + 1);

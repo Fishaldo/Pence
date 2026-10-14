@@ -10,7 +10,6 @@ import { useForYou, useForYouWide, useWatches } from "./data";
 import { DealAction } from "./deal-bits";
 import { goUrl } from "./deal-links";
 import { errorText, PageHead } from "./ui";
-import { Watchlist } from "./watch";
 
 const SCHEMES: { test: RegExp; id: string }[] = [
   { test: /tesco/, id: "clubcard" },
@@ -141,19 +140,14 @@ export function OffersView() {
 
   const navigate = useNavigate();
   const watches = useWatches();
-  // The Watchlist lives at Offers#watchlist, so Home and Plan can link to it and
-  // the phone's back button closes it again.
-  const watching = useRouterState({ select: (s) => s.location.hash }) === "watchlist";
-  const view = watching ? "watch" : picked;
+  const view = picked;
+  const show = setPicked;
 
-  function show(next: typeof picked) {
-    setPicked(next);
-    if (watching) void navigate({ to: "/offers" });
-  }
-
-  function toggleWatchlist() {
-    void navigate(watching ? { to: "/offers" } : { to: "/offers", hash: "watchlist" });
-  }
+  // The Watchlist used to live at Offers#watchlist; alerts already sent still open that address.
+  const oldWatchlistLink = useRouterState({ select: (s) => s.location.hash }) === "watchlist";
+  useEffect(() => {
+    if (oldWatchlistLink) void navigate({ to: "/watchlist", replace: true });
+  }, [oldWatchlistLink, navigate]);
 
   useEffect(() => {
     if (!adding) return;
@@ -270,7 +264,7 @@ export function OffersView() {
   if (!hasHabits) {
     return (
       <div>
-        <PageHead title="Offers" sub={OFFERS_LINE} />
+        <PageHead title="Offers" sub={OFFERS_LINE} action={<WatchlistButton items={watches.data ?? []} />} />
         <section className="panel p-5">
           <p className="font-bold">Pence learns what you buy</p>
           <p className="mt-1 text-sm text-muted">
@@ -285,9 +279,6 @@ export function OffersView() {
             </button>
           </div>
         </section>
-        <div className="mt-6">
-          <Watchlist />
-        </div>
         {taste.hidden.length > 0 ? <HiddenList taste={taste} busyKey={busyKey} onShow={change} /> : null}
         {addSheet}
       </div>
@@ -331,7 +322,7 @@ export function OffersView() {
         title="Offers"
         sub={OFFERS_LINE}
         flush
-        action={<WatchlistButton on={watching} items={watches.data ?? []} onClick={toggleWatchlist} />}
+        action={<WatchlistButton items={watches.data ?? []} />}
       />
 
       <label className="field">
@@ -346,8 +337,6 @@ export function OffersView() {
       </label>
 
       {chips}
-
-      {view === "watch" ? <Watchlist /> : null}
 
       {view === "shops" ? (
         <YourShops
@@ -449,19 +438,11 @@ export function OffersView() {
   );
 }
 
-/** Always in view at the top of Offers, with how many things are watched and a dot when Pence found a price. */
-function WatchlistButton({
-  on,
-  items,
-  onClick,
-}: {
-  on: boolean;
-  items: { status: string }[];
-  onClick: () => void;
-}) {
+/** Always in view at the top of Offers: opens the Watchlist screen, with how many things are watched and a dot when Pence found a price. */
+function WatchlistButton({ items }: { items: { status: string }[] }) {
   const found = items.some((item) => item.status === "found");
   return (
-    <button type="button" className="chip relative shrink-0" aria-pressed={on} onClick={onClick}>
+    <Link to="/watchlist" className="chip relative shrink-0">
       <Eye className="size-[18px]" strokeWidth={2} aria-hidden="true" />
       Watchlist
       {items.length > 0 ? <span className="tabular-nums opacity-70">{items.length}</span> : null}
@@ -471,7 +452,7 @@ function WatchlistButton({
           aria-label="Pence found a price"
         />
       ) : null}
-    </button>
+    </Link>
   );
 }
 
