@@ -76,7 +76,7 @@ export function ItemsEditor({
               />
               <button
                 type="button"
-                className="grid size-11 shrink-0 place-items-center rounded-md text-muted"
+                className="grid size-11 shrink-0 place-items-center rounded-xl text-muted"
                 aria-label={`Remove ${item.name || `item ${index + 1}`}`}
                 onClick={() => onChange(items.filter((_, i) => i !== index))}
               >
@@ -116,7 +116,7 @@ export function ItemsEditor({
         />
         <button
           type="button"
-          className="h-12 shrink-0 rounded-md bg-forest px-4 text-sm font-medium text-foam disabled:opacity-50"
+          className="btn-pill h-12 shrink-0 disabled:opacity-50"
           disabled={!name.trim()}
           onClick={add}
         >

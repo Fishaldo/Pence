@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { Link } from "@tanstack/react-router";
+import { ChevronRight } from "lucide-react";
 import { toast } from "sonner";
 import { UserButton } from "@/lib/auth/gates";
 import { signOut } from "@/lib/auth/client";
@@ -212,180 +213,205 @@ export function SettingsView() {
     }
   }
 
+  const first = (data.displayName || "").trim();
+  const navRow = (to: string, label: string, line: string) => (
+    <Link to={to} className="row">
+      <span className="flex min-w-0 flex-1 flex-col gap-0.5">
+        <span className="text-[0.9375rem] font-bold">{label}</span>
+        <span className="text-[0.8125rem] text-muted">{line}</span>
+      </span>
+      <ChevronRight className="size-5 shrink-0 text-muted" aria-hidden="true" />
+    </Link>
+  );
+
   return (
-    <div>
-      <PageHead kicker="Account" title="Settings" />
-      <div className="panel mb-6 p-4">
-        <p className="font-medium">Receipts or your bank</p>
-        <p className="mt-1 text-sm text-muted">
-          Scan receipts when you have them. For gym, rent, and other payments with no slip, bring the transactions in from a bank export.
-        </p>
-        <Link to="/bank" className="btn btn-quiet mt-3">
-          From your bank
-        </Link>
-      </div>
-      <div className="panel mb-6 p-4">
-        <p className="font-medium">Bills and regular payments</p>
-        <p className="mt-1 text-sm text-muted">
-          Subscriptions, bills and free trials, with a reminder a week, 3 days and 2 working days before each one. Bills shows price rises and
-          contract ends.
-        </p>
-        <div className="mt-3 flex flex-wrap gap-2">
-          <Link to="/bills" className="btn btn-quiet">
-            Bills
-          </Link>
-          <Link to="/regular" className="btn btn-quiet">
-            Regular payments
-          </Link>
-          <Link to="/budget" className="btn btn-quiet">
-            Budget
-          </Link>
+    <div className="flex flex-col gap-6">
+      <PageHead back="/" title="Settings" flush />
+
+      <div className="flex items-center gap-3.5">
+        <span aria-hidden="true" className="initial size-12 text-lg">{(first.charAt(0) || "·").toUpperCase()}</span>
+        <div className="flex min-w-0 flex-col">
+          <span className="truncate text-[1.0625rem] font-extrabold">{first || "Your account"}</span>
+          <span className="truncate text-[0.8125rem] text-muted">{data.city ? `Home town: ${data.city}` : "Add your town below"}</span>
         </div>
       </div>
-      <div className="panel mb-6 p-4">
-        <label className="field">
-          <span className="field-label">Weekly check-in</span>
-          <select
-            className="control"
-            value={data.weeklyDay == null ? "" : String(data.weeklyDay)}
-            disabled={busy}
-            onChange={(event) => void pickWeekly(event.target.value)}
-          >
-            <option value="">No reminder</option>
-            {["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"].map((day, index) => (
-              <option key={day} value={index}>
-                {day}
-              </option>
-            ))}
-          </select>
-        </label>
-        <Link to="/week" className="mt-2 inline-flex min-h-11 items-center text-sm font-medium text-forest">
-          Open this week’s check-in
-        </Link>
-      </div>
-      <form onSubmit={save} className="flex flex-col gap-4">
-        <label className="field">
-          <span className="field-label">Name</span>
-          <input className="control" value={name} onChange={(e) => setName(e.target.value)} />
-        </label>
-        <label className="field">
-          <span className="field-label">Monthly take-home (£)</span>
-          <input className="control tabular-nums" inputMode="decimal" value={income} onChange={(e) => setIncome(e.target.value)} />
-        </label>
-        <label className="field">
-          <span className="field-label">City</span>
-          <input className="control" value={city} onChange={(e) => setCity(e.target.value)} />
-        </label>
-        <label className="field">
-          <span className="field-label">Payday</span>
-          <select className="control" value={payday} onChange={(e) => setPayday(e.target.value)}>
-            <option value="">Not set</option>
-            {Array.from({ length: 31 }, (_, i) => i + 1).map((day) => (
-              <option key={day} value={day}>
-                {day}
-              </option>
-            ))}
-          </select>
-          <span className="mt-1 block text-sm text-muted">
-            Home and Insights count from this day. Payday on the 25th starts on the 25th of last month and runs until the day before the next 25th.
-          </span>
-        </label>
-        <label className="panel flex items-start gap-3 p-4">
-          <input
-            type="checkbox"
-            className="mt-1 size-4"
-            checked={notify}
-            onChange={(event) => void onNotify(event.target.checked)}
-          />
-          <span>
-            <span className="block font-medium">Ask about receipts</span>
-            <span className="mt-1 block text-sm text-muted">
-              When a pasted payment alert is waiting, this device can notify you to add a receipt. It still can’t watch Google Pay or Apple Pay on its own.
+
+      <form onSubmit={save} aria-label="Pay">
+        <h2 className="group-title">Pay</h2>
+        <div className="panel flex flex-col gap-4 p-4">
+          <label className="field">
+            <span className="field-label">First name</span>
+            <input className="control" value={name} onChange={(e) => setName(e.target.value)} />
+          </label>
+          <label className="field">
+            <span className="field-label">Monthly take-home (£)</span>
+            <input className="control tabular-nums" inputMode="decimal" value={income} onChange={(e) => setIncome(e.target.value)} />
+          </label>
+          <label className="field">
+            <span className="field-label">Payday</span>
+            <select className="control" value={payday} onChange={(e) => setPayday(e.target.value)}>
+              <option value="">No fixed payday: calendar months</option>
+              {Array.from({ length: 31 }, (_, i) => i + 1).map((day) => (
+                <option key={day} value={day}>
+                  The {day}
+                  {day === 1 || day === 21 || day === 31 ? "st" : day === 2 || day === 22 ? "nd" : day === 3 || day === 23 ? "rd" : "th"}
+                </option>
+              ))}
+            </select>
+            <span className="mt-1.5 block text-[0.8125rem] text-muted">
+              Payday on the 25th: each pay runs from the 25th to the day before the next 25th.
             </span>
-          </span>
-        </label>
-        {error ? <p className="text-sm text-clay">{error}</p> : null}
-        <button className="btn btn-primary" type="submit" disabled={busy}>
-          {busy ? "Saving…" : "Save details"}
-        </button>
+          </label>
+          <label className="field">
+            <span className="field-label">Home town</span>
+            <input className="control" value={city} onChange={(e) => setCity(e.target.value)} />
+          </label>
+          {error ? <p className="text-sm text-clay">{error}</p> : null}
+          <button className="btn btn-primary" type="submit" disabled={busy}>
+            {busy ? "Saving…" : "Save"}
+          </button>
+        </div>
       </form>
-      <section className="mt-8">
-        <h2 className="font-display text-2xl">Places</h2>
-        <p className="mt-1 text-sm text-muted">
-          Use this phone for shops near you. Add another place, such as a partner in Essex, and pick it on Plan or when comparing shops.
-        </p>
-        <button type="button" className="btn btn-primary mt-3" disabled={busy} onClick={usePhone}>
-          {saved.some((place) => place.isPhone) ? "Update this phone’s location" : "Use this phone’s location"}
-        </button>
-        {saved.length > 0 ? (
-          <ul className="mt-3 space-y-2">
-            {saved.map((place) => (
-              <li key={place.id} className="panel flex items-center justify-between gap-3 px-4 py-3">
-                <span>
-                  <span className="block font-medium">{place.label}</span>
-                  <span className="text-sm text-muted">{place.town || "Town not named"}</span>
-                </span>
-                <button type="button" className="text-sm text-muted" disabled={busy} onClick={() => void dropPlace(place.id)}>
-                  Remove
-                </button>
-              </li>
-            ))}
-          </ul>
-        ) : null}
-        <form onSubmit={(event) => void addOther(event)} className="mt-4 flex flex-col gap-3">
-          <label className="field">
-            <span className="field-label">Name</span>
-            <input className="control" value={placeLabel} placeholder="Partner" onChange={(event) => setPlaceLabel(event.target.value)} />
-          </label>
-          <label className="field">
-            <span className="field-label">Town, city, or area</span>
-            <input className="control" value={placeTown} placeholder="Essex" onChange={(event) => setPlaceTown(event.target.value)} />
-          </label>
+
+      <section aria-label="Places">
+        <h2 className="group-title">Places</h2>
+        <div className="rows">
+          {saved.map((place) => (
+            <div key={place.id} className="row">
+              <span className="flex min-w-0 flex-1 flex-col gap-0.5">
+                <span className="text-[0.9375rem] font-bold">{place.label}</span>
+                <span className="text-[0.8125rem] text-muted">{place.town || "Town not named"}</span>
+              </span>
+              <button type="button" className="link" disabled={busy} onClick={() => void dropPlace(place.id)}>
+                Remove
+              </button>
+            </div>
+          ))}
+          <button type="button" className="row text-left" disabled={busy} onClick={usePhone}>
+            <span className="flex min-w-0 flex-1 flex-col gap-0.5">
+              <span className="text-[0.9375rem] font-bold">
+                {saved.some((place) => place.isPhone) ? "Update this phone’s location" : "Use this phone’s location"}
+              </span>
+              <span className="text-[0.8125rem] text-muted">Puts shops and deals near you first.</span>
+            </span>
+            <ChevronRight className="size-5 shrink-0 text-muted" aria-hidden="true" />
+          </button>
+        </div>
+        <form onSubmit={(event) => void addOther(event)} className="panel mt-3 flex flex-col gap-3 p-4">
+          <p className="text-[0.8125rem] text-muted">Add another town, such as where you work or family live. Pick it on Plan.</p>
+          <div className="grid grid-cols-2 gap-3">
+            <label className="field">
+              <span className="field-label">Name</span>
+              <input className="control" value={placeLabel} placeholder="Work" onChange={(event) => setPlaceLabel(event.target.value)} />
+            </label>
+            <label className="field">
+              <span className="field-label">Town</span>
+              <input className="control" value={placeTown} placeholder="Leeds" onChange={(event) => setPlaceTown(event.target.value)} />
+            </label>
+          </div>
           <button type="submit" className="btn btn-quiet" disabled={busy}>
-            Add this place
+            Add this town
           </button>
         </form>
       </section>
-      {samples ? (
-        <button type="button" className="btn btn-quiet mt-3" onClick={() => void clear()} disabled={busy}>
-          Remove sample spends
-        </button>
-      ) : null}
-      <section className="mt-8">
-        <h2 className="font-display text-2xl">Your data</h2>
-        <p className="mt-1 text-sm text-muted">Everything Pence keeps about you. Receipt photos are never kept.</p>
-        <div className="mt-3 flex flex-col gap-2 sm:flex-row">
+
+      <section aria-label="Reminders">
+        <h2 className="group-title">Reminders</h2>
+        <div className="rows">
+          <label className="row cursor-pointer">
+            <span className="flex min-w-0 flex-1 flex-col gap-0.5">
+              <span className="text-[0.9375rem] font-bold">Ask about receipts</span>
+              <span className="text-[0.8125rem] text-muted">
+                A phone alert when a pasted payment message is waiting for a receipt. Payment reminders come 7 days, 3 days and 2 working days
+                before.
+              </span>
+            </span>
+            <input
+              type="checkbox"
+              role="switch"
+              className="size-6 shrink-0 accent-[#1e5b43]"
+              checked={notify}
+              onChange={(event) => void onNotify(event.target.checked)}
+            />
+          </label>
+          <label className="row">
+            <span className="flex min-w-0 flex-1 flex-col gap-0.5">
+              <span className="text-[0.9375rem] font-bold">Weekly check-in</span>
+              <span className="text-[0.8125rem] text-muted">A short look at your week</span>
+            </span>
+            <select
+              className="control w-auto min-w-32"
+              value={data.weeklyDay == null ? "" : String(data.weeklyDay)}
+              disabled={busy}
+              onChange={(event) => void pickWeekly(event.target.value)}
+            >
+              <option value="">Off</option>
+              {["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"].map((day, index) => (
+                <option key={day} value={index}>
+                  {day}
+                </option>
+              ))}
+            </select>
+          </label>
+        </div>
+      </section>
+
+      <section aria-label="Money">
+        <h2 className="group-title">Statements, bills and budget</h2>
+        <div className="rows">
+          {navRow("/bank", "Bank statements", "Upload a CSV from your banking app")}
+          {navRow("/bills", "Bills", "Price rises, contract ends and better deals")}
+          {navRow("/regular", "Regular payments", "Subscriptions and free trials")}
+          {navRow("/budget", "Budget", "Each pay, from your own spending")}
+          {navRow("/week", "This week", "The weekly check-in")}
+          {samples ? (
+            <button type="button" className="row text-left" onClick={() => void clear()} disabled={busy}>
+              <span className="flex min-w-0 flex-1 flex-col gap-0.5">
+                <span className="text-[0.9375rem] font-bold">Remove sample spends</span>
+                <span className="text-[0.8125rem] text-muted">Keep only your own</span>
+              </span>
+            </button>
+          ) : null}
+        </div>
+      </section>
+
+      <section aria-label="Your data">
+        <h2 className="group-title">Your data</h2>
+        <div className="flex flex-col gap-2.5">
           <button type="button" className="btn btn-quiet" disabled={busy} onClick={() => void downloadAll()}>
             Download my data
           </button>
           <button type="button" className="btn btn-quiet" disabled={busy || (txs.data ?? []).length === 0} onClick={downloadSpends}>
             Download spends as a spreadsheet
           </button>
-        </div>
-        {confirmDelete ? (
-          <div className="mt-3 rounded-lg bg-clay-soft p-4">
-            <p className="font-medium">Delete everything?</p>
-            <p className="mt-1 text-sm">
-              Every spend, place, budget, bill and watch is removed now, and you are signed out. This can’t be undone.
-            </p>
-            <div className="mt-3 flex flex-col gap-2 sm:flex-row">
-              <button type="button" className="btn btn-primary bg-clay" disabled={busy} onClick={() => void deleteEverything()}>
+          {confirmDelete ? (
+            <div className="flex flex-col gap-2 rounded-[1.125rem] bg-clay-soft p-4">
+              <p className="font-extrabold">Delete everything?</p>
+              <p className="text-sm text-clay-ink">
+                Every spend, place, budget, bill and watch is removed now, and you are signed out. This can’t be undone.
+              </p>
+              <button type="button" className="btn btn-danger" disabled={busy} onClick={() => void deleteEverything()}>
                 Yes, delete everything
               </button>
               <button type="button" className="btn btn-quiet" onClick={() => setConfirmDelete(false)}>
                 Keep my data
               </button>
             </div>
-          </div>
-        ) : (
-          <button type="button" className="mt-3 min-h-11 text-sm font-medium text-clay" onClick={() => setConfirmDelete(true)}>
-            Delete all my data
-          </button>
-        )}
+          ) : (
+            <button type="button" className="btn btn-danger" onClick={() => setConfirmDelete(true)}>
+              Delete my account
+            </button>
+          )}
+        </div>
       </section>
-      <div className="panel mt-6 p-4">
+
+      <div className="panel p-4">
         <UserButton />
       </div>
+
+      <p className="text-[0.8125rem] leading-[1.5] text-muted">
+        Pence keeps only what it needs. Receipt photos are read, then deleted.
+      </p>
     </div>
   );
 }

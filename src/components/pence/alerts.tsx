@@ -23,14 +23,14 @@ export function AlertsView() {
 
   return (
     <div>
-      <PageHead kicker="Wallet" title="Alerts" />
+      <PageHead back="/capture" title="Payment messages" />
       <p className="mb-4 text-sm text-muted">
         A website can’t read Google Pay, Apple Pay, or your bank. Paste the notification from Add, and it waits here until you say whether there’s a receipt. Uber rides and other card taps with no paper slip belong in this list.
       </p>
       {alerts.isPending ? <div className="h-32 animate-pulse rounded-lg bg-sand" /> : null}
       {!alerts.isPending && (alerts.data?.length ?? 0) === 0 ? (
         <div className="panel p-5">
-          <h2 className="font-display text-3xl">No alerts waiting</h2>
+          <h2 className="section-title">No payment messages waiting</h2>
           <p className="mt-2 text-sm text-muted">
             When you paste a payment notification, Pence asks if you have a receipt before filing it.
           </p>
@@ -42,7 +42,7 @@ export function AlertsView() {
       <ul className="space-y-3">
         {(alerts.data ?? []).map((alert) => (
           <li key={alert.id} className="panel p-4">
-            <p className="font-medium">{alert.merchant}</p>
+            <p className="font-bold">{alert.merchant}</p>
             <p className="tabular-nums">
               {alert.amountPence != null ? formatGBP(alert.amountPence) : "Amount missing"}
               <span className="text-muted"> · {categoryLabel(alert.category)}</span>

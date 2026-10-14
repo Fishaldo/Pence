@@ -1,4 +1,5 @@
 import { Link } from "@tanstack/react-router";
+import { ChevronRight } from "lucide-react";
 import { useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 import { toast } from "sonner";
@@ -8,7 +9,7 @@ import { spentBetween, weekOf } from "@/lib/spend/payday";
 import { saveWeeklyDay } from "@/server/money";
 import { useLedger, useRegulars } from "./data";
 import { NeedsTap } from "./money-cards";
-import { useThisPay } from "./this-pay";
+import { billChecks, isBill, longToday, useThisPay } from "./this-pay";
 import { PhoneAlerts } from "./phone-alerts-panel";
 import { errorText, PageHead } from "./ui";
 
@@ -56,79 +57,93 @@ export function WeekView() {
     }
   }
 
-  return (
-    <div>
-      <PageHead kicker="Weekly check-in" title="Your week" />
+  const bills = (regulars.data?.items ?? []).filter((item) => isBill(item) && !item.stopped && !item.lapsed);
+  const check = billChecks(bills, regulars.data?.today ?? today)[0];
 
-      <section className="panel p-5">
-        <p className="text-sm text-muted">
-          Since Monday {shortDay(week.start).replace(/^Mon /, "")}
-        </p>
-        <p className="mt-1 font-display text-5xl leading-none tabular-nums">{formatGBP(now.spentPence)}</p>
-        <p className="mt-2 text-sm text-muted">
+  return (
+    <div className="flex flex-col gap-5">
+      <PageHead close="/" date={longToday()} title="Your week" flush />
+
+      <section className="hero flex flex-col gap-1.5" aria-label="This week">
+        <span className="text-sm font-semibold text-on-forest">Spent this week, since Monday</span>
+        <span className="text-[2.75rem] leading-[1.1] font-extrabold tracking-[-0.03em] tabular-nums">
+          {formatGBP(now.spentPence).replace(/\.00$/, "")}
+        </span>
+        <span className="text-sm font-semibold text-on-forest">
           {last.spentPence === 0 && now.spentPence === 0
             ? "Nothing logged this week or last."
-            : diff === 0
-              ? "The same as last week by this day."
-              : `${formatGBP(Math.abs(diff))} ${diff < 0 ? "less" : "more"} than last week by this day.`}
-        </p>
-        {now.byCategory.length > 0 ? (
-          <ul className="mt-3 space-y-1 text-sm">
-            {now.byCategory.slice(0, 3).map((row) => (
-              <li key={row.id} className="flex justify-between gap-3">
-                <span>{categoryLabel(row.id)}</span>
-                <span className="tabular-nums">{formatGBP(row.amountPence)}</span>
-              </li>
-            ))}
-          </ul>
-        ) : null}
-        {up ? (
-          <p className="mt-3 rounded-md bg-clay-soft px-3 py-2 text-sm text-clay">
-            {categoryLabel(up.id)} is up {formatGBP(up.change)} on last week.
-          </p>
-        ) : null}
+            : Math.abs(diff) < 100
+              ? "About the same as last week by this day."
+              : `${formatGBP(Math.abs(diff))} ${diff < 0 ? "less" : "more"} than last week by this day`}
+        </span>
       </section>
 
-      {pay.takeHomePence > 0 ? (
-        <section className="panel mt-4 p-4">
-          <p className="font-medium">
-            {pay.safe.safePence >= 0
-              ? `${formatGBP(pay.safe.safePence)} safe to spend until payday`
-              : `${formatGBP(Math.abs(pay.safe.safePence))} over until payday`}
-          </p>
-          <p className="mt-1 text-sm text-muted">
-            {pay.safe.safePence >= 0
-              ? `About ${formatGBP(pay.safe.perDayPence)} a day for ${pay.safe.daysLeft} day${pay.safe.daysLeft === 1 ? "" : "s"}.`
-              : "Spend only on what you need until then."}
-          </p>
+      {now.byCategory.length > 0 || up ? (
+        <section className="panel flex flex-col gap-2.5 p-[1.125rem]" aria-label="What stood out">
+          <h2 className="section-title">What stood out</h2>
+          {now.byCategory.slice(0, 3).map((row) => (
+            <p key={row.id} className="text-sm leading-[1.5] text-ink-soft">
+              {categoryLabel(row.id)} came to <strong className="text-ink tabular-nums">{formatGBP(row.amountPence)}</strong>.
+            </p>
+          ))}
+          {up ? (
+            <p className="text-sm leading-[1.5] font-semibold text-clay">
+              {categoryLabel(up.id)} is up {formatGBP(up.change)} on last week.
+            </p>
+          ) : null}
         </section>
       ) : null}
 
-      <section className="mt-6">
-        <h2 className="font-display text-2xl">Coming out in the next 7 days</h2>
+      <section className="panel flex flex-col gap-2.5 p-[1.125rem]" aria-label="One thing for next week">
+        <h2 className="section-title">One thing for next week</h2>
+        {check ? (
+          <>
+            <p className="text-sm leading-[1.5] text-ink-soft">
+              {check.item.name}: {check.why.charAt(0).toLowerCase()}
+              {check.why.slice(1)}. A better deal could cost less.
+            </p>
+            <Link to="/bills" className="btn-pill self-start">
+              See deals
+            </Link>
+          </>
+        ) : pay.takeHomePence > 0 ? (
+          <p className="text-sm leading-[1.5] text-ink-soft">
+            {pay.safe.safePence >= 0
+              ? `${formatGBP(pay.safe.safePence)} is safe to spend until payday: about ${formatGBP(pay.safe.perDayPence)} a day for ${pay.safe.daysLeft} day${pay.safe.daysLeft === 1 ? "" : "s"}.`
+              : `You are ${formatGBP(Math.abs(pay.safe.safePence))} over until payday. Spend only on what you need until then.`}
+          </p>
+        ) : (
+          <p className="text-sm leading-[1.5] text-ink-soft">Add your take-home in Settings and Pence shows what is safe to spend.</p>
+        )}
+      </section>
+
+      <section className="flex flex-col gap-2.5" aria-label="Coming out in the next 7 days">
+        <h2 className="section-title">Coming out in the next 7 days</h2>
         {coming.length === 0 ? (
-          <p className="panel mt-2 px-4 py-4 text-sm text-muted">No regular payments due this week.</p>
+          <p className="panel px-4 py-4 text-sm text-muted">No regular payments due this week.</p>
         ) : (
           <>
-            <ul className="panel mt-2 divide-y divide-line">
+            <div className="rows">
               {coming.map((item) => (
-                <li key={item.key} className="flex items-baseline justify-between gap-3 px-4 py-3">
-                  <span className="min-w-0">
-                    <span className="block truncate font-medium">{item.name}</span>
-                    <span className="block text-sm text-muted">{shortDay(item.nextDue ?? "")}</span>
+                <div key={item.key} className="row">
+                  <span className="flex min-w-0 flex-1 flex-col gap-0.5">
+                    <span className="truncate text-[0.9375rem] font-bold">{item.name}</span>
+                    <span className="text-[0.8125rem] text-muted">{shortDay(item.nextDue ?? "")}</span>
                   </span>
-                  {item.amountPence > 0 ? <span className="shrink-0 tabular-nums">{formatGBP(item.amountPence)}</span> : null}
-                </li>
+                  {item.amountPence > 0 ? (
+                    <span className="shrink-0 text-[0.9375rem] font-extrabold tabular-nums">{formatGBP(item.amountPence)}</span>
+                  ) : null}
+                </div>
               ))}
-            </ul>
-            {comingTotal > 0 ? <p className="mt-2 text-sm text-muted">About {formatGBP(comingTotal)} in all.</p> : null}
+            </div>
+            {comingTotal > 0 ? <p className="text-[0.8125rem] text-muted">About {formatGBP(comingTotal)} in all.</p> : null}
           </>
         )}
       </section>
 
       <NeedsTap />
 
-      <section className="panel mt-6 p-4">
+      <section className="panel flex flex-col gap-2 p-4">
         <label className="field">
           <span className="field-label">Check-in day</span>
           <select className="control" value={weeklyDay == null ? "" : String(weeklyDay)} disabled={busy} onChange={(event) => void pickDay(event.target.value)}>
@@ -140,23 +155,20 @@ export function WeekView() {
             ))}
           </select>
         </label>
-        <p className="mt-1 text-sm text-muted">On that day, a phone alert opens this page.</p>
+        <p className="text-[0.8125rem] text-muted">On that day, a phone alert opens this page.</p>
         {weeklyDay != null ? <PhoneAlerts what="for your weekly check-in" /> : null}
       </section>
 
-      <p className="mt-6 text-sm text-muted">
-        <Link to="/budget" className="font-medium text-forest">
-          Your budget
+      <div className="rows">
+        <Link to="/budget" className="row">
+          <span className="flex-1 text-[0.9375rem] font-bold">Your budget</span>
+          <ChevronRight className="size-5 text-muted" aria-hidden="true" />
         </Link>
-        {" · "}
-        <Link to="/bills" className="font-medium text-forest">
-          Bills
+        <Link to="/activity" className="row">
+          <span className="flex-1 text-[0.9375rem] font-bold">All activity</span>
+          <ChevronRight className="size-5 text-muted" aria-hidden="true" />
         </Link>
-        {" · "}
-        <Link to="/activity" className="font-medium text-forest">
-          All activity
-        </Link>
-      </p>
+      </div>
     </div>
   );
 }

@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { shortDay } from "@/lib/spend/habits";
 import { formatGBP } from "@/lib/spend/model";
 import type { Clash } from "@/server/ledger";
 
@@ -27,49 +28,60 @@ export function SamePayment({
 
   return (
     <div className="flex flex-col gap-4">
-      <p className="text-sm text-muted">
-        Same amount, same shop, and the same date. A matching amount on another day is left alone. Nothing is removed until you continue.
-      </p>
+      <div className="flex flex-col gap-1.5">
+        <h2 className="text-2xl font-extrabold tracking-[-0.02em]">Already saved?</h2>
+        <p className="text-sm leading-[1.45] text-muted">
+          {clashes.length === 1 ? "This new payment matches one you have" : "These new payments match ones you have"}: same shop, same amount,
+          same day.
+        </p>
+      </div>
       {clashes.map((clash, index) => {
         const choice = choices[index];
+        const pick = (next: ClashChoice) => setChoices((current) => current.map((item, i) => (i === index ? next : item)));
         return (
-          <section key={`${clash.existingId ?? "file"}-${clash.index}`} className="panel p-4">
-            <p className="font-medium">
-              {formatGBP(clash.existingAmountPence)} · {clash.existingMerchant}
-            </p>
-            <p className="mt-1 text-sm text-muted">
-              {clash.inFile
-                ? `Also in this list on ${clash.existingSpentOn}.`
-                : `Already in Pence from ${whereFrom(clash.existingSource, clash.existingHasReceipt)}, dated ${clash.existingSpentOn}.`}
-            </p>
-            <div className="mt-3 flex flex-col gap-2">
-              <button
-                type="button"
-                className={choice === "drop" ? "btn btn-primary" : "btn btn-quiet"}
-                onClick={() => setChoices((current) => current.map((item, i) => (i === index ? "drop" : item)))}
-              >
-                {clash.inFile ? "Keep one" : "Keep the one already saved"}
+          <section key={`${clash.existingId ?? "file"}-${clash.index}`} className="flex flex-col gap-3">
+            <div className="grid grid-cols-2 gap-2.5">
+              <div className="panel flex flex-col gap-1 p-3.5">
+                <span className="text-[0.6875rem] font-extrabold tracking-[0.08em] text-muted uppercase">Saved</span>
+                <span className="text-[0.9375rem] leading-snug font-extrabold">
+                  {clash.existingMerchant} {formatGBP(clash.existingAmountPence)}
+                </span>
+                <span className="text-[0.8125rem] text-muted">{shortDay(clash.existingSpentOn)}</span>
+                <span className="text-[0.8125rem] text-muted">
+                  {clash.inFile ? "Also in this list" : `From ${whereFrom(clash.existingSource, clash.existingHasReceipt)}`}
+                </span>
+              </div>
+              <div className="flex flex-col gap-1 rounded-[1.125rem] border border-forest bg-mist p-3.5">
+                <span className="text-[0.6875rem] font-extrabold tracking-[0.08em] text-forest uppercase">New</span>
+                <span className="text-[0.9375rem] leading-snug font-extrabold">
+                  {clash.existingMerchant} {formatGBP(clash.existingAmountPence)}
+                </span>
+                <span className="text-[0.8125rem] text-ink-soft">{shortDay(clash.existingSpentOn)}</span>
+                <span className="text-[0.8125rem] text-ink-soft">The one you are adding now</span>
+              </div>
+            </div>
+            <div className="flex flex-col gap-2">
+              <button type="button" aria-pressed={choice === "drop"} className={choice === "drop" ? "btn btn-primary" : "btn btn-quiet"} onClick={() => pick("drop")}>
+                {clash.inFile ? "Keep one" : "Keep the saved one"}
               </button>
               {clash.existingId ? (
                 <button
                   type="button"
+                  aria-pressed={choice === "replace"}
                   className={choice === "replace" ? "btn btn-primary" : "btn btn-quiet"}
-                  onClick={() => setChoices((current) => current.map((item, i) => (i === index ? "replace" : item)))}
+                  onClick={() => pick("replace")}
                 >
-                  Remove the saved one and keep this
+                  Replace it with the new one
                 </button>
               ) : null}
-              <button
-                type="button"
-                className={choice === "both" ? "btn btn-primary" : "btn btn-quiet"}
-                onClick={() => setChoices((current) => current.map((item, i) => (i === index ? "both" : item)))}
-              >
+              <button type="button" aria-pressed={choice === "both"} className={choice === "both" ? "btn btn-primary" : "btn btn-quiet"} onClick={() => pick("both")}>
                 Keep both
               </button>
             </div>
           </section>
         );
       })}
+      <p className="text-[0.8125rem] text-muted">The same amount on a different day is never treated as a match. Nothing is removed until you continue.</p>
       <button
         type="button"
         className="btn btn-primary"

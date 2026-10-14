@@ -1,5 +1,5 @@
-import { useNavigate } from "@tanstack/react-router";
-import { Camera, ClipboardPaste, FileText, ImagePlus, Mic } from "lucide-react";
+import { Link, useNavigate } from "@tanstack/react-router";
+import { Camera, ClipboardPaste, FileText, ImagePlus, Images, Keyboard, Landmark, Mic } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 import { fileToImages } from "@/lib/spend/files";
@@ -126,6 +126,7 @@ export function CaptureView() {
   const galleryRef = useRef<HTMLInputElement>(null);
   const filesRef = useRef<HTMLInputElement>(null);
   const attachRef = useRef<HTMLInputElement>(null);
+  const anyRef = useRef<HTMLInputElement>(null);
   const retryAlert = useRef<WalletAlert | undefined>(undefined);
   const later = useRef<Draft[]>([]);
   const [phase, setPhase] = useState<Phase>({ kind: "choose" });
@@ -461,15 +462,19 @@ export function CaptureView() {
   return (
     <div>
       <PageHead
-        kicker="Add"
+        close="/"
         title={
-          phase.kind === "ask"
-            ? "Receipt?"
-            : phase.kind === "wrong"
-              ? "Wrong photo"
-              : phase.kind === "statement"
-                ? "Money out"
-                : "New spend"
+          phase.kind === "choose"
+            ? "Add a spend"
+            : phase.kind === "ask"
+              ? "Receipt?"
+              : phase.kind === "wrong"
+                ? "Wrong photo"
+                : phase.kind === "statement"
+                  ? "Money out"
+                  : phase.kind === "paste"
+                    ? "Paste a payment message"
+                    : "New spend"
         }
       />
       <input
@@ -509,6 +514,18 @@ export function CaptureView() {
         }}
       />
       <input
+        ref={anyRef}
+        className="sr-only"
+        type="file"
+        accept="image/*,application/pdf,.pdf"
+        multiple
+        onChange={(event) => {
+          const files = [...(event.target.files ?? [])].slice(0, 8);
+          event.target.value = "";
+          void onFiles(files, "gallery", retryAlert.current);
+        }}
+      />
+      <input
         ref={attachRef}
         className="sr-only"
         type="file"
@@ -522,42 +539,64 @@ export function CaptureView() {
       />
 
       {phase.kind === "choose" ? (
-        <div className="flex flex-col gap-3">
-          <p className="text-sm text-muted">
-            Scan a receipt, or pick photos from the gallery and PDFs from your files. A bank statement can be either. Money coming in is left out.
-          </p>
-          <button type="button" className="btn btn-primary" onClick={() => { retryAlert.current = undefined; cameraRef.current?.click(); }}>
-            <Camera className="size-5" /> Scan a receipt
-          </button>
-          <button type="button" className="btn btn-quiet" onClick={() => { retryAlert.current = undefined; galleryRef.current?.click(); }}>
-            <ImagePlus className="size-5" /> Gallery
-          </button>
-          <button type="button" className="btn btn-quiet" onClick={() => { retryAlert.current = undefined; filesRef.current?.click(); }}>
-            <FileText className="size-5" /> Files
-          </button>
-          <button type="button" className="btn btn-quiet" onClick={() => setPhase({ kind: "paste", text: "" })}>
-            <ClipboardPaste className="size-5" /> Paste a payment message
-          </button>
+        <div className="flex flex-col gap-4">
           {canSpeak ? (
-            <button
-              type="button"
-              className="btn btn-quiet"
-              aria-pressed={listening}
-              onClick={() => (listening ? listener.current?.stop() : sayIt())}
-            >
-              <Mic className="size-5" /> {listening ? "Listening… tap to stop" : "Say it"}
-            </button>
+            <section className="flex items-center gap-4 rounded-[1.25rem] border border-line bg-card p-[1.125rem]" aria-label="Say it">
+              <button
+                type="button"
+                aria-label={listening ? "Listening. Tap to stop" : "Tap and speak"}
+                aria-pressed={listening}
+                className={`grid size-[72px] shrink-0 place-items-center rounded-full text-white ${listening ? "bg-clay" : "bg-forest"}`}
+                onClick={() => (listening ? listener.current?.stop() : sayIt())}
+              >
+                <Mic className="size-8" strokeWidth={1.9} />
+              </button>
+              <div className="flex flex-col gap-1">
+                <span className="text-[1.0625rem] font-extrabold">{listening ? "Listening…" : "Say it"}</span>
+                <span className="text-sm leading-[1.45] text-muted">
+                  “About £20 at ASDA, groceries.” Pence matches it with the bank line later.
+                </span>
+              </div>
+            </section>
           ) : null}
-          {canSpeak ? (
-            <p className="-mt-1 text-sm text-muted">Say it like “About £20 at ASDA, groceries”.</p>
-          ) : null}
-          <button
-            type="button"
-            className="text-sm font-medium text-forest"
-            onClick={() => setPhase({ kind: "review", draft: blankDraft({ unsure: true }), remaining: 0 })}
-          >
-            Type it in
-          </button>
+
+          <section className="grid grid-cols-2 gap-3" aria-label="Other ways to add">
+            {[
+              { label: "Scan a receipt", line: "Shop, items and total", icon: Camera, run: () => { retryAlert.current = undefined; cameraRef.current?.click(); } },
+              { label: "Photos, screenshots or PDF", line: "Receipts or bank screenshots, up to 8", icon: Images, run: () => { retryAlert.current = undefined; anyRef.current?.click(); } },
+              { label: "Paste a payment message", line: "Text copied from Google Pay, Apple Pay, a bank or Uber", icon: ClipboardPaste, run: () => setPhase({ kind: "paste", text: "" }) },
+              { label: "Type it in", line: "Shop, amount, date", icon: Keyboard, run: () => setPhase({ kind: "review", draft: blankDraft({ unsure: true }), remaining: 0 }) },
+            ].map((way) => {
+              const Icon = way.icon;
+              return (
+                <button
+                  key={way.label}
+                  type="button"
+                  className="flex min-h-[108px] flex-col items-start gap-2 rounded-[1.125rem] border border-line bg-card p-3.5 text-left"
+                  onClick={way.run}
+                >
+                  <Icon className="size-6 text-forest" strokeWidth={1.9} aria-hidden="true" />
+                  <span className="text-[0.9375rem] leading-snug font-extrabold">{way.label}</span>
+                  <span className="text-[0.8125rem] leading-snug text-muted">{way.line}</span>
+                </button>
+              );
+            })}
+          </section>
+
+          <section className="flex flex-col gap-3 rounded-[1.25rem] bg-mist p-[1.125rem]" aria-label="Bank statement">
+            <div className="flex items-start gap-3">
+              <Landmark className="mt-0.5 size-6 shrink-0 text-forest" strokeWidth={1.9} aria-hidden="true" />
+              <div className="flex flex-col gap-1">
+                <span className="text-base font-extrabold">Upload a bank statement</span>
+                <span className="text-sm leading-[1.45] text-ink-soft">
+                  A CSV from your banking app. Pence files the money going out and leaves money coming in. It never sees your bank password.
+                </span>
+              </div>
+            </div>
+            <Link to="/bank" className="btn-pill self-start">
+              Upload
+            </Link>
+          </section>
         </div>
       ) : null}
 
@@ -567,7 +606,7 @@ export function CaptureView() {
             Pence can’t see Google Pay or Apple Pay by itself. Paste the notification. You’ll be asked if a receipt exists, then the spend is filed — as Other if it can’t be sorted.
           </p>
           <textarea
-            className="min-h-28 w-full rounded-md border border-line bg-card p-3 text-base"
+            className="control min-h-28 py-3"
             placeholder="Google Pay · You paid £14.80 to Uber"
             value={phase.text}
             onChange={(event) => setPhase({ kind: "paste", text: event.target.value })}
@@ -577,7 +616,7 @@ export function CaptureView() {
               <button
                 key={example}
                 type="button"
-                className="rounded-full border border-line bg-card px-3 py-2 text-left text-sm"
+                className="chip h-auto min-h-11 py-2 text-left whitespace-normal"
                 onClick={() => void submitPaste(example)}
               >
                 {example}
@@ -595,7 +634,7 @@ export function CaptureView() {
 
       {phase.kind === "busy" ? (
         <div className="panel px-5 py-10 text-center">
-          <p className="font-display text-3xl">{phase.label}</p>
+          <p className="text-xl font-extrabold">{phase.label}</p>
           <div className="mx-auto mt-4 h-1.5 w-40 overflow-hidden rounded-full bg-sand">
             <div className="h-full w-1/2 animate-pulse bg-forest" />
           </div>
@@ -605,8 +644,8 @@ export function CaptureView() {
       {phase.kind === "ask" ? (
         <div className="panel p-5">
           <p className="text-sm text-muted">Spend spotted</p>
-          <h2 className="mt-1 font-display text-4xl">{phase.alert.merchant}</h2>
-          <p className="mt-1 text-lg tabular-nums">
+          <h2 className="mt-1 text-[1.75rem] leading-tight font-extrabold">{phase.alert.merchant}</h2>
+          <p className="mt-1 text-lg font-bold tabular-nums">
             {phase.alert.amountPence != null ? formatGBP(phase.alert.amountPence) : "Amount missing"}
           </p>
           <p className="mt-2 text-sm text-muted">
@@ -614,7 +653,7 @@ export function CaptureView() {
               ? "This doesn’t look like a known shop, so it will be filed as Other unless you pick a category."
               : `This looks like ${categoryLabel(phase.alert.category)}.`}
           </p>
-          <p className="mt-4 font-medium">Do you have a receipt?</p>
+          <p className="mt-4 font-extrabold">Do you have a receipt?</p>
           <div className="mt-3 flex flex-col gap-2">
             <button type="button" className="btn btn-primary" onClick={() => { retryAlert.current = phase.alert; attachRef.current?.click(); }}>
               Yes — add a photo or PDF
@@ -651,8 +690,8 @@ export function CaptureView() {
 
       {phase.kind === "wrong" ? (
         <div className="panel p-5" role="alert">
-          <p className="text-sm font-medium text-clay">Not a receipt</p>
-          <h2 className="mt-1 font-display text-4xl">Wrong photo</h2>
+          <p className="text-sm font-bold text-clay">Not a receipt</p>
+          <h2 className="mt-1 text-[1.75rem] font-extrabold">Wrong photo</h2>
           <p className="mt-3 text-sm text-ink">{phase.note}</p>
           <p className="mt-2 text-sm text-muted">Nothing was filed. Use a till receipt, a PDF, or a list of payments.</p>
           {phase.imageDataUrl ? (
@@ -770,7 +809,7 @@ function StatementReview({
           <li key={`${row.spentOn}-${row.merchant}-${index}`} className="flex flex-col gap-2 px-4 py-3">
             <span className="flex items-start justify-between gap-3">
               <span className="min-w-0">
-                <span className="block truncate font-medium">{row.merchant}</span>
+                <span className="block truncate font-bold">{row.merchant}</span>
                 <span className="tabular-nums">{formatGBP(row.amountPence)}</span>
               </span>
               <button

@@ -1,47 +1,87 @@
 import { Link } from "@tanstack/react-router";
+import { ChevronRight } from "lucide-react";
 import { useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 import { toast } from "sonner";
 import { shortDay } from "@/lib/spend/habits";
-import { formatGBP, nextPayday, poundsToPence, todayISO, type Profile, type Tx } from "@/lib/spend/model";
+import { formatGBP, poundsToPence, todayISO, type Profile, type Tx } from "@/lib/spend/model";
 import { looksLikePay, spentBetween, weekOf, type MoneyIn } from "@/lib/spend/payday";
 import { answerTap, confirmPay } from "@/server/money";
 import { useRegulars, useTaps } from "./data";
 import { billChecks, isBill, type ThisPay } from "./this-pay";
 import { errorText } from "./ui";
 
-/** Home's main card: safe to spend until payday, after the bills still to come. */
-export function SafeCard({ pay, hasPayday }: { pay: ThisPay; hasPayday: boolean }) {
+/**
+ * Home's green card: safe to spend until payday, after the bills still to come,
+ * how much of take-home is spent, and the pace against last pay.
+ */
+export function SafeCard({
+  pay,
+  hasPayday,
+  pace,
+}: {
+  pay: ThisPay;
+  hasPayday: boolean;
+  /** "£96 less than this point last pay", or null when there is nothing to compare. */
+  pace: string | null;
+}) {
   const { safe } = pay;
   const over = safe.safePence < 0;
-  const until = hasPayday ? `payday on ${nextPayday(pay.span)}` : "the end of the month";
+  const until = hasPayday ? "payday" : "the end of the month";
+  const share = pay.takeHomePence > 0 ? Math.min(1, pay.spentPence / pay.takeHomePence) : 0;
+  const days = `${safe.daysLeft} day${safe.daysLeft === 1 ? "" : "s"} to ${hasPayday ? "payday" : "the month end"}`;
   return (
-    <section className="panel p-5" aria-label="Safe to spend">
-      <p className="text-sm text-muted">{over ? `Over until ${until}` : `Safe to spend until ${until}`}</p>
-      <p className={`mt-1 font-display text-5xl leading-none tabular-nums ${over ? "text-clay" : ""}`}>
-        {formatGBP(Math.abs(safe.safePence))}
-      </p>
-      <p className="mt-2 text-sm text-muted">
-        {over
-          ? "Spend only on food, getting to work, or a bill until then."
-          : `${safe.daysLeft} day${safe.daysLeft === 1 ? "" : "s"} left, about ${formatGBP(safe.perDayPence)} a day.`}
-        {safe.billsPence > 0
-          ? ` After ${formatGBP(safe.billsPence)} of bills still to come.`
-          : " No regular payments due before then."}
-      </p>
-      {pay.bills.length > 0 ? (
-        <ul className="mt-3 space-y-1 text-sm">
-          {pay.bills.slice(0, 3).map((bill) => (
-            <li key={`${bill.key}-${bill.due}`} className="flex justify-between gap-3">
-              <span className="min-w-0 truncate">
-                {bill.name} <span className="text-muted">· {shortDay(bill.due)}</span>
-              </span>
-              <span className="shrink-0 tabular-nums">{formatGBP(bill.amountPence)}</span>
-            </li>
-          ))}
-          {pay.bills.length > 3 ? <li className="text-muted">And {pay.bills.length - 3} more.</li> : null}
-        </ul>
+    <section className="hero flex flex-col gap-4" aria-label="Safe to spend">
+      <div className="flex flex-col gap-1">
+        <span className="text-sm font-semibold text-on-forest">
+          {over ? `Over your take-home until ${until}` : `Safe to spend until ${until}`}
+        </span>
+        <span className="text-[2.75rem] leading-[1.1] font-extrabold tracking-[-0.03em] tabular-nums">
+          {formatGBP(Math.abs(safe.safePence)).replace(/\.00$/, "")}
+        </span>
+        <span className="text-sm leading-[1.45] text-on-forest">
+          {over
+            ? "Spend only on food, getting to work, or a bill until then."
+            : `${safe.billsPence > 0 ? "After bills still to come. " : ""}${days}, about ${formatGBP(safe.perDayPence)} a day.`}
+        </span>
+      </div>
+      <div className="flex flex-col gap-2">
+        <div
+          className="h-2 overflow-hidden rounded-full bg-white/20"
+          role="img"
+          aria-label={`${Math.round(share * 100)}% of take-home spent`}
+        >
+          <div className="h-2 rounded-full bg-white" style={{ width: `${Math.max(2, share * 100)}%` }} />
+        </div>
+        <div className="flex justify-between text-[0.8125rem] font-semibold text-on-forest tabular-nums">
+          <span>Spent {formatGBP(pay.spentPence).replace(/\.00$/, "")}</span>
+          <span>Take-home {formatGBP(pay.takeHomePence).replace(/\.00$/, "")}</span>
+        </div>
+      </div>
+      {pace ? (
+        <span className="self-start rounded-full bg-white/15 px-3 py-2 text-[0.8125rem] font-bold">{pace}</span>
       ) : null}
+    </section>
+  );
+}
+
+/** The three small totals under the green card: bills, spending, and money saved or invested. */
+export function PayTiles({ billsPence, spendingPence, movedPence }: { billsPence: number; spendingPence: number; movedPence: number }) {
+  const short = (pence: number) => formatGBP(pence).replace(/\.00$/, "");
+  return (
+    <section className="grid grid-cols-3 gap-2.5" aria-label="This pay so far">
+      <Link to="/bills" className="tile">
+        <span className="text-xs font-semibold text-muted">Bills</span>
+        <span className="text-lg font-extrabold tabular-nums">{short(billsPence)}</span>
+      </Link>
+      <div className="tile">
+        <span className="text-xs font-semibold text-muted">Spending</span>
+        <span className="text-lg font-extrabold tabular-nums">{short(spendingPence)}</span>
+      </div>
+      <div className="tile">
+        <span className="text-xs font-semibold text-muted">Saved, invested</span>
+        <span className="text-lg font-extrabold text-saved tabular-nums">{short(movedPence)}</span>
+      </div>
     </section>
   );
 }
@@ -71,10 +111,10 @@ export function PaydayCard({ pay, profile }: { pay: ThisPay; profile: Profile })
   }
 
   return (
-    <section className="panel mt-4 border-forest p-4" aria-label="Payday">
-      <p className="font-medium">{profile.payday ? "Payday" : "New month"}</p>
-      <p className="mt-1 text-sm text-muted">
-        {usual > 0 ? `Did ${formatGBP(usual)} land this time?` : "How much landed this time?"} Pence counts this pay from it.
+    <section className="panel flex flex-col gap-1 border-forest p-4" aria-label="Payday">
+      <p className="text-[0.9375rem] font-extrabold">{profile.payday ? "Did your pay arrive?" : "New month"}</p>
+      <p className="text-sm text-muted">
+        {usual > 0 ? `Did ${formatGBP(usual)} land this time?` : "How much landed this time?"} Pay can change, so Pence asks every payday.
       </p>
       {changing || usual <= 0 ? (
         <form
@@ -105,12 +145,12 @@ export function PaydayCard({ pay, profile }: { pay: ThisPay; profile: Profile })
           </button>
         </form>
       ) : (
-        <div className="mt-3 flex flex-wrap gap-2">
+        <div className="mt-3 flex flex-col gap-2">
           <button type="button" className="btn btn-primary" disabled={busy} onClick={() => void save(usual)}>
             Yes, {formatGBP(usual)}
           </button>
           <button type="button" className="btn btn-quiet" disabled={busy} onClick={() => setChanging(true)}>
-            It was different
+            A different amount
           </button>
         </div>
       )}
@@ -145,24 +185,24 @@ export function NeedsTap() {
   }
 
   return (
-    <section className="mt-4" aria-label="Needs a tap">
-      <h2 className="mb-2 font-display text-2xl">Needs a tap</h2>
-      <ul className="space-y-2">
+    <section aria-label="Needs a tap">
+      <h2 className="section-title mb-2.5">Needs a tap</h2>
+      <ul className="flex flex-col gap-2.5">
         {list.map((tap) => (
-          <li key={tap.id} className="panel p-4">
+          <li key={tap.id} className="panel flex flex-col gap-3 p-4">
             <div className="flex items-baseline justify-between gap-3">
-              <p className="min-w-0 truncate font-medium">
+              <p className="min-w-0 truncate text-base font-extrabold">
                 {formatGBP(tap.amountPence)} at {tap.merchant}
               </p>
-              <p className="shrink-0 text-sm text-muted">{shortDay(tap.spentOn)}</p>
+              <p className="shrink-0 text-[0.8125rem] text-muted">{shortDay(tap.spentOn)}</p>
             </div>
-            <p className="mt-1 text-sm text-muted">What was it? One tap files it.</p>
-            <div className="mt-3 flex flex-wrap gap-2">
+            <p className="-mt-2 text-sm text-muted">What was it? One tap files it.</p>
+            <div className="flex flex-wrap gap-2">
               {tap.choices.map((choice) => (
                 <button
                   key={choice.id}
                   type="button"
-                  className="min-h-11 rounded-full border border-line bg-card px-4 text-sm font-medium"
+                  className="chip"
                   disabled={busy === tap.id}
                   onClick={() => void answer(tap.id, choice.id, tap.merchant)}
                 >
@@ -171,11 +211,11 @@ export function NeedsTap() {
               ))}
               <button
                 type="button"
-                className="min-h-11 rounded-full px-3 text-sm text-muted"
+                className="chip"
                 disabled={busy === tap.id}
                 onClick={() => void answer(tap.id, "-", tap.merchant)}
               >
-                Rather not say
+                Something else
               </button>
             </div>
           </li>
@@ -185,31 +225,29 @@ export function NeedsTap() {
   );
 }
 
+/** "3 bills could cost less": shown on Home only when a bill went up or a contract ends. */
 export function BillsCard() {
   const regulars = useRegulars();
   if (regulars.isPending || regulars.isError) return null;
   const today = regulars.data.today;
   const bills = regulars.data.items.filter((item) => isBill(item) && !item.stopped && !item.lapsed);
   const checks = billChecks(bills, today);
-  const monthly = bills.reduce((sum, item) => sum + item.monthlyPence, 0);
+  if (checks.length === 0) return null;
   return (
-    <Link
-      to="/bills"
-      className={`mt-4 flex items-center justify-between gap-3 rounded-lg px-4 py-3 ${checks.length > 0 ? "bg-clay-soft" : "panel"}`}
-    >
-      <span className="min-w-0">
-        <span className="block font-medium">
-          {checks.length > 0 ? `${checks.length} bill${checks.length === 1 ? "" : "s"} to check` : "Bills"}
+    <Link to="/bills" className="flex items-center gap-3.5 rounded-[1.125rem] bg-clay-soft p-4 text-ink">
+      <span className="flex min-w-0 flex-1 flex-col gap-1">
+        <span className="text-base font-extrabold">
+          {checks.length} bill{checks.length === 1 ? "" : "s"} could cost less
         </span>
-        <span className="block text-sm text-muted">
-          {checks.length > 0
-            ? `${checks[0].item.name}: ${checks[0].why}`
-            : bills.length > 0
-              ? `${bills.length} on your list · about ${formatGBP(monthly)} a month`
-              : "Rent, energy, phone and the rest, with contract ends and price rises"}
+        <span className="text-sm leading-[1.4] text-clay-ink">
+          {checks
+            .slice(0, 2)
+            .map((check) => `${check.item.name}: ${check.why.charAt(0).toLowerCase()}${check.why.slice(1)}`)
+            .join(". ")}
+          .
         </span>
       </span>
-      <span className="shrink-0 text-sm text-forest">Open</span>
+      <ChevronRight className="size-5 shrink-0 text-clay" strokeWidth={2} aria-hidden="true" />
     </Link>
   );
 }
@@ -220,14 +258,14 @@ export function WeekCard({ txs }: { txs: Tx[] }) {
   const week = weekOf(today);
   const total = spentBetween(txs, week.start, today);
   return (
-    <Link to="/week" className="panel mt-4 flex items-center justify-between gap-3 px-4 py-3">
+    <Link to="/week" className="panel flex items-center justify-between gap-3 px-4 py-3">
       <span className="min-w-0">
-        <span className="block font-medium">Your week</span>
+        <span className="block font-extrabold">Your week</span>
         <span className="block text-sm text-muted">
           {total.spentPence > 0 ? `${formatGBP(total.spentPence)} since Monday` : "Nothing spent since Monday yet"}
         </span>
       </span>
-      <span className="shrink-0 text-sm text-forest">Check-in</span>
+      <span className="shrink-0 text-sm font-bold text-forest">Check-in</span>
     </Link>
   );
 }
@@ -264,7 +302,7 @@ export function PaySpotted({ rows, usualPence }: { rows: MoneyIn[]; usualPence: 
         </p>
       ) : (
         <>
-          <p className="font-medium">Is this your pay?</p>
+          <p className="font-extrabold">Is this your pay?</p>
           <p className="mt-1 text-sm text-muted">
             {formatGBP(pay.amountPence)} came in from {pay.merchant} on {shortDay(pay.date)}. Pence can count that pay from it.
           </p>

@@ -1,4 +1,5 @@
 import { Link } from "@tanstack/react-router";
+import { Plus } from "lucide-react";
 import { useQueryClient } from "@tanstack/react-query";
 import { useState, type FormEvent } from "react";
 import { toast } from "sonner";
@@ -151,7 +152,7 @@ function PaymentRow({ item }: { item: Regular }) {
         onClick={() => setOpen((value) => !value)}
       >
         <span className="min-w-0">
-          <span className="block truncate font-medium">{item.name}</span>
+          <span className="block truncate font-bold">{item.name}</span>
           <span className="block text-sm text-muted">
             {item.stopped
               ? "You cancelled this"
@@ -167,9 +168,9 @@ function PaymentRow({ item }: { item: Regular }) {
           </span>
         </span>
         <span className="shrink-0 text-right">
-          {amount ? <span className="block font-medium tabular-nums">{amount}</span> : null}
+          {amount ? <span className="block font-bold tabular-nums">{amount}</span> : null}
           {!item.stopped && !item.lapsed && item.freq !== "once" ? (
-            <span className={`block text-sm ${soon ? "font-medium text-clay" : "text-forest"}`}>{dueText(item)}</span>
+            <span className={`block text-sm ${soon ? "font-bold text-clay" : "text-forest"}`}>{dueText(item)}</span>
           ) : null}
         </span>
       </button>
@@ -177,7 +178,7 @@ function PaymentRow({ item }: { item: Regular }) {
       {item.rise && !item.stopped ? (
         <p className="mt-2 rounded-md bg-clay-soft px-3 py-2 text-sm text-clay">
           Went up from {formatGBP(item.rise.fromPence)} to {formatGBP(item.rise.toPence)} on {shortDay(item.rise.on)}.{" "}
-          <Link to="/bills" className="font-medium underline">
+          <Link to="/bills" className="font-bold underline">
             Look for a better deal
           </Link>
         </p>
@@ -275,7 +276,7 @@ function PaymentRow({ item }: { item: Regular }) {
                     href={cancelSearch(item.name)}
                     target="_blank"
                     rel="noreferrer"
-                    className="mt-1 inline-flex min-h-11 items-center text-sm font-medium text-forest"
+                    className="mt-1 inline-flex min-h-11 items-center text-sm font-bold text-forest"
                   >
                     How to cancel {item.name}
                   </a>
@@ -292,10 +293,10 @@ function PaymentRow({ item }: { item: Regular }) {
 function Group({ title, items, note }: { title: string; items: Regular[]; note?: string }) {
   if (items.length === 0) return null;
   return (
-    <section className="mt-6">
-      <h2 className="font-display text-2xl">{title}</h2>
-      {note ? <p className="mt-1 text-sm text-muted">{note}</p> : null}
-      <ul className="panel mt-2 divide-y divide-line">
+    <section className="flex flex-col gap-2">
+      <h2 className="section-title">{title}</h2>
+      {note ? <p className="text-[0.8125rem] text-muted">{note}</p> : null}
+      <ul className="rows">
         {items.map((item) => (
           <PaymentRow key={item.key} item={item} />
         ))}
@@ -316,39 +317,44 @@ export function RegularView() {
   const lapsed = items.filter((item) => item.lapsed && !item.stopped);
   const stopped = items.filter((item) => item.stopped);
 
-  return (
-    <div>
-      <PageHead kicker="Money out" title="Regular payments" />
+  const trials = live.filter((item) => item.freq === "once" && item.daysLeft != null && item.daysLeft >= 0 && item.daysLeft <= 7);
+  const monthly = regulars.data?.monthlyPence ?? 0;
 
-      <section className="panel p-5">
-        {regulars.isPending ? (
-          <div className="h-16 animate-pulse rounded-md bg-sand" />
-        ) : (
-          <>
-            <p className="text-sm text-muted">About a month</p>
-            <p className="mt-1 font-display text-5xl leading-none tabular-nums">{formatGBP(regulars.data?.monthlyPence ?? 0)}</p>
-            <p className="mt-2 text-sm text-muted">
-              {live.length === 0
-                ? "Nothing regular found yet. Every subscription you add shows here."
-                : `${live.length} payment${live.length === 1 ? "" : "s"}${soon.length > 0 ? ` · ${soon.length} in the next 7 days` : ""}`}
-            </p>
-          </>
-        )}
-        <PhoneAlerts
-          what="a week, 3 days and 2 working days before a payment comes out"
-          onChange={() => void client.invalidateQueries({ queryKey: ["regulars"] })}
-        />
-        {adding ? (
-          <PaymentForm onDone={() => setAdding(false)} onCancel={() => setAdding(false)} />
-        ) : (
-          <button type="button" className="btn btn-quiet mt-3 w-full" onClick={() => setAdding(true)}>
-            Add a payment or free trial
-          </button>
-        )}
-      </section>
+  return (
+    <div className="flex flex-col gap-6">
+      <PageHead
+        back="/"
+        flush
+        title="Regular payments"
+        sub={
+          regulars.isPending
+            ? undefined
+            : live.length === 0
+              ? "Nothing regular found yet. Every subscription you add shows here."
+              : `About ${formatGBP(monthly).replace(/\.00$/, "")} a month · ${live.length} running`
+        }
+      />
+
+      {trials.map((item) => {
+        const end = item.nextDue ?? "";
+        return (
+          <section key={item.key} className="flex flex-col gap-2 rounded-[1.125rem] bg-clay-soft p-4" aria-label="Free trial ending">
+            <span className="text-xs font-extrabold tracking-[0.06em] text-clay uppercase">Free trial</span>
+            <span className="text-base font-extrabold">
+              {item.name} trial ends {end ? shortDay(end) : "soon"}
+            </span>
+            <span className="text-sm leading-[1.45] text-clay-ink">
+              Cancel before then if you don’t want to keep it{item.amountPence > 0 ? `, or it costs ${formatGBP(item.amountPence)}` : ""}.
+            </span>
+            <a href={cancelSearch(item.name)} target="_blank" rel="noreferrer" className="btn-pill self-start bg-clay">
+              How to cancel
+            </a>
+          </section>
+        );
+      })}
 
       {regulars.isError ? (
-        <p className="mt-4 panel px-4 py-6 text-sm text-clay">{errorText(regulars.error, "Couldn’t load the list.")}</p>
+        <p className="panel px-4 py-6 text-sm text-clay">{errorText(regulars.error, "Couldn’t load the list.")}</p>
       ) : null}
 
       <Group title="Check this" items={warn} />
@@ -357,15 +363,36 @@ export function RegularView() {
       <Group title="Not seen lately" items={lapsed} note="Cancelled, or paid in a way Pence hasn’t seen?" />
       <Group title="Cancelled" items={stopped} />
 
+      {adding ? (
+        <div className="panel p-4">
+          <PaymentForm onDone={() => setAdding(false)} onCancel={() => setAdding(false)} />
+        </div>
+      ) : (
+        <button type="button" className="btn btn-quiet" onClick={() => setAdding(true)}>
+          <Plus className="size-5" strokeWidth={2} aria-hidden="true" /> Add a payment or free trial
+        </button>
+      )}
+
+      <div className="panel p-4">
+        <PhoneAlerts
+          what="a week, 3 days and 2 working days before a payment comes out"
+          onChange={() => void client.invalidateQueries({ queryKey: ["regulars"] })}
+        />
+      </div>
+
       {!regulars.isPending && items.length === 0 ? (
-        <p className="mt-4 text-sm text-muted">
+        <p className="text-sm text-muted">
           Pence lists every payment filed as a subscription, and bills that come back each month.{" "}
-          <Link to="/bank" className="font-medium text-forest">
-            Bring in a bank statement
+          <Link to="/bank" className="font-bold text-forest">
+            Upload a bank statement
           </Link>{" "}
           to find them.
         </p>
       ) : null}
+
+      <p className="text-[0.8125rem] leading-[1.5] text-muted">
+        Reminders come 7 days, 3 days and 2 working days before. Banks need a full working day to stop a Direct Debit.
+      </p>
     </div>
   );
 }
@@ -383,7 +410,7 @@ export function ComingOut({ className = "mt-4" }: { className?: string }) {
     return (
       <Link to="/regular" className={`panel flex items-center justify-between gap-3 px-4 py-3 ${className}`}>
         <span className="min-w-0">
-          <span className="block font-medium">Regular payments</span>
+          <span className="block font-bold">Regular payments</span>
           <span className="block text-sm text-muted">
             {live.length > 0
               ? `${live.length} on your list · about ${formatGBP(regulars.data?.monthlyPence ?? 0)} a month`
@@ -397,7 +424,7 @@ export function ComingOut({ className = "mt-4" }: { className?: string }) {
   return (
     <section className={className}>
       <div className="mb-2 flex items-baseline justify-between">
-        <h2 className="font-display text-2xl">Coming out soon</h2>
+        <h2 className="section-title">Coming out soon</h2>
         <Link to="/regular" className="text-sm text-forest">
           All regular payments
         </Link>
@@ -407,7 +434,7 @@ export function ComingOut({ className = "mt-4" }: { className?: string }) {
           <li key={item.key}>
             <Link to="/regular" className="flex items-baseline justify-between gap-3 px-4 py-3">
               <span className="min-w-0">
-                <span className="block truncate font-medium">{item.name}</span>
+                <span className="block truncate font-bold">{item.name}</span>
                 <span className={`block text-sm ${item.paidAfterStop || (item.daysLeft ?? 9) <= 3 ? "text-clay" : "text-muted"}`}>
                   {item.paidAfterStop
                     ? "Paid again after you cancelled"
@@ -419,7 +446,7 @@ export function ComingOut({ className = "mt-4" }: { className?: string }) {
                 </span>
               </span>
               {item.amountPence > 0 ? (
-                <span className="shrink-0 font-medium tabular-nums">{formatGBP(item.amountPence)}</span>
+                <span className="shrink-0 font-bold tabular-nums">{formatGBP(item.amountPence)}</span>
               ) : null}
             </Link>
           </li>

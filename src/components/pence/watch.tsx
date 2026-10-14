@@ -1,4 +1,5 @@
 import { Link } from "@tanstack/react-router";
+import { Plus } from "lucide-react";
 import { useQueryClient } from "@tanstack/react-query";
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
@@ -56,15 +57,15 @@ export function WatchSummary({ className = "mt-4" }: { className?: string }) {
   const cheapest = first.offers.find((offer) => offer.pricePence != null && !offer.monthly);
   return (
     <Link to="/offers" hash="watchlist" className={`panel block border-forest p-4 ${className}`}>
-      <p className="text-sm font-medium text-forest">{first.shopOnly ? "Pence found a promotion" : "Pence found a price"}</p>
-      <p className="mt-1 font-medium">{found.length > 1 ? `${first.what}, and ${found.length - 1} more` : first.what}</p>
+      <p className="text-sm font-bold text-forest">{first.shopOnly ? "Pence found a promotion" : "Pence found a price"}</p>
+      <p className="mt-1 font-bold">{found.length > 1 ? `${first.what}, and ${found.length - 1} more` : first.what}</p>
       {cheapest?.pricePence != null && !first.shopOnly ? (
         <p className="text-sm text-muted">
           From {formatGBP(cheapest.pricePence)}
           {cheapest.merchant ? ` at ${cheapest.merchant}` : ""}
         </p>
       ) : null}
-      <p className="mt-2 text-sm font-medium text-forest">See it on your Watchlist</p>
+      <p className="mt-2 text-sm font-bold text-forest">See it on your Watchlist</p>
     </Link>
   );
 }
@@ -90,7 +91,7 @@ function limitText(item: WatchItem): string {
 function OfferPrice({ offer }: { offer: WatchOffer }) {
   if (offer.monthly) return <p className="text-sm text-muted">Monthly price, not the full price</p>;
   if (offer.pricePence == null) return null;
-  return <p className="font-display text-3xl leading-none tabular-nums">{formatGBP(offer.pricePence)}</p>;
+  return <p className="text-[1.75rem] leading-none font-extrabold tracking-[-0.02em] tabular-nums">{formatGBP(offer.pricePence)}</p>;
 }
 
 /** Every offer seen for one watch, so the person can change their mind and take one. */
@@ -110,16 +111,16 @@ function SeenOffers({ item, busy, onTake }: { item: WatchItem; busy: boolean; on
               {offer.monthly ? (
                 <p className="shrink-0 text-sm text-muted">Monthly price</p>
               ) : offer.pricePence != null ? (
-                <p className="shrink-0 font-medium tabular-nums">{formatGBP(offer.pricePence)}</p>
+                <p className="shrink-0 font-bold tabular-nums">{formatGBP(offer.pricePence)}</p>
               ) : null}
             </div>
-            <p className="mt-0.5 text-sm font-medium">{offer.title}</p>
+            <p className="mt-0.5 text-sm font-bold">{offer.title}</p>
             {offer.unlikely ? (
               <p className="mt-0.5 text-sm text-clay">This price looks like an accessory or a monthly payment, not the item.</p>
             ) : null}
             <div className="flex flex-wrap items-center gap-x-4">
               <DealAction deal={offer} />
-              <button type="button" className="mt-2 min-h-11 text-sm font-medium" disabled={busy} onClick={() => onTake(offer.id)}>
+              <button type="button" className="mt-2 min-h-11 text-sm font-bold" disabled={busy} onClick={() => onTake(offer.id)}>
                 Take this one
               </button>
             </div>
@@ -127,7 +128,7 @@ function SeenOffers({ item, busy, onTake }: { item: WatchItem; busy: boolean; on
         ))}
       </ul>
       {list.length > shown ? (
-        <button type="button" className="min-h-11 text-sm font-medium text-forest" onClick={() => setShown((n) => n + 10)}>
+        <button type="button" className="min-h-11 text-sm font-bold text-forest" onClick={() => setShown((n) => n + 10)}>
           Show more
         </button>
       ) : null}
@@ -239,10 +240,13 @@ export function Watchlist() {
 
   return (
     <section id="watchlist" className="scroll-mt-4">
-      <div className="flex items-baseline justify-between gap-3">
-        <h2 className="font-display text-2xl">Watchlist</h2>
-        <Link to="/plan" className="min-h-11 shrink-0 text-sm font-medium text-forest">
-          Add
+      <div className="flex flex-col gap-3">
+        <h2 className="section-title">Watchlist</h2>
+        <p className="text-sm leading-[1.45] text-muted">
+          Things you want, with the price to beat. Pence checks every day and tells you when a deal turns up.
+        </p>
+        <Link to="/plan" className="btn btn-quiet">
+          <Plus className="size-5" strokeWidth={2} aria-hidden="true" /> Add something to watch
         </Link>
       </div>
 
@@ -257,7 +261,7 @@ export function Watchlist() {
             Want something, or want to shop somewhere, but not at today’s price? Add it from Plan. Pence keeps looking every
             day and tells you when an offer turns up.
           </p>
-          <p className="mt-2 text-sm font-medium text-forest">Add to your Watchlist</p>
+          <p className="mt-2 text-sm font-bold text-forest">Add to your Watchlist</p>
         </Link>
       ) : null}
 
@@ -265,16 +269,16 @@ export function Watchlist() {
         <ul className="mt-3 space-y-4">
           {found.map((item) => (
             <li key={item.id} className="panel border-forest p-4">
-              <p className="text-sm font-medium text-forest">{item.shopOnly ? "Pence found a promotion" : "Pence found a price"}</p>
-              <p className="mt-1 font-medium">{item.what}</p>
+              <p className="text-sm font-bold text-forest">{item.shopOnly ? "Pence found a promotion" : "Pence found a price"}</p>
+              <p className="mt-1 font-bold">{item.what}</p>
               <p className="text-sm text-muted">{limitText(item)}</p>
-              <p className="mt-2 text-sm font-medium">{item.shopOnly ? "Is this one for you?" : "Is the price right for you?"}</p>
+              <p className="mt-2 text-sm font-bold">{item.shopOnly ? "Is this one for you?" : "Is the price right for you?"}</p>
               <ul className="mt-3 space-y-3">
                 {item.offers.map((offer) => (
                   <li key={offer.id} className="border-t border-line pt-3">
                     <OfferPrice offer={offer} />
                     <p className="mt-1 text-sm text-muted">{offer.merchant || offer.source}</p>
-                    <p className="mt-1 font-medium">{offer.title}</p>
+                    <p className="mt-1 font-bold">{offer.title}</p>
                     {offer.detail ? <p className="mt-1 text-sm">{offer.detail}</p> : null}
                     <DealAction deal={offer} />
                     <button
@@ -312,7 +316,7 @@ export function Watchlist() {
         <ul className="mt-3 space-y-3">
           {waiting.map((item) => (
             <li key={item.id} className="panel p-4">
-              <p className="font-medium">{item.what}</p>
+              <p className="font-bold">{item.what}</p>
               <p className="text-sm text-muted">
                 {limitText(item)}
                 {item.town ? ` · ${item.town}` : ""}
@@ -324,7 +328,7 @@ export function Watchlist() {
                     {" · "}
                     <button
                       type="button"
-                      className="font-medium text-forest underline underline-offset-2"
+                      className="font-bold text-forest underline underline-offset-2"
                       aria-expanded={openSeen === item.id}
                       onClick={() => setOpenSeen(openSeen === item.id ? "" : item.id)}
                     >
@@ -335,7 +339,7 @@ export function Watchlist() {
               </p>
               {item.lowest?.pricePence != null && !item.shopOnly ? (
                 <p className="mt-1 text-sm">
-                  Lowest seen: <span className="font-medium tabular-nums">{formatGBP(item.lowest.pricePence)}</span>
+                  Lowest seen: <span className="font-bold tabular-nums">{formatGBP(item.lowest.pricePence)}</span>
                   {item.lowest.merchant ? ` at ${item.lowest.merchant}` : ""}
                 </p>
               ) : null}
@@ -362,7 +366,7 @@ export function Watchlist() {
               <div className="mt-3 flex flex-wrap gap-2">
                 <button
                   type="button"
-                  className="min-h-11 rounded-md border border-line px-3 text-sm"
+                  className="chip"
                   disabled={working.includes(item.id)}
                   onClick={() => void check(item.id)}
                 >
@@ -371,7 +375,7 @@ export function Watchlist() {
                 {item.shopOnly ? null : (
                   <button
                     type="button"
-                    className="min-h-11 rounded-md border border-line px-3 text-sm"
+                    className="chip"
                     onClick={() =>
                       setEditing(
                         editing?.id === item.id
@@ -385,7 +389,7 @@ export function Watchlist() {
                 )}
                 <button
                   type="button"
-                  className={`min-h-11 rounded-md border px-3 text-sm ${stopping === item.id ? "border-clay text-clay" : "border-line"}`}
+                  className={`chip ${stopping === item.id ? "border-clay text-clay" : ""}`}
                   disabled={working.includes(item.id)}
                   onClick={() => void remove(item)}
                 >
@@ -399,13 +403,13 @@ export function Watchlist() {
 
       {done.length > 0 ? (
         <>
-          <h3 className="mt-5 text-sm font-medium text-muted">Taken</h3>
+          <h3 className="mt-5 text-sm font-bold text-muted">Taken</h3>
           <ul className="mt-2 space-y-3">
             {done.map((item) => {
               const offer = item.offers[0];
               return (
                 <li key={item.id} className="panel p-4">
-                  <p className="font-medium">{item.what}</p>
+                  <p className="font-bold">{item.what}</p>
                   {offer ? (
                     <>
                       <p className="mt-1 tabular-nums">
