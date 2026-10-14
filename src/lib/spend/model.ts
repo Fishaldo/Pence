@@ -1,3 +1,5 @@
+import { looksLikePerson, saysTransfer } from "./money-sent.ts";
+
 /**
  * Every category a payment can be filed under. `spending: false` marks money that
  * moves but is not spent (savings, investments, transfers between your own accounts):
@@ -17,6 +19,8 @@ export const CATEGORIES = [
   { id: "personal", label: "Personal care", spending: true },
   { id: "travel", label: "Travel", spending: true },
   { id: "gifts", label: "Gifts", spending: true },
+  // Money sent to people: family at home or abroad, a partner, a friend. Spent, but not shopping.
+  { id: "sent", label: "Money sent", spending: true },
   { id: "kids", label: "Kids", spending: true },
   { id: "pets", label: "Pets", spending: true },
   { id: "education", label: "Education", spending: true },
@@ -411,6 +415,27 @@ const KEYWORDS: { category: CategoryId; words: string[] }[] = [
     words: ["transfer to own", "own account", "to my account", "between accounts"],
   },
   {
+    category: "sent",
+    words: [
+      "lemfi",
+      "lem fi",
+      "transferwise",
+      "wise.com",
+      "remitly",
+      "worldremit",
+      "world remit",
+      "western union",
+      "moneygram",
+      "sendwave",
+      "taptap send",
+      "ria money",
+      "paysend",
+      "azimo",
+      "afriex",
+      "chipper cash",
+    ],
+  },
+  {
     category: "travel",
     words: ["airbnb", "booking.com", "ryanair", "easyjet", "jet2", "british airways"],
   },
@@ -477,12 +502,29 @@ function extractMerchant(text: string): string {
   return tidyName(t);
 }
 
+/**
+ * True when an alert or statement line is money sent to a person: "You sent
+ * £50 to Mum", "FPS J SMITH", or a line that is nothing but a name.
+ */
+function sentToPerson(text: string, merchant: string): boolean {
+  if (!merchant || !looksLikePerson(merchant)) return false;
+  // "Paid £8 at Mama's Kitchen" is a shop.
+  if (/\b(at|in store|contactless)\b/i.test(text)) return false;
+  if (saysTransfer(text)) return true;
+  // A statement line that is only a payee name and an amount.
+  const rest = text
+    .replace(/£\s*\d[\d.,]*|\b\d[\d.,]*\s*gbp\b|\b\d[\d.,/-]*\b/gi, " ")
+    .replace(/[^a-z'\s-]/gi, " ")
+    .trim();
+  return looksLikePerson(rest);
+}
+
 export function parseAlert(raw: string): ParsedAlert {
   const text = raw.replace(/\s+/g, " ").trim();
   const amountPence = extractAmount(text);
   const hit = matchCategory(text);
   const merchant = extractMerchant(text);
-  const category = hit?.category ?? "other";
+  const category = hit?.category ?? (sentToPerson(text, merchant) ? "sent" : "other");
   let confidence = 0.25;
   if (amountPence && merchant && hit) confidence = 0.88;
   else if (amountPence && merchant) confidence = 0.56;
@@ -602,6 +644,7 @@ const SPEND_SEARCH: Record<CategoryId, string | null> = {
   personal: "toiletries",
   travel: "holiday flights",
   gifts: "gifts",
+  sent: null,
   housing: null,
   kids: "kids toys clothes",
   pets: "pet food",
@@ -667,6 +710,8 @@ const CATEGORY_TIP: Record<CategoryId, string> = {
     "A trip is fine when it was planned. If this one wasn’t, leave the extras for next month’s money.",
   gifts:
     "Decide the ceiling before you browse. A smaller present usually lands as well as the upgraded one.",
+  sent:
+    "Money for family and friends is a choice, not a leak. Set the amount at the start of the pay, and compare transfer fees and rates before you send money abroad.",
   housing:
     "Rent rarely moves mid-year. Check the council tax band and any discount you can claim, such as the single person discount.",
   kids:

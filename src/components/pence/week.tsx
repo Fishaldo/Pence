@@ -160,7 +160,7 @@ export function WeekView() {
       </section>
 
       <div className="rows">
-        <Link to="/budget" className="row">
+        <Link to="/plan" hash="budget" className="row">
           <span className="flex-1 text-[0.9375rem] font-bold">Your budget</span>
           <ChevronRight className="size-5 text-muted" aria-hidden="true" />
         </Link>

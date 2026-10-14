@@ -72,12 +72,15 @@ const NAV = [
 const MORE = [
   { to: "/bills", label: "Bills", icon: Receipt },
   { to: "/regular", label: "Regular payments", icon: Repeat },
-  { to: "/budget", label: "Budget", icon: Wallet },
+  // Budget sits on Plan, next to "Plan a spend".
+  { to: "/plan", hash: "budget", label: "Budget", icon: Wallet },
   { to: "/week", label: "Weekly check-in", icon: CalendarCheck },
 ] as const;
 
 export function Shell({ children }: { children: ReactNode }) {
   const path = useRouterState({ select: (s) => s.location.pathname });
+  const hash = useRouterState({ select: (s) => s.location.hash });
+  const onBudget = path === "/plan" && hash === "budget";
   const { profile } = useLedger();
   const watches = useWatches();
   const income = profile.data?.monthlyIncomePence ?? 0;
@@ -93,7 +96,7 @@ export function Shell({ children }: { children: ReactNode }) {
           </Link>
           <nav className="mt-8 flex flex-1 flex-col gap-1" aria-label="Primary">
             {NAV.map((item) => {
-              const active = path === item.to;
+              const active = path === item.to && !(item.to === "/plan" && onBudget);
               const Icon = item.icon;
               return (
                 <Link
@@ -112,13 +115,16 @@ export function Shell({ children }: { children: ReactNode }) {
           </nav>
           {MORE.map((item) => {
             const Icon = item.icon;
+            const itemHash = "hash" in item ? item.hash : undefined;
+            const active = itemHash ? onBudget : path === item.to;
             return (
               <Link
-                key={item.to}
+                key={item.label}
                 to={item.to}
+                hash={itemHash}
                 className={cn(
                   "flex h-11 items-center gap-3 rounded-xl px-3 text-sm font-semibold",
-                  path === item.to ? "bg-mist font-extrabold text-forest" : "text-ink hover:bg-sand",
+                  active ? "bg-mist font-extrabold text-forest" : "text-ink hover:bg-sand",
                 )}
               >
                 <Icon className="size-4" strokeWidth={1.75} />

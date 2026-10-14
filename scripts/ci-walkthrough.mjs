@@ -299,16 +299,23 @@ await step("Bills: list, price rises and a better deal", async () => {
   return (await page.locator("main").innerText()).replace(/\s+/g, " ").slice(0, 500);
 });
 
-await step("Budget: made from past pays", async () => {
+await step("Budget: on Plan, made from past pays, within take-home", async () => {
+  // The old address still lands on the Budget part of Plan.
   await page.goto(`${base}/budget`, { waitUntil: "domcontentloaded" });
-  await page.getByRole("heading", { name: "Your budget for this pay", exact: true }).waitFor();
+  await page.waitForURL(/\/plan#budget$/);
+  await page.getByRole("heading", { name: "Plan", exact: true }).waitFor();
+  await page.getByRole("button", { name: "Budget", exact: true, pressed: true }).waitFor();
   await page.getByRole("button", { name: "Make my budget" }).click();
   await page.getByRole("button", { name: "Save budget" }).waitFor();
+  const summary = await page.getByRole("region", { name: "How Pence made this budget" }).innerText();
+  const [planned, takeHome] = [...summary.matchAll(/£([\d,]+\.\d{2})/g)].slice(0, 2).map((m) => Number(m[1].replace(/,/g, "")));
+  if (!(planned <= takeHome)) throw new Error(`planned ${planned} is more than take-home ${takeHome}`);
   await shot("22-budget-draft");
   await page.getByRole("button", { name: "Save budget" }).click();
   await page.getByText("Planned", { exact: true }).waitFor();
   await settle(1000);
   await shot("23-budget");
+  return summary.replace(/\s+/g, " ").slice(0, 400);
 });
 
 await step("Weekly check-in", async () => {
@@ -399,7 +406,7 @@ await step("home on a computer screen", async () => {
 });
 
 await step("phone width has no sideways scroll", async () => {
-  for (const path of ["/", "/offers", "/plan", "/activity", "/regular", "/bills", "/budget", "/week", "/settings"]) {
+  for (const path of ["/", "/offers", "/plan", "/activity", "/regular", "/bills", "/plan#budget", "/week", "/settings"]) {
     await page.goto(`${base}${path}`, { waitUntil: "domcontentloaded" });
     await settle(1500);
     const wide = await page.evaluate(() => document.documentElement.scrollWidth > window.innerWidth + 1);

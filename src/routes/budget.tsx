@@ -1,18 +1,8 @@
-import { createFileRoute } from "@tanstack/react-router";
-import { RequireUser } from "@/components/pence/gate";
-import { BudgetView } from "@/components/pence/budget";
-import { Shell } from "@/components/pence/ui";
+import { createFileRoute, redirect } from "@tanstack/react-router";
 
+// Budget lives on Plan now, next to "Plan a spend". Old links still land on it.
 export const Route = createFileRoute("/budget")({
-  component: BudgetPage,
+  beforeLoad: () => {
+    throw redirect({ to: "/plan", hash: "budget", replace: true });
+  },
 });
-
-function BudgetPage() {
-  return (
-    <RequireUser>
-      <Shell>
-        <BudgetView />
-      </Shell>
-    </RequireUser>
-  );
-}
