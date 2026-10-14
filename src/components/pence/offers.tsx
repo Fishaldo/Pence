@@ -1,12 +1,12 @@
-import { Link } from "@tanstack/react-router";
-import { MapPin } from "lucide-react";
+import { Link, useNavigate, useRouterState } from "@tanstack/react-router";
+import { Eye, MapPin } from "lucide-react";
 import { useQueryClient } from "@tanstack/react-query";
 import { useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
 import { formatGBP, PROGRAMMES } from "@/lib/spend/model";
 import { habitLine, interestDef, interestOfKey, shortDay, type TasteProfile, type Upcoming } from "@/lib/spend/habits";
 import { setHabit, type PersonalDeal } from "@/server/for-you";
-import { useForYou, useForYouWide } from "./data";
+import { useForYou, useForYouWide, useWatches } from "./data";
 import { DealAction } from "./deal-bits";
 import { goUrl } from "./deal-links";
 import { errorText, PageHead } from "./ui";
@@ -134,15 +134,26 @@ export function OffersView() {
   const hasHabits = (taste?.interests.length ?? 0) > 0;
   const wide = useForYouWide(hasHabits);
   const [pages, setPages] = useState(1);
-  const [view, setView] = useState<"for-you" | "shops" | "elsewhere" | "watch">("for-you");
+  const [picked, setPicked] = useState<"for-you" | "shops" | "elsewhere">("for-you");
   const [find, setFind] = useState("");
   const [adding, setAdding] = useState(false);
   const [busyKey, setBusyKey] = useState("");
 
-  // Plan's "See your Watchlist" opens Offers on the Watchlist.
-  useEffect(() => {
-    if (typeof window !== "undefined" && window.location.hash === "#watchlist") setView("watch");
-  }, []);
+  const navigate = useNavigate();
+  const watches = useWatches();
+  // The Watchlist lives at Offers#watchlist, so Home and Plan can link to it and
+  // the phone's back button closes it again.
+  const watching = useRouterState({ select: (s) => s.location.hash }) === "watchlist";
+  const view = watching ? "watch" : picked;
+
+  function show(next: typeof picked) {
+    setPicked(next);
+    if (watching) void navigate({ to: "/offers" });
+  }
+
+  function toggleWatchlist() {
+    void navigate(watching ? { to: "/offers" } : { to: "/offers", hash: "watchlist" });
+  }
 
   useEffect(() => {
     if (!adding) return;
@@ -299,27 +310,29 @@ export function OffersView() {
 
   const chips = (
     <div role="group" aria-label="Show" className="-mx-5 flex gap-2 overflow-x-auto px-5 pb-0.5">
-      <button type="button" className="chip" aria-pressed={view === "for-you"} onClick={() => setView("for-you")}>
+      <button type="button" className="chip" aria-pressed={view === "for-you"} onClick={() => show("for-you")}>
         For you
       </button>
-      <button type="button" className="chip" aria-pressed={view === "shops"} onClick={() => setView("shops")}>
+      <button type="button" className="chip" aria-pressed={view === "shops"} onClick={() => show("shops")}>
         Your shops
       </button>
       <Link to="/bills" className="chip">
         Bills
       </Link>
-      <button type="button" className="chip" aria-pressed={view === "elsewhere"} onClick={() => setView("elsewhere")}>
+      <button type="button" className="chip" aria-pressed={view === "elsewhere"} onClick={() => show("elsewhere")}>
         Cheaper elsewhere
-      </button>
-      <button type="button" className="chip" aria-pressed={view === "watch"} onClick={() => setView("watch")}>
-        Watchlist
       </button>
     </div>
   );
 
   return (
     <div className="flex flex-col gap-4">
-      <PageHead title="Offers" sub={OFFERS_LINE} flush />
+      <PageHead
+        title="Offers"
+        sub={OFFERS_LINE}
+        flush
+        action={<WatchlistButton on={watching} items={watches.data ?? []} onClick={toggleWatchlist} />}
+      />
 
       <label className="field">
         <span className="field-label">Search offers</span>
@@ -433,6 +446,32 @@ export function OffersView() {
       ) : null}
       {addSheet}
     </div>
+  );
+}
+
+/** Always in view at the top of Offers, with how many things are watched and a dot when Pence found a price. */
+function WatchlistButton({
+  on,
+  items,
+  onClick,
+}: {
+  on: boolean;
+  items: { status: string }[];
+  onClick: () => void;
+}) {
+  const found = items.some((item) => item.status === "found");
+  return (
+    <button type="button" className="chip relative shrink-0" aria-pressed={on} onClick={onClick}>
+      <Eye className="size-[18px]" strokeWidth={2} aria-hidden="true" />
+      Watchlist
+      {items.length > 0 ? <span className="tabular-nums opacity-70">{items.length}</span> : null}
+      {found ? (
+        <span
+          className="absolute -top-0.5 -right-0.5 size-3 rounded-full bg-clay ring-2 ring-paper"
+          aria-label="Pence found a price"
+        />
+      ) : null}
+    </button>
   );
 }
 

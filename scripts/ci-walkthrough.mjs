@@ -323,12 +323,29 @@ await step("Weekly check-in", async () => {
 await step("Activity: search with totals by period", async () => {
   await page.goto(`${base}/activity`, { waitUntil: "domcontentloaded" });
   await page.getByLabel("Search").fill("uber");
-  await page.getByRole("button", { name: "3 months", exact: true }).click();
+  await page.getByLabel("Time range").selectOption("3m");
   await settle(800);
   const total = await page.locator("p[aria-live='polite']").first().innerText();
   if (!/matching “uber”/.test(total)) throw new Error(`totals read: ${total}`);
+  if (!/last 3 months/.test(total)) throw new Error(`time range not applied: ${total}`);
   await shot("25-activity-search");
   return total.replace(/\s+/g, " ");
+});
+
+await step("Back returns to where you came from", async () => {
+  await page.goto(`${base}/offers`, { waitUntil: "domcontentloaded" });
+  await page.getByRole("heading", { name: "Offers", exact: true }).waitFor();
+  await page.getByRole("link", { name: "Bills", exact: true }).click();
+  await page.getByRole("heading", { name: "Bills", exact: true }).waitFor();
+  await page.getByRole("link", { name: "Back" }).click();
+  await page.getByRole("heading", { name: "Offers", exact: true }).waitFor();
+  await page.goto(`${base}/`, { waitUntil: "domcontentloaded" });
+  await page.getByRole("heading", { name: "Latest", exact: true }).waitFor();
+  await page.goto(`${base}/bills`, { waitUntil: "domcontentloaded" });
+  await page.getByRole("heading", { name: "Bills", exact: true }).waitFor();
+  await page.getByRole("link", { name: "Back" }).click();
+  await page.waitForURL(/\/$/);
+  return "Offers → Bills → Back lands on Offers; Bills opened directly → Back lands on Home";
 });
 
 await step("Plan: quick questions for eating out", async () => {

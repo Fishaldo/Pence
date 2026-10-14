@@ -25,15 +25,6 @@ import { SectionHead } from "./ui";
 const THIS_PAY = "#1e5b43";
 const LAST_PAY = "#c9d3cc";
 
-const SEARCH_PERIODS = [
-  { id: "1w", label: "1W", words: "last week", days: 7 },
-  { id: "1m", label: "1M", words: "last month", days: 31 },
-  { id: "3m", label: "3M", words: "last 3 months", days: 92 },
-  { id: "6m", label: "6M", words: "last 6 months", days: 183 },
-  { id: "1y", label: "1Y", words: "last year", days: 366 },
-  { id: "all", label: "All", words: "all time", days: 0 },
-] as const;
-
 /** Running total of spending for each day of a pay period, up to `through`. */
 function runningTotals(rows: Tx[], span: PaySpan, through: string): number[] {
   const byDay = new Map<string, number>();
@@ -73,8 +64,6 @@ export function InsightsView() {
   const [tips, setTips] = useState<string[] | null>(null);
   const [tipState, setTipState] = useState<"idle" | "loading" | "ready" | "unavailable">("idle");
   const [period, setPeriod] = useState<"this" | "last" | "three">("this");
-  const [query, setQuery] = useState("");
-  const [over, setOver] = useState<(typeof SEARCH_PERIODS)[number]["id"]>("6m");
 
   if (txs.isPending || profile.isPending) {
     return <div className="h-72 animate-pulse rounded-[1.125rem] bg-sand" />;
@@ -139,21 +128,7 @@ export function InsightsView() {
   const nowLine = runningTotals(rows, span, todayIso);
   const lastLine = runningTotals(rows, prevSpan, prevSpan.end);
 
-  // Search your spending.
-  const range = SEARCH_PERIODS.find((item) => item.id === over) ?? SEARCH_PERIODS[3];
-  const from = range.days > 0 ? isoOf(dayNum(todayIso) - range.days + 1) : "";
-  const words = query.toLowerCase().split(/\s+/).filter(Boolean);
-  const found =
-    words.length === 0
-      ? []
-      : rows.filter((tx) => {
-          if (from && tx.spentOn < from) return false;
-          const hay = [tx.merchant, tx.description, tx.note, categoryLabel(tx.category), ...tx.items.map((item) => item.name)]
-            .join(" ")
-            .toLowerCase();
-          return words.every((word) => hay.includes(word));
-        });
-  const foundTotal = found.reduce((sum, tx) => sum + tx.amountPence, 0);
+  const anySpend = rows.some((tx) => countsAsSpending(tx.category));
 
   const topMerchant = current.byMerchant[0];
 
@@ -182,19 +157,8 @@ export function InsightsView() {
 
   return (
     <div className="flex flex-col gap-6">
-      <header className="flex flex-col gap-3">
+      <header>
         <h1 className="page-title">Insights</h1>
-        <div role="group" aria-label="Period" className="flex gap-2">
-          <button type="button" className="chip" aria-pressed={period === "this"} onClick={() => setPeriod("this")}>
-            This {unit}
-          </button>
-          <button type="button" className="chip" aria-pressed={period === "last"} onClick={() => setPeriod("last")}>
-            Last {unit}
-          </button>
-          <button type="button" className="chip" aria-pressed={period === "three"} onClick={() => setPeriod("three")}>
-            3 {unit}s
-          </button>
-        </div>
       </header>
 
       <section className="panel flex flex-col gap-3.5 p-[1.125rem]" aria-label={`Compared with last ${unit}`}>
@@ -256,9 +220,24 @@ export function InsightsView() {
         </section>
       ) : null}
 
-      {where.length > 0 ? (
+      {anySpend ? (
         <section aria-label="Where it went">
           <SectionHead title="Where it went" sub={whereNames.join(", ")} />
+          {/* The period choice sits with the bars it changes, so a tap shows its effect right away. */}
+          <div role="group" aria-label="Period" className="mb-3 flex gap-2">
+            <button type="button" className="chip" aria-pressed={period === "this"} onClick={() => setPeriod("this")}>
+              This {unit}
+            </button>
+            <button type="button" className="chip" aria-pressed={period === "last"} onClick={() => setPeriod("last")}>
+              Last {unit}
+            </button>
+            <button type="button" className="chip" aria-pressed={period === "three"} onClick={() => setPeriod("three")}>
+              3 {unit}s
+            </button>
+          </div>
+          {where.length === 0 ? (
+            <p className="panel p-4 text-sm text-muted">Nothing spent in {mainLabel.toLowerCase()} yet.</p>
+          ) : (
           <div className="rows">
             {where.map((row) => (
               <div key={row.id} className="flex flex-col gap-2 px-4 py-3">
@@ -284,6 +263,7 @@ export function InsightsView() {
               </div>
             ))}
           </div>
+          )}
         </section>
       ) : (
         <p className="panel p-4 text-sm text-muted">Add a few spends and Pence shows where the money went.</p>
@@ -315,39 +295,6 @@ export function InsightsView() {
               </li>
             ))}
           </ul>
-        ) : null}
-      </section>
-
-      <section className="panel flex flex-col gap-3 p-[1.125rem]" aria-label="Search your spending">
-        <label className="field">
-          <span className="field-label">Search your spending</span>
-          <input
-            type="search"
-            className="control"
-            placeholder="Perfume, Uber, Tesco"
-            value={query}
-            onChange={(event) => setQuery(event.target.value)}
-          />
-        </label>
-        <div role="group" aria-label="Over" className="grid grid-cols-6 gap-1.5">
-          {SEARCH_PERIODS.map((item) => (
-            <button key={item.id} type="button" className="chip justify-center px-0" aria-pressed={over === item.id} onClick={() => setOver(item.id)}>
-              {item.label}
-            </button>
-          ))}
-        </div>
-        {words.length > 0 ? (
-          <div className="flex items-baseline justify-between gap-3 rounded-xl bg-paper px-3.5 py-3">
-            <span className="text-sm text-ink-soft">
-              {query.trim()}, {range.words} · {found.length} spend{found.length === 1 ? "" : "s"}
-            </span>
-            <span className="text-lg font-extrabold tabular-nums">{formatGBP(foundTotal)}</span>
-          </div>
-        ) : null}
-        {words.length > 0 && found.length > 0 ? (
-          <Link to="/activity" className="link self-start">
-            See them in Activity
-          </Link>
         ) : null}
       </section>
 
