@@ -1,5 +1,5 @@
 import { useNavigate } from "@tanstack/react-router";
-import { categoryLabel, formatGBP } from "@/lib/spend/model";
+import { categoryLabel, formatGBP } from "@/lib/core/model";
 import { dismissAlert } from "@/server/ledger";
 import { useLedger, useRefreshLedger } from "./data";
 import { errorText, PageHead } from "./ui";

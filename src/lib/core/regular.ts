@@ -1,5 +1,6 @@
 import { dayNum, isoOf, shortDay } from "./habits.ts";
-import type { CategoryId } from "./model";
+import { workingDayOnOrAfter, workingDaysUntil } from "./dates.ts";
+import type { CategoryId } from "./model.ts";
 import { descKey } from "./payee.ts";
 
 /*
@@ -7,7 +8,7 @@ import { descKey } from "./payee.ts";
  *
  * Every payment filed as a subscription is on the list. Other payments join it
  * when they come back on a steady rhythm for about the same amount, like rent
- * or a phone contract. Pence works out when each one is next due, so it can
+ * or a phone contract. Briv works out when each one is next due, so it can
  * remind the person a week, three days and two working days before it comes out.
  * It also notices when a bill or subscription goes up.
  */
@@ -26,6 +27,30 @@ export const FREQ_LABEL: Record<Freq, string> = {
 
 const PERIOD_DAYS: Record<Freq, number> = { once: 0, weekly: 7, monthly: 31, quarterly: 92, yearly: 366 };
 
+/**
+ * How a regular payment's timing is stored: "week", "month" or "year" and how
+ * many of them, so every 4 weeks can be stored later as week × 4.
+ */
+export type Every = { every: "once" | "week" | "month" | "year"; count: number };
+
+export function everyOf(freq: Freq): Every {
+  if (freq === "weekly") return { every: "week", count: 1 };
+  if (freq === "monthly") return { every: "month", count: 1 };
+  if (freq === "quarterly") return { every: "month", count: 3 };
+  if (freq === "yearly") return { every: "year", count: 1 };
+  return { every: "once", count: 1 };
+}
+
+/** The other way. Null for a timing the app cannot show yet, such as every 4 weeks. */
+export function freqOf(every: string, count: number): Freq | null {
+  if (every === "once") return "once";
+  if (every === "week" && count === 1) return "weekly";
+  if (every === "month" && count === 1) return "monthly";
+  if (every === "month" && count === 3) return "quarterly";
+  if (every === "year" && count === 1) return "yearly";
+  return null;
+}
+
 export function isFreq(value: unknown): value is Freq {
   return typeof value === "string" && (FREQS as string[]).includes(value);
 }
@@ -39,7 +64,7 @@ export type RegularSpend = {
   isSample?: boolean;
 };
 
-/** What the person set: a payment they added ("m:…"), or a change to one Pence found ("p:…"). */
+/** What the person set: a payment they added ("m:…"), or a change to one Briv found ("p:…"). */
 export type RegularSetting = {
   key: string;
   name: string;
@@ -50,7 +75,7 @@ export type RegularSetting = {
   /** The day they said they cancelled it. */
   stoppedOn?: string | null;
   remind: boolean;
-  /** When the contract or deal ends, if the person told Pence. */
+  /** When the contract or deal ends, if the person told Briv. */
   contractEnd?: string | null;
 };
 
@@ -293,27 +318,8 @@ export function findRegulars(spends: RegularSpend[], settings: RegularSetting[],
   return items.sort((a, b) => rank(a) - rank(b) || (a.daysLeft ?? 9999) - (b.daysLeft ?? 9999));
 }
 
-/**
- * Bank holidays in England and Wales, from gov.uk/bank-holidays.json. Banks do
- * not send payments on them, so they are not counted as working days.
- */
-export const BANK_HOLIDAYS = new Set([
-  "2025-12-25", "2025-12-26",
-  "2026-01-01", "2026-04-03", "2026-04-06", "2026-05-04", "2026-05-25", "2026-08-31", "2026-12-25", "2026-12-28",
-  "2027-01-01", "2027-03-26", "2027-03-29", "2027-05-03", "2027-05-31", "2027-08-30", "2027-12-27", "2027-12-28",
-  "2028-01-03", "2028-04-14", "2028-04-17", "2028-05-01", "2028-05-29", "2028-08-28", "2028-12-25", "2028-12-26",
-]);
-
-/** Working days after `from`, up to and including `to`. Weekends and bank holidays are left out. */
-export function workingDaysUntil(from: string, to: string, holidays: Set<string> = BANK_HOLIDAYS): number {
-  let count = 0;
-  for (let day = dayNum(from) + 1; day <= dayNum(to); day += 1) {
-    const weekday = new Date(day * 86_400_000).getUTCDay();
-    if (weekday === 0 || weekday === 6 || holidays.has(isoOf(day))) continue;
-    count += 1;
-  }
-  return count;
-}
+// Working days and bank holidays live in dates.ts; re-exported here for older imports.
+export { workingDaysUntil };
 
 export type ReminderStep = 7 | 3 | 2;
 
@@ -353,7 +359,8 @@ export function remindersDue(items: Regular[], sent: SentReminder[]): { item: Re
   const out: { item: Regular; step: ReminderStep }[] = [];
   for (const item of items) {
     const today = item.nextDue && item.daysLeft != null ? isoOf(dayNum(item.nextDue) - item.daysLeft) : null;
-    const working = today && item.nextDue ? workingDaysUntil(today, item.nextDue) : null;
+    // A payment due on a Saturday or a bank holiday leaves on the next working day.
+    const working = today && item.nextDue ? workingDaysUntil(today, workingDayOnOrAfter(item.nextDue)) : null;
     const step = reminderStep(item.daysLeft, working);
     if (!step || !item.nextDue || !item.remind || item.stopped || item.lapsed) continue;
     const already = sent.some((row) => row.key === item.key && row.due === item.nextDue && row.daysBefore <= step);

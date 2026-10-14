@@ -1,7 +1,7 @@
-import { dayNum, shortDay } from "@/lib/spend/habits";
-import { formatGBP, paySpan, spanProgress, summarizeSpan, todayISO, type PaySpan, type Profile, type Tx } from "@/lib/spend/model";
-import { billsBeforePayday, safeToSpend, type BillToCome, type SafeToSpend } from "@/lib/spend/payday";
-import type { Regular } from "@/lib/spend/regular";
+import { dayNum, shortDay } from "@/lib/core/habits";
+import { formatGBP, paySpan, spanProgress, summarizeSpan, todayISO, type PaySpan, type Profile, type Tx } from "@/lib/core/model";
+import { billsBeforePayday, safeToSpend, type BillToCome, type SafeToSpend } from "@/lib/core/payday";
+import type { Regular } from "@/lib/core/regular";
 import type { PayRecord } from "@/server/money";
 import { usePay, useRegulars } from "./data";
 

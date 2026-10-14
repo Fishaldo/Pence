@@ -149,7 +149,8 @@ export function planBudget(input: {
   const wanted = input.wanted.filter((line) => line.usualPence > 0 && !(line.category && SAVING.has(line.category)));
   const fixed = wanted.filter((line) => maxCut(line) === 0);
   const flex = wanted.filter((line) => maxCut(line) > 0);
-  const fixedPence = fixed.reduce((sum, line) => sum + up(line.usualPence), 0);
+  // Never-cut lines keep their real amount: rounding rent up to £5 could push a plan that fits over the take-home.
+  const fixedPence = fixed.reduce((sum, line) => sum + Math.round(line.usualPence), 0);
 
   let goal = T > 0 ? Math.max(savingsGoal(T, usualSaving), input.minSavingsPence ?? 0) : 0;
   const flexUsual = flex.reduce((sum, line) => sum + line.usualPence, 0);
@@ -192,7 +193,7 @@ export function planBudget(input: {
 
   const lines: PlannedLine[] = [];
   for (const line of fixed) {
-    lines.push({ id: line.id, name: line.name, category: line.category, amountPence: up(line.usualPence), neverCut: true, usualPence: line.usualPence, kind: "fixed" });
+    lines.push({ id: line.id, name: line.name, category: line.category, amountPence: Math.round(line.usualPence), neverCut: true, usualPence: line.usualPence, kind: "fixed" });
   }
   const flexLines: PlannedLine[] = [];
   for (const line of flex) {

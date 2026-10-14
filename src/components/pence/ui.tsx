@@ -15,7 +15,7 @@ import {
 } from "lucide-react";
 import type { ReactNode } from "react";
 import { cn } from "@/lib/cn";
-import { formatGBP } from "@/lib/spend/model";
+import { formatGBP } from "@/lib/core/model";
 import { useLedger, useWatches } from "./data";
 
 export function Mark({ className }: { className?: string }) {

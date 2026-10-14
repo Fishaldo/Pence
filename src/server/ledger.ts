@@ -12,11 +12,11 @@ import {
   type SpendSource,
   type Tx,
   type WalletAlert,
-} from "@/lib/spend/model";
-import { samePayment } from "@/lib/spend/duplicate";
-import { descKey } from "@/lib/spend/payee";
-import type { StatementRow } from "@/lib/spend/statement";
-import type { MoneyIn } from "@/lib/spend/payday";
+} from "@/lib/core/model";
+import { samePayment } from "@/lib/core/duplicate";
+import { descKey } from "@/lib/core/payee";
+import type { StatementRow } from "@/lib/core/statement";
+import type { MoneyIn } from "@/lib/core/payday";
 
 type SqlClient = Awaited<ReturnType<typeof getSql>>;
 

@@ -3,7 +3,7 @@ import { Plus } from "lucide-react";
 import { useQueryClient } from "@tanstack/react-query";
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
-import { formatGBP } from "@/lib/spend/model";
+import { formatGBP } from "@/lib/core/model";
 import {
   answerWatch,
   changeWatchPrice,

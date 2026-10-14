@@ -1,7 +1,7 @@
 import { getSql } from "@/lib/db";
-import { dayNum, isoOf } from "@/lib/spend/habits";
-import { countsAsSpending, formatGBP, isCategory } from "@/lib/spend/model";
-import { weekOf } from "@/lib/spend/payday";
+import { dayNum, isoOf } from "@/lib/core/habits";
+import { countsAsSpending, formatGBP, isCategory } from "@/lib/core/model";
+import { weekOf } from "@/lib/core/payday";
 import { pushUser } from "@/server/push";
 
 /*

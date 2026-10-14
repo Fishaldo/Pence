@@ -1,7 +1,7 @@
 import { Link } from "@tanstack/react-router";
 import { ChevronRight } from "lucide-react";
 import { useState } from "react";
-import { dayNum, isoOf } from "@/lib/spend/habits";
+import { dayNum, isoOf } from "@/lib/core/habits";
 import {
   buildAdvice,
   categoryLabel,
@@ -16,7 +16,7 @@ import {
   type CategoryId,
   type PaySpan,
   type Tx,
-} from "@/lib/spend/model";
+} from "@/lib/core/model";
 import { getAdvice } from "@/server/ledger";
 import { useLedger } from "./data";
 import { MoneySentCard } from "./money-sent-card";

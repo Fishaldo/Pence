@@ -1,5 +1,5 @@
 import { getSql } from "@/lib/db";
-import { poundsToPence } from "@/lib/spend/model";
+import { poundsToPence } from "@/lib/core/model";
 import {
   fitsTarget,
   isPromotion,
@@ -11,7 +11,7 @@ import {
   shopDealFits,
   type OfferStatus,
   type WatchTarget,
-} from "@/lib/spend/watch";
+} from "@/lib/core/watch";
 import { isMonthly, searchHot } from "@/server/hot-search";
 import { vetOffers } from "@/server/offer-terms";
 import { pushUser } from "@/server/push";

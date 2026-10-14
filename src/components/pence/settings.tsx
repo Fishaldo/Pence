@@ -4,7 +4,7 @@ import { ChevronRight } from "lucide-react";
 import { toast } from "sonner";
 import { UserButton } from "@/lib/auth/gates";
 import { signOut } from "@/lib/auth/client";
-import { categoryLabel, poundsToPence } from "@/lib/spend/model";
+import { categoryLabel, poundsToPence } from "@/lib/core/model";
 import { deleteMyData, exportMyData, saveWeeklyDay } from "@/server/money";
 import { addPlace, clearSamples, removePlace, savePhonePlace, saveProfile } from "@/server/ledger";
 import { useLedger, useRefreshLedger } from "./data";

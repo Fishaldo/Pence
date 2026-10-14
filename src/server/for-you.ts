@@ -1,9 +1,9 @@
 import { createServerFn } from "@tanstack/react-start";
 import { authMiddleware } from "@/lib/auth/middleware";
 import { getSql } from "@/lib/db";
-import { isCategory, type LineItem } from "@/lib/spend/model";
-import { judgeTerms, termsFromOffer } from "@/lib/spend/terms";
-import { onlyFarAway } from "@/lib/spend/towns";
+import { isCategory, type LineItem } from "@/lib/core/model";
+import { judgeTerms, termsFromOffer } from "@/lib/core/terms";
+import { onlyFarAway } from "@/lib/core/towns";
 import {
   addableInterests,
   atKnownShop,
@@ -26,7 +26,7 @@ import {
   type HabitPrefs,
   type SpendInput,
   type TasteProfile,
-} from "@/lib/spend/habits";
+} from "@/lib/core/habits";
 import { searchHot } from "@/server/hot-search";
 import { vetOffers } from "@/server/offer-terms";
 import { learnShops, shopBookFor } from "@/server/shop-kinds";

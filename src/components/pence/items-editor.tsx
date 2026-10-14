@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { formatGBP, poundsToPence } from "@/lib/spend/model";
+import { formatGBP, poundsToPence } from "@/lib/core/model";
 
 export type DraftItem = { name: string; amount: string };
 

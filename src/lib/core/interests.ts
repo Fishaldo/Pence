@@ -1,8 +1,8 @@
-import type { CategoryId } from "./model";
+import type { CategoryId } from "./model.ts";
 
 /*
  * The kinds of thing people buy, finer than the spending categories.
- * Pence maps every shop and every receipt line to one of these, so it can
+ * Briv maps every shop and every receipt line to one of these, so it can
  * tell perfume from paracetamol even when both came from Boots.
  */
 
@@ -658,6 +658,7 @@ export const INTERESTS: InterestDef[] = [
     shops: [
       "the perfume shop",
       "perfume shop",
+      "jo malone",
       "fragrance direct",
       "the fragrance shop",
       "fragrance shop",
@@ -2083,7 +2084,7 @@ export const GENERIC_SHOP_WORDS = new Set([
 
 /**
  * Parts of a shop's name that say what it sells, even run together as on a
- * bank statement: CAKEBOX, PIZZALAND, BOBSBARBERS. Used only for a shop Pence
+ * bank statement: CAKEBOX, PIZZALAND, BOBSBARBERS. Used only for a shop Briv
  * does not know, and only when the hint fits the category the payment was
  * filed under, so "Kitchen Depot" filed under Household stays a home shop.
  */

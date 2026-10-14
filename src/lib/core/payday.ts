@@ -102,9 +102,6 @@ export function spentBetween(txs: Pick<Tx, "amountPence" | "category" | "spentOn
   };
 }
 
-// The budget lives in budget.ts; these names stay here for older imports.
-export { NEVER_CUT, lineProgress, type BudgetLine } from "./budget.ts";
-
 export type BillKind = {
   id: "energy" | "broadband" | "mobile" | "tv" | "insurance" | "streaming" | "water" | "council-tax" | "rent" | "gym" | "other";
   label: string;

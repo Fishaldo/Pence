@@ -6,7 +6,7 @@ export { isPromotion, isStoreWide };
 /*
  * Price watch rules, kept pure so they are tested on their own.
  *
- * A watch is something the person wants but not at today's price. Pence keeps
+ * A watch is something the person wants but not at today's price. Briv keeps
  * looking, and only calls them back for an offer that is good enough: at or
  * under the price they set, and cheaper than anything they already turned down.
  */
@@ -140,7 +140,7 @@ export function judge(offer: PricedOffer, watch: WatchLimits): "match" | "above"
 /**
  * What a newly found offer becomes. An offer with no price, such as a code for
  * 10% off, is only worth a call before the person has set a price or turned
- * anything down; after that Pence needs a price to know it is better.
+ * anything down; after that Briv needs a price to know it is better.
  */
 export function offerStatus(offer: PricedOffer, watch: WatchLimits): OfferStatus {
   const verdict = judge(offer, watch);
@@ -234,7 +234,7 @@ export const KIND_WORDS: Record<string, { words: string; interests: string[] }> 
  * the whole shop always count. Single products count when they are the kind of
  * thing the person goes there for: a big shop goes by what was picked in Plan
  * (ASDA for groceries skips its air fryers), while a specialist such as a gym,
- * or a place Pence does not know, takes anything naming it.
+ * or a place Briv does not know, takes anything naming it.
  */
 export function shopDealFits(text: string, kind: string): boolean;
 export function shopDealFits(text: string, kind: string, shop: string): boolean;
@@ -243,7 +243,7 @@ export function shopDealFits(text: string, kind: string, shop = ""): boolean {
   const own = shop ? merchantInterest(shop, "other").id : null;
   const ownDef = own ? interestDef(own) : undefined;
   const fromKind = KIND_WORDS[kind]?.interests ?? [];
-  // A place Pence does not know, such as a local restaurant, is rare on deal pages: anything naming it counts.
+  // A place Briv does not know, such as a local restaurant, is rare on deal pages: anything naming it counts.
   if (!own || !ownDef) return true;
   // A specialist only sells one kind of thing, so a deal naming it is already on topic.
   if (!ownDef.broad) return true;
