@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { toast } from "sonner";
 import { alertKey, dailyStatus, saveAlerts, testAlert } from "@/server/watch";
 import { alertState, currentSub, turnOffAlerts, turnOnAlerts, type AlertState } from "./phone-alerts";
-import { errorText } from "./ui";
+import { errorText } from "./error-text";
 
 function checkedAgo(iso: string, now = Date.now()): string {
   const hours = (now - Date.parse(iso)) / 3_600_000;

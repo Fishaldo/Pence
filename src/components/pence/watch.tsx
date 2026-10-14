@@ -18,7 +18,8 @@ import { learnMyShops } from "@/server/for-you";
 import { useWatches } from "./data";
 import { DealAction } from "./deal-bits";
 import { PhoneAlerts } from "./phone-alerts-panel";
-import { errorText, PageHead } from "./ui";
+import { PageHead } from "./ui";
+import { errorText } from "./error-text";
 
 let lookedThisVisit = false;
 

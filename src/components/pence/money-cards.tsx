@@ -9,7 +9,7 @@ import { looksLikePay, spentBetween, weekOf, type MoneyIn } from "@/lib/core/pay
 import { answerTap, confirmPay } from "@/server/money";
 import { useRegulars, useTaps } from "./data";
 import { billChecks, isBill, type ThisPay } from "./this-pay";
-import { errorText } from "./ui";
+import { errorText } from "./error-text";
 
 /**
  * Home's green card: safe to spend until payday, after the bills still to come,

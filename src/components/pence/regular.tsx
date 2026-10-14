@@ -9,7 +9,8 @@ import { dueText, FREQ_LABEL, FREQS, type Freq, type Regular } from "@/lib/core/
 import { removeRegular, saveRegular } from "@/server/regular";
 import { useRegulars } from "./data";
 import { PhoneAlerts } from "./phone-alerts-panel";
-import { errorText, PageHead } from "./ui";
+import { PageHead } from "./ui";
+import { errorText } from "./error-text";
 
 const ADD_LABEL: Record<Freq, string> = {
   once: "Once (a free trial or one payment)",

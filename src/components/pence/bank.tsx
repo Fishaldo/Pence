@@ -9,7 +9,8 @@ import { deleteSpend, findClashes, importBank, type Clash } from "@/server/ledge
 import { SamePayment, type ClashChoice } from "./clash";
 import { useLedger, useRefreshLedger } from "./data";
 import { PaySpotted } from "./money-cards";
-import { errorText, PageHead } from "./ui";
+import { PageHead } from "./ui";
+import { errorText } from "./error-text";
 
 export function BankView() {
   const navigate = useNavigate();

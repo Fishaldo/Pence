@@ -25,7 +25,8 @@ import { CodeChip } from "./deal-bits";
 import { goUrl } from "./deal-links";
 import { BillsCard, NeedsTap, PaydayCard, PayTiles, SafeCard } from "./money-cards";
 import { longToday, useThisPay } from "./this-pay";
-import { errorText, SectionHead, SettingsButton } from "./ui";
+import { SectionHead, SettingsButton } from "./ui";
+import { errorText } from "./error-text";
 
 /** Bills, rent and subscriptions: the "Bills" total on Home. */
 const BILL_CATEGORIES = new Set<CategoryId>(["bills", "housing", "subscriptions"]);

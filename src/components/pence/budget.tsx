@@ -15,7 +15,8 @@ import {
 import { saveBudget } from "@/server/money";
 import { useBudget, useLedger } from "./data";
 import { useThisPay } from "./this-pay";
-import { errorText, PageHead } from "./ui";
+import { PageHead } from "./ui";
+import { errorText } from "./error-text";
 
 type Draft = { key: string; name: string; category: CategoryId | ""; amount: string; neverCut: boolean; usualPence?: number };
 
