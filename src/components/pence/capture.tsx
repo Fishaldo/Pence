@@ -3,8 +3,8 @@ import { Camera, ClipboardPaste, FileText, ImagePlus, Images, Keyboard, Landmark
 import { useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 import { fileToImages } from "@/lib/spend/files";
-import type { StatementRow } from "@/lib/spend/statement";
-import { looksLikePay, type MoneyIn } from "@/lib/spend/payday";
+import type { StatementRow } from "@/lib/core/statement";
+import { looksLikePay, type MoneyIn } from "@/lib/core/payday";
 import {
   CATEGORIES,
   categoryLabel,
@@ -16,7 +16,7 @@ import {
   type LineItem,
   type SpendSource,
   type WalletAlert,
-} from "@/lib/spend/model";
+} from "@/lib/core/model";
 import { createAlert, deleteSpend, dismissAlert, findClashes, importBank, readReceipt, saveSpend, type Clash } from "@/server/ledger";
 import { SamePayment, type ClashChoice } from "./clash";
 import { ItemsEditor, type DraftItem } from "./items-editor";

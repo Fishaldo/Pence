@@ -2,7 +2,7 @@
  * Bank and wallet descriptions, and the fixes a person makes to them.
  *
  * A statement line such as "BLD*MYPERFECTCV.CO 4421" says little. When the
- * person renames it or picks a category, Pence keeps the fix against the
+ * person renames it or picks a category, Briv keeps the fix against the
  * description, so every payment with the same description changes too, and
  * future ones arrive named and filed.
  */

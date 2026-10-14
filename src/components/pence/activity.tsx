@@ -11,9 +11,9 @@ import {
   todayISO,
   type CategoryId,
   type Tx,
-} from "@/lib/spend/model";
-import { dayNum, isoOf } from "@/lib/spend/habits";
-import { descKey } from "@/lib/spend/payee";
+} from "@/lib/core/model";
+import { dayNum, isoOf } from "@/lib/core/habits";
+import { descKey } from "@/lib/core/payee";
 import { deleteSpend, updateSpend } from "@/server/ledger";
 import { useLedger, useRefreshLedger } from "./data";
 import { ItemsEditor, type DraftItem } from "./items-editor";

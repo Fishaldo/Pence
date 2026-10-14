@@ -1,9 +1,9 @@
 import { createServerFn } from "@tanstack/react-start";
 import { authMiddleware } from "@/lib/auth/middleware";
 import { getSql } from "@/lib/db";
-import { countsAsSpending, isCategory, paySpan, poundsToPence, validDate, type CategoryId } from "@/lib/spend/model";
-import { interestDef, shopChoices } from "@/lib/spend/habits";
-import { NEVER_CUT, type BudgetLine } from "@/lib/spend/payday";
+import { countsAsSpending, isCategory, paySpan, poundsToPence, validDate, type CategoryId } from "@/lib/core/model";
+import { interestDef, shopChoices } from "@/lib/core/habits";
+import { NEVER_CUT, type BudgetLine } from "@/lib/core/budget";
 
 /*
  * Payday and income, one-tap questions, the budget, the weekly check-in day,

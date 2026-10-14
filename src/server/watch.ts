@@ -1,7 +1,7 @@
 import { createServerFn } from "@tanstack/react-start";
 import { authMiddleware } from "@/lib/auth/middleware";
 import { getSql } from "@/lib/db";
-import { poundsToPence } from "@/lib/spend/model";
+import { poundsToPence } from "@/lib/core/model";
 import {
   cleanWhat,
   floorAfter,
@@ -12,7 +12,7 @@ import {
   watchLabel,
   type OfferStatus,
   type WatchStatus,
-} from "@/lib/spend/watch";
+} from "@/lib/core/watch";
 import { catchUpDailyCheck, lastDailyCheck } from "@/server/daily";
 import { isPushEndpoint, pushTo, vapidPublicKey } from "@/server/push";
 import { checkDue, checkWatch, targetOf, WEB_EVERY_HOURS, type WatchRow } from "@/server/watch-check";

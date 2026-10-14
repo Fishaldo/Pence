@@ -1,6 +1,6 @@
 import { getSql } from "@/lib/db";
-import { INTERESTS, interestDef, shopsToLookUp, type ShopBook, type ShopInfo, type SpendInput } from "@/lib/spend/habits";
-import { areaOf } from "@/lib/spend/towns";
+import { INTERESTS, interestDef, shopsToLookUp, type ShopBook, type ShopInfo, type SpendInput } from "@/lib/core/habits";
+import { areaOf } from "@/lib/core/towns";
 import { parseModelObject, searchWebText } from "@/server/search";
 
 /*

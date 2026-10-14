@@ -1,8 +1,8 @@
 import { useQueryClient } from "@tanstack/react-query";
 import { useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
-import { sentNotBought } from "@/lib/spend/habits";
-import { categoryLabel, countsAsSpending, formatGBP, type Tx } from "@/lib/spend/model";
+import { sentNotBought } from "@/lib/core/habits";
+import { categoryLabel, countsAsSpending, formatGBP, type Tx } from "@/lib/core/model";
 import { refileSpends } from "@/server/ledger";
 import { useRefreshLedger } from "./data";
 import { errorText } from "./ui";

@@ -2,7 +2,7 @@ import { Link } from "@tanstack/react-router";
 import { Camera, ClipboardPaste, FileUp } from "lucide-react";
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
-import { dayNum, isoOf, shortDay, type TasteProfile } from "@/lib/spend/habits";
+import { dayNum, isoOf, shortDay, type TasteProfile } from "@/lib/core/habits";
 import {
   categoryLabel,
   countsAsSpending,
@@ -15,8 +15,8 @@ import {
   todayISO,
   type CategoryId,
   type PaySpan,
-} from "@/lib/spend/model";
-import { FREQ_LABEL } from "@/lib/spend/regular";
+} from "@/lib/core/model";
+import { FREQ_LABEL } from "@/lib/core/regular";
 import type { PersonalDeal } from "@/server/for-you";
 import { hotDeals, type HotDeal } from "@/server/hotukdeals";
 import { seedSamples } from "@/server/ledger";

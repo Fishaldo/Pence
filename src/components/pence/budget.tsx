@@ -1,7 +1,7 @@
 import { useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 import { toast } from "sonner";
-import { CATEGORIES, categoryLabel, formatGBP, paySpan, poundsToPence, type CategoryId } from "@/lib/spend/model";
+import { CATEGORIES, categoryLabel, formatGBP, paySpan, poundsToPence, type CategoryId } from "@/lib/core/model";
 import {
   fitBudget,
   lineProgress,
@@ -11,7 +11,7 @@ import {
   type BudgetLine,
   type BudgetPlan,
   type PlannedLine,
-} from "@/lib/spend/budget";
+} from "@/lib/core/budget";
 import { saveBudget } from "@/server/money";
 import { useBudget, useLedger } from "./data";
 import { useThisPay } from "./this-pay";

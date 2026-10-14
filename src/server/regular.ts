@@ -1,8 +1,8 @@
 import { createServerFn } from "@tanstack/react-start";
 import { authMiddleware } from "@/lib/auth/middleware";
 import { getSql } from "@/lib/db";
-import { isCategory, poundsToPence } from "@/lib/spend/model";
-import { dayNum, isoOf } from "@/lib/spend/habits";
+import { isCategory, poundsToPence } from "@/lib/core/model";
+import { dayNum, isoOf } from "@/lib/core/habits";
 import {
   findRegulars,
   isFreq,
@@ -14,7 +14,7 @@ import {
   type Regular,
   type RegularSetting,
   type RegularSpend,
-} from "@/lib/spend/regular";
+} from "@/lib/core/regular";
 import { pushUser } from "@/server/push";
 
 /*

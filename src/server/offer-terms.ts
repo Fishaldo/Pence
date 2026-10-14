@@ -1,4 +1,4 @@
-import { judgeTerms, readTerms, worthReadingTerms } from "@/lib/spend/terms";
+import { judgeTerms, readTerms, worthReadingTerms } from "@/lib/core/terms";
 import { dealText } from "@/server/hot-search";
 
 /*

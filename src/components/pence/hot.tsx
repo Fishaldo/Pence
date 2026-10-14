@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
-import { spendQueries } from "@/lib/spend/model";
-import { mergeDeals } from "@/lib/spend/deals";
+import { spendQueries } from "@/lib/core/model";
+import { mergeDeals } from "@/lib/core/deals";
 import { hotDeals, type HotDeal } from "@/server/hotukdeals";
 import { publicDeals } from "@/server/public-deals";
 import { useLedger } from "./data";

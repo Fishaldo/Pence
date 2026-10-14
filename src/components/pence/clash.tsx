@@ -1,6 +1,6 @@
 import { useState } from "react";
-import { shortDay } from "@/lib/spend/habits";
-import { formatGBP } from "@/lib/spend/model";
+import { shortDay } from "@/lib/core/habits";
+import { formatGBP } from "@/lib/core/model";
 import type { Clash } from "@/server/ledger";
 
 export type ClashChoice = "drop" | "replace" | "both";

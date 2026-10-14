@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { saveProfile } from "@/server/ledger";
-import { poundsToPence } from "@/lib/spend/model";
+import { poundsToPence } from "@/lib/core/model";
 import { useRefreshLedger } from "./data";
 import { errorText } from "./ui";
 
