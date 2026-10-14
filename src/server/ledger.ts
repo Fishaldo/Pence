@@ -1190,6 +1190,42 @@ export const updateSpend = createServerFn({ method: "POST" })
     return { tx: mapTx(rows[0]), alsoChanged };
   });
 
+/**
+ * Moves several spends to one category at once, such as gifts that were really
+ * money sent to people. With `remember`, future payments to the same payees
+ * arrive in that category too.
+ */
+export const refileSpends = createServerFn({ method: "POST" })
+  .middleware([authMiddleware])
+  .validator((input: unknown) => {
+    const raw = input && typeof input === "object" ? (input as { ids?: unknown; category?: unknown; remember?: unknown }) : {};
+    const ids = Array.isArray(raw.ids) ? raw.ids.filter((id): id is string => typeof id === "string" && id.length > 0 && id.length < 80) : [];
+    if (ids.length === 0 || ids.length > 500) throw new Error("Pick the payments to move.");
+    const category = typeof raw.category === "string" ? raw.category : "";
+    if (!isCategory(category)) throw new Error("Pick a category.");
+    return { ids: [...new Set(ids)], category, remember: raw.remember === true };
+  })
+  .handler(async ({ context, data }): Promise<{ moved: number }> => {
+    const sql = await getSql();
+    const rows = await sql<{ id: string; merchant: string; description: string }>`
+      update transactions set category = ${data.category}
+      where user_id = ${context.userId} and id = any(${data.ids}::text[])
+      returning id, merchant, description`;
+    if (data.remember) {
+      const seen = new Set<string>();
+      for (const row of rows) {
+        const key = descKey(row.description || row.merchant);
+        if (!key || seen.has(key)) continue;
+        seen.add(key);
+        await sql`insert into payee_rules (user_id, desc_key, merchant, category)
+                  values (${context.userId}, ${key}, ${row.merchant}, ${data.category})
+                  on conflict (user_id, desc_key) do update set
+                    merchant = excluded.merchant, category = excluded.category, created_at = now()`;
+      }
+    }
+    return { moved: rows.length };
+  });
+
 export const deleteSpend = createServerFn({ method: "POST" })
   .middleware([authMiddleware])
   .validator((input: unknown) => {

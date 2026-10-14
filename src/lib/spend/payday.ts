@@ -1,5 +1,5 @@
 import { addFreq, type Regular } from "./regular.ts";
-import { countsAsSpending, type CategoryId, type PaySpan, type Tx } from "./model.ts";
+import { countsAsSpending, type CategoryId, type Tx } from "./model.ts";
 import { dayNum, isoOf } from "./habits.ts";
 
 /*
@@ -102,66 +102,8 @@ export function spentBetween(txs: Pick<Tx, "amountPence" | "category" | "spentOn
   };
 }
 
-export type BudgetLine = {
-  id: string;
-  name: string;
-  /** The category it counts, or null for a line the person tracks by hand, such as perfume. */
-  category: CategoryId | null;
-  amountPence: number;
-  /** Pence never suggests cutting this line: rent, bills, health and the like. */
-  neverCut: boolean;
-};
-
-/** Lines Pence never suggests cutting, unless the person says otherwise. */
-export const NEVER_CUT = new Set<CategoryId>(["housing", "bills", "health", "kids", "education"]);
-
-function roundUpTo(pence: number, step: number): number {
-  return Math.ceil(pence / step) * step;
-}
-
-/**
- * A first budget from the person's own pays: each category's average over the
- * last finished pay periods with spends in them (up to three), rounded up to the
- * next £5, plus savings when they saved. Categories under £5 a pay are left out.
- */
-export function suggestBudget(txs: Pick<Tx, "amountPence" | "category" | "spentOn" | "isSample">[], spans: PaySpan[]): BudgetLine[] {
-  const real = txs.filter((tx) => !tx.isSample);
-  const source = real.length > 0 ? real : txs;
-  // Only pays with something logged count, so a person with one pay of history is not averaged over three.
-  const used = spans.slice(0, 3).filter((span) => source.some((tx) => tx.spentOn >= span.start && tx.spentOn <= span.end));
-  if (used.length === 0) return [];
-  const totals = new Map<CategoryId, number>();
-  for (const span of used) {
-    for (const tx of source) {
-      if (tx.spentOn < span.start || tx.spentOn > span.end) continue;
-      if (tx.category === "transfers") continue;
-      totals.set(tx.category, (totals.get(tx.category) ?? 0) + tx.amountPence);
-    }
-  }
-  const lines: BudgetLine[] = [];
-  for (const [category, total] of totals) {
-    const average = total / used.length;
-    if (average < 500) continue;
-    lines.push({
-      id: `c:${category}`,
-      name: "",
-      category,
-      amountPence: roundUpTo(average, 500),
-      neverCut: NEVER_CUT.has(category),
-    });
-  }
-  return lines.sort((a, b) => Number(b.neverCut) - Number(a.neverCut) || b.amountPence - a.amountPence);
-}
-
-/** How far through a budget line this pay is. */
-export function lineProgress(line: BudgetLine, txs: Pick<Tx, "amountPence" | "category" | "spentOn">[], span: PaySpan) {
-  const spentPence = line.category
-    ? txs
-        .filter((tx) => tx.category === line.category && tx.spentOn >= span.start && tx.spentOn <= span.end)
-        .reduce((sum, tx) => sum + tx.amountPence, 0)
-    : 0;
-  return { spentPence, leftPence: line.amountPence - spentPence, over: spentPence > line.amountPence };
-}
+// The budget lives in budget.ts; these names stay here for older imports.
+export { NEVER_CUT, lineProgress, type BudgetLine } from "./budget.ts";
 
 export type BillKind = {
   id: "energy" | "broadband" | "mobile" | "tv" | "insurance" | "streaming" | "water" | "council-tax" | "rent" | "gym" | "other";

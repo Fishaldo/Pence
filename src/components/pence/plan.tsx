@@ -1,4 +1,4 @@
-import { Link } from "@tanstack/react-router";
+import { Link, useNavigate, useRouterState } from "@tanstack/react-router";
 import { Check, ChevronDown } from "lucide-react";
 import { useQueryClient } from "@tanstack/react-query";
 import { useEffect, useState } from "react";
@@ -10,6 +10,7 @@ import { mergeDeals } from "@/lib/spend/deals";
 import { answerBrief, answerWords, questionsFor, type PlanAnswers } from "@/lib/spend/plan-questions";
 import { savePhonePlace } from "@/server/ledger";
 import { addWatch, checkWatchNow } from "@/server/watch";
+import { BudgetView } from "./budget";
 import { useLedger } from "./data";
 import { DealAction } from "./deal-bits";
 import { errorText, PageHead } from "./ui";
@@ -117,7 +118,35 @@ const GROUPS: { label: string; kinds: [string, string][] }[] = [
 
 type KindId = (typeof GROUPS)[number]["kinds"][number][0];
 
-export function PlanView() {
+/**
+ * Plan: a spend before you make it, or this pay's budget. Budget is at
+ * /plan#budget, so Home, Insights and the weekly check-in can open it directly.
+ */
+export function PlanScreen() {
+  const navigate = useNavigate();
+  const onBudget = useRouterState({ select: (s) => s.location.hash }) === "budget";
+  const pick = (budget: boolean) => {
+    if (budget !== onBudget) void navigate({ to: "/plan", hash: budget ? "budget" : undefined, replace: true });
+  };
+  return (
+    <div>
+      <header className="mb-4 flex flex-col gap-3">
+        <h1 className="page-title">Plan</h1>
+        <div role="group" aria-label="Plan" className="grid grid-cols-2 gap-2">
+          <button type="button" className="chip justify-center" aria-pressed={!onBudget} onClick={() => pick(false)}>
+            Plan a spend
+          </button>
+          <button type="button" className="chip justify-center" aria-pressed={onBudget} onClick={() => pick(true)}>
+            Budget
+          </button>
+        </div>
+      </header>
+      {onBudget ? <BudgetView embedded /> : <PlanView embedded />}
+    </div>
+  );
+}
+
+export function PlanView({ embedded = false }: { embedded?: boolean }) {
   const client = useQueryClient();
   const { profile, places } = useLedger();
   const saved = places.data ?? [];
@@ -355,7 +384,11 @@ export function PlanView() {
 
   return (
     <div>
-      <PageHead title="Plan a spend" sub="Before you buy: deals near you first, then across the UK." />
+      {embedded ? (
+        <p className="mb-4 text-sm leading-[1.45] text-muted">Before you buy: deals near you first, then across the UK.</p>
+      ) : (
+        <PageHead title="Plan a spend" sub="Before you buy: deals near you first, then across the UK." />
+      )}
       <form onSubmit={(event) => void search(event)} className="flex flex-col gap-4" aria-label="What are you planning">
         <div className="field">
           <span className="field-label" id="what-label">

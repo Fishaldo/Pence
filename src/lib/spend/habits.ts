@@ -1,4 +1,5 @@
 import { countsAsSpending, type CategoryId, type LineItem } from "./model.ts";
+import { isMoneySent, sendingService } from "./money-sent.ts";
 import {
   BIG_TICKET,
   BRAND,
@@ -113,6 +114,16 @@ function matchShop(merchant: string): ShopMatch[] {
   return found.sort((a, b) => b.word.replace(/^=/, "").length - a.word.replace(/^=/, "").length);
 }
 
+/** True when Pence knows this payee as a shop by name: Moonpig, Card Factory, Tesco. */
+export function isKnownShop(merchant: string): boolean {
+  return matchShop(merchant).some((hit) => !GENERIC_SHOP_WORDS.has(hit.word));
+}
+
+/** Money sent to a person or through a transfer app, as opposed to something bought. */
+export function sentNotBought(spend: Parameters<typeof isMoneySent>[0]): boolean {
+  return isMoneySent(spend, isKnownShop(spend.merchant));
+}
+
 /**
  * What a shop sells, learned once from its name by a wider lookup and kept for
  * everyone: merchant core ("cakebox") → interest id ("cakes").
@@ -152,6 +163,8 @@ export function shopsToLookUp(
     if (core.replace(/[^a-z]/g, "").length < 3) continue;
     const named = matchShop(spend.merchant).some((hit) => !GENERIC_SHOP_WORDS.has(hit.word));
     if (named) continue;
+    // Never search the web for the name of someone the person sent money to.
+    if (isMoneySent(spend)) continue;
     const row = found.get(core) ?? {
       core,
       merchant: spend.merchant.trim().slice(0, 60),
@@ -587,6 +600,18 @@ export function buildTaste(
   for (const tx of source) {
     const day = dayNum(tx.spentOn);
     const minutes = tx.source === "bank" ? null : timeOf(tx.note, tx.rawAlert);
+    if (isMoneySent(tx, isKnownShop(tx.merchant))) {
+      // Money sent to family or friends is not shopping: no gift boxes for a transfer to Mum.
+      // A transfer app is still worth a look, for its fees and rates. A person is never a "shop".
+      const service = sendingService(tx.merchant, tx.description);
+      if (service) {
+        const b = interests.get("sending-money") ?? bucket();
+        b.occs.push({ day, pence: tx.amountPence, minutes });
+        b.shops.set(service, (b.shops.get(service) ?? 0) + 1);
+        interests.set("sending-money", b);
+      }
+      continue;
+    }
     const { id: shopId, brand } = merchantInterest(tx.merchant, tx.category, kinds);
     // The person's own answer ("perfume", not pharmacy) beats anything worked out from the shop.
     const mainId = tx.kind && interestDef(tx.kind) ? tx.kind : shopId;

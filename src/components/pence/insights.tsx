@@ -19,6 +19,7 @@ import {
 } from "@/lib/spend/model";
 import { getAdvice } from "@/server/ledger";
 import { useLedger } from "./data";
+import { MoneySentCard } from "./money-sent-card";
 import { NearbyPanel } from "./nearby";
 import { SectionHead } from "./ui";
 
@@ -220,6 +221,8 @@ export function InsightsView() {
         </section>
       ) : null}
 
+      <MoneySentCard rows={rows} />
+
       {anySpend ? (
         <section aria-label="Where it went">
           <SectionHead title="Where it went" sub={whereNames.join(", ")} />
@@ -301,7 +304,7 @@ export function InsightsView() {
       <NearbyPanel />
 
       <div className="rows">
-        <Link to="/budget" className="row">
+        <Link to="/plan" hash="budget" className="row">
           <span className="flex min-w-0 flex-1 flex-col">
             <span className="text-[0.9375rem] font-bold">Your budget for this {unit}</span>
             <span className="text-[0.8125rem] text-muted">Built from your last pays</span>

@@ -1,8 +1,8 @@
 import { describe, it } from "node:test";
 import assert from "node:assert/strict";
-import { billsBeforePayday, looksLikePay, lineProgress, safeToSpend, spentBetween, suggestBudget, weekOf } from "./payday.ts";
+import { billsBeforePayday, looksLikePay, safeToSpend, spentBetween, weekOf } from "./payday.ts";
 import { findRegulars, type RegularSpend } from "./regular.ts";
-import { paySpan, type Tx } from "./model.ts";
+import type { Tx } from "./model.ts";
 import { shopChoices } from "./habits.ts";
 
 const spend = (merchant: string, amountPence: number, spentOn: string, category: RegularSpend["category"]): RegularSpend => ({
@@ -116,55 +116,6 @@ describe("the week", () => {
     );
     assert.equal(total.spentPence, 2450);
     assert.equal(total.count, 1);
-  });
-});
-
-describe("a budget from your own pays", () => {
-  const today = new Date(2026, 9, 13);
-  const spans = [paySpan(today, 25, -1), paySpan(today, 25, -2)];
-  const txs = [
-    // The last two pays ran 25 Aug to 24 Sep, and 25 Jul to 24 Aug.
-    tx("Tesco", 21000, "2026-09-10", "groceries"),
-    tx("Tesco", 19000, "2026-08-10", "groceries"),
-    tx("Boots", 1200, "2026-09-05", "health"),
-    tx("Rent", 85000, "2026-09-01", "housing"),
-    tx("Rent", 85000, "2026-08-01", "housing"),
-    tx("Greggs", 300, "2026-09-12", "dining"),
-    tx("Sample", 99900, "2026-09-12", "travel", true),
-    // This pay is not finished, so it is not in the average.
-    tx("Tesco", 50000, "2026-10-01", "groceries"),
-  ];
-
-  it("averages each category over the last pays, rounded up to £5", () => {
-    const lines = suggestBudget(txs, spans);
-    const byCategory = Object.fromEntries(lines.map((line) => [line.category, line.amountPence]));
-    assert.equal(byCategory.groceries, 20000);
-    assert.equal(byCategory.housing, 85000);
-    assert.equal(byCategory.health, 1000);
-    assert.equal(byCategory.dining, undefined);
-    assert.equal(byCategory.travel, undefined);
-  });
-
-  it("does not average over pays with nothing logged", () => {
-    const lines = suggestBudget([tx("Tesco", 21000, "2026-09-10", "groceries")], [paySpan(today, 25, -1), paySpan(today, 25, -2), paySpan(today, 25, -3)]);
-    assert.equal(lines[0].amountPence, 21000);
-  });
-
-  it("never suggests cutting rent or health", () => {
-    const lines = suggestBudget(txs, spans);
-    assert.equal(lines.find((line) => line.category === "housing")?.neverCut, true);
-    assert.equal(lines.find((line) => line.category === "health")?.neverCut, true);
-    assert.equal(lines.find((line) => line.category === "groceries")?.neverCut, false);
-  });
-
-  it("tracks a line through this pay", () => {
-    const span = paySpan(today, 25, 0);
-    const progress = lineProgress(
-      { id: "c:groceries", name: "", category: "groceries", amountPence: 20000, neverCut: false },
-      [tx("Tesco", 12000, "2026-10-01", "groceries"), tx("Aldi", 9000, "2026-10-10", "groceries")],
-      span,
-    );
-    assert.deepEqual(progress, { spentPence: 21000, leftPence: -1000, over: true });
   });
 });
 

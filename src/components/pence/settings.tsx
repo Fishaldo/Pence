@@ -357,12 +357,11 @@ export function SettingsView() {
       </section>
 
       <section aria-label="Money">
-        <h2 className="group-title">Statements, bills and budget</h2>
+        <h2 className="group-title">Statements and bills</h2>
         <div className="rows">
           {navRow("/bank", "Bank statements", "Upload a CSV from your banking app")}
           {navRow("/bills", "Bills", "Price rises, contract ends and better deals")}
           {navRow("/regular", "Regular payments", "Subscriptions and free trials")}
-          {navRow("/budget", "Budget", "Each pay, from your own spending")}
           {navRow("/week", "This week", "The weekly check-in")}
           {samples ? (
             <button type="button" className="row text-left" onClick={() => void clear()} disabled={busy}>

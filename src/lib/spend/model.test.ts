@@ -37,8 +37,8 @@ describe("categories", () => {
   it("has the agreed list, each id once", () => {
     const ids = CATEGORIES.map((c) => c.id);
     assert.equal(new Set(ids).size, ids.length);
-    assert.equal(ids.length, 23);
-    for (const id of ["groceries", "housing", "kids", "pets", "education", "charity", "fees", "cash", "savings", "investments", "transfers"]) {
+    assert.equal(ids.length, 24);
+    for (const id of ["groceries", "housing", "kids", "pets", "education", "charity", "fees", "cash", "sent", "savings", "investments", "transfers"]) {
       assert.ok(isCategory(id), id);
     }
   });
@@ -49,6 +49,8 @@ describe("categories", () => {
     assert.equal(countsAsSpending("transfers"), false);
     assert.equal(countsAsSpending("groceries"), true);
     assert.equal(countsAsSpending("cash"), true);
+    // Money sent to family or friends has left the account, so it counts.
+    assert.equal(countsAsSpending("sent"), true);
   });
 
   it("labels in plain words", () => {
