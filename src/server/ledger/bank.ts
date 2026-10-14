@@ -3,6 +3,7 @@ import { authMiddleware } from "@/lib/auth/middleware";
 import { getSql } from "@/lib/db";
 import { isCategory, validDate } from "@/lib/core/model";
 import { samePayment } from "@/lib/core/duplicate";
+import { displayShopName } from "@/lib/core/shops";
 import type { StatementRow } from "@/lib/core/statement";
 import { asBool, asInt } from "./rows";
 import { applyRule, loadRules } from "./rules";
@@ -113,8 +114,11 @@ export const importBank = createServerFn({ method: "POST" })
       const id = crypto.randomUUID();
       const description = row.description || row.merchant;
       // A line still showing its printed name has not been touched in review, so the person's fix applies.
+      // With no fix of their own, the printed line is tidied ("BLD*MYPERFECTCV.CO 4421" → "MyPerfectCV"); the line is kept as the description.
       const fixed =
-        row.merchant === description ? applyRule(rules, description, row.merchant, row.category) : { ...row, description };
+        row.merchant === description
+          ? applyRule(rules, description, displayShopName(row.merchant), row.category)
+          : { ...row, description };
       await sql`insert into transactions (
         id, user_id, merchant, description, amount_pence, category, spent_on, source, has_receipt,
         note, items_json, image_data, raw_alert, is_sample
