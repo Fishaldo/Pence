@@ -1,4 +1,4 @@
-import { Link, useRouterState } from "@tanstack/react-router";
+import { Link, useCanGoBack, useRouter, useRouterState } from "@tanstack/react-router";
 import {
   CalendarCheck,
   ChartNoAxesColumn,
@@ -220,11 +220,7 @@ export function PageHead({
   return (
     <header className={flush ? "flex flex-col gap-1.5" : "mb-5 flex flex-col gap-1.5"}>
       <div className="flex items-center gap-3">
-        {to ? (
-          <Link to={to} className="round-btn" aria-label={back ? "Back" : "Close"}>
-            {back ? <ChevronLeft className="size-[22px]" strokeWidth={1.9} /> : <X className="size-[22px]" strokeWidth={1.9} />}
-          </Link>
-        ) : null}
+        {to ? <BackButton fallback={to} kind={back ? "back" : "close"} /> : null}
         <div className="flex min-w-0 flex-1 flex-col gap-1">
           {date ? <span className="text-[0.8125rem] font-semibold text-muted">{date}</span> : null}
           <h1 className={to ? "page-title text-2xl" : "page-title"}>{title}</h1>
@@ -233,6 +229,33 @@ export function PageHead({
       </div>
       {sub ? <p className="text-sm leading-[1.45] text-muted">{sub}</p> : null}
     </header>
+  );
+}
+
+/**
+ * Back and Close return to the screen you came from, like the phone's own
+ * back button. Only when the page was opened directly (a link, a fresh load)
+ * is there nothing in Pence to go back to, so it goes to `fallback` instead.
+ */
+function BackButton({ fallback, kind }: { fallback: string; kind: "back" | "close" }) {
+  const router = useRouter();
+  const canGoBack = useCanGoBack();
+  const label = kind === "back" ? "Back" : "Close";
+  const icon =
+    kind === "back" ? <ChevronLeft className="size-[22px]" strokeWidth={1.9} /> : <X className="size-[22px]" strokeWidth={1.9} />;
+  return (
+    <Link
+      to={fallback}
+      className="round-btn"
+      aria-label={label}
+      onClick={(event) => {
+        if (!canGoBack) return;
+        event.preventDefault();
+        router.history.back();
+      }}
+    >
+      {icon}
+    </Link>
   );
 }
 

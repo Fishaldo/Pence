@@ -1,3 +1,4 @@
+import { ChevronDown } from "lucide-react";
 import { useMemo, useState } from "react";
 import { toast } from "sonner";
 import {
@@ -73,7 +74,31 @@ export function ActivityView() {
 
   return (
     <div>
-      <PageHead back="/" title="Activity" />
+      <PageHead
+        back="/"
+        title="Activity"
+        action={
+          <label className="relative shrink-0">
+            <span className="sr-only">Time range</span>
+            <select
+              className="chip appearance-none pr-9"
+              value={period}
+              onChange={(event) => setPeriod(event.target.value as PeriodId)}
+            >
+              {PERIODS.map((item) => (
+                <option key={item.id} value={item.id}>
+                  {item.label}
+                </option>
+              ))}
+            </select>
+            <ChevronDown
+              className="pointer-events-none absolute top-1/2 right-3 size-4 -translate-y-1/2"
+              strokeWidth={2.2}
+              aria-hidden="true"
+            />
+          </label>
+        }
+      />
       <label className="mb-3 block">
         <span className="field-label">Search</span>
         <input
@@ -84,13 +109,6 @@ export function ActivityView() {
           onChange={(event) => setQuery(event.target.value)}
         />
       </label>
-      <div className="-mx-5 mb-3 flex gap-2 overflow-x-auto px-5 pb-1" role="group" aria-label="Period">
-        {PERIODS.map((item) => (
-          <Filter key={item.id} on={period === item.id} onClick={() => setPeriod(item.id)}>
-            {item.label}
-          </Filter>
-        ))}
-      </div>
       <div className="-mx-5 mb-4 flex gap-2 overflow-x-auto px-5 pb-1" role="group" aria-label="Category">
         <Filter on={category === "all"} onClick={() => setCategory("all")}>
           All
