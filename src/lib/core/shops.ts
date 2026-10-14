@@ -94,6 +94,31 @@ export function isKnownShop(merchant: string): boolean {
   return matchShop(merchant).some((hit) => !GENERIC_SHOP_WORDS.has(hit.word));
 }
 
+/**
+ * A shop's name as people write it, from a statement line: "UBER *TRIP" is
+ * Uber, "VODAFONE LTD" is Vodafone, "LANDLORD LETTINGS LTD" is Landlord
+ * Lettings. A name already in mixed case is left as it is.
+ */
+export function displayShopName(raw: string): string {
+  let text = raw.replace(/\s+/g, " ").trim();
+  if (!text) return text;
+  const known = (name: string) => matchShop(name).find((hit) => !GENERIC_SHOP_WORDS.has(hit.word));
+  // "UBER *TRIP": the shop comes first. "BLD*MYPERFECTCV.CO", "SQ *CAFE NERO": the code before
+  // the star is the card machine's company, so the shop is after it.
+  const named = known(text);
+  if (named) return brandName(named.word);
+  const starred = /^[A-Za-z0-9]{1,6} ?\* ?(.+)$/.exec(text);
+  if (starred && /[A-Za-z]{3}/.test(starred[1])) {
+    text = starred[1];
+    const after = known(text);
+    if (after) return brandName(after.word);
+  }
+  if (/[a-z]/.test(text)) return text;
+  const core = merchantCore(text);
+  if (core.replace(/[^a-z]/g, "").length < 3) return text;
+  return titleCase(core);
+}
+
 /** Money sent to a person or through a transfer app, as opposed to something bought. */
 export function sentNotBought(spend: Parameters<typeof isMoneySent>[0]): boolean {
   return isMoneySent(spend, isKnownShop(spend.merchant));

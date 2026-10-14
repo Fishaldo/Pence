@@ -1,5 +1,6 @@
 import type { StatementRow } from "@/lib/core/statement";
 import { CATEGORIES, formatGBP, type CategoryId } from "@/lib/core/model";
+import { displayShopName } from "@/lib/core/shops";
 
 /*
  * Checking the money-out lines read from a bank or card screenshot before filing them.
@@ -34,7 +35,7 @@ export function StatementReview({
           <li key={`${row.spentOn}-${row.merchant}-${index}`} className="flex flex-col gap-2 px-4 py-3">
             <span className="flex items-start justify-between gap-3">
               <span className="min-w-0">
-                <span className="block truncate font-bold">{row.merchant}</span>
+                <span className="block truncate font-bold">{displayShopName(row.merchant)}</span>
                 <span className="tabular-nums">{formatGBP(row.amountPence)}</span>
               </span>
               <button
@@ -57,7 +58,7 @@ export function StatementReview({
               <select
                 className="control"
                 value={row.category}
-                aria-label={`Category for ${row.merchant}`}
+                aria-label={`Category for ${displayShopName(row.merchant)}`}
                 onChange={(event) =>
                   onChange(
                     rows.map((item, i) =>

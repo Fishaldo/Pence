@@ -14,26 +14,25 @@ import {
 } from "@/lib/core/model";
 import { dayNum, isoOf } from "@/lib/core/habits";
 import { descKey } from "@/lib/core/payee";
+import { matchesSearch, SEARCH_PERIODS, searchWords, type SearchPeriodId } from "@/lib/core/search";
 import { deleteSpend, updateSpend } from "@/server/ledger";
 import { useLedger, useRefreshLedger } from "./data";
 import { ItemsEditor, type DraftItem } from "./items-editor";
 import { PageHead } from "./ui";
 import { errorText } from "./error-text";
 
-const PERIODS = [
-  { id: "1w", label: "1 week", days: 7 },
-  { id: "1m", label: "1 month", days: 31 },
-  { id: "3m", label: "3 months", days: 92 },
-  { id: "6m", label: "6 months", days: 183 },
-  { id: "1y", label: "1 year", days: 366 },
-  { id: "all", label: "All time", days: 0 },
-] as const;
+const PERIODS = SEARCH_PERIODS;
+type PeriodId = SearchPeriodId;
 
-type PeriodId = (typeof PERIODS)[number]["id"];
-
-/** Everything a search can match: shop, statement text, items, note and category. */
-function searchText(tx: Tx): string {
-  return [tx.merchant, tx.description, tx.note, categoryLabel(tx.category), ...tx.items.map((item) => item.name)].join(" ").toLowerCase();
+/** Everything a search can match: shop, statement text, items, note and category (Briv's search rules). */
+function searchable(tx: Tx) {
+  return {
+    shopName: tx.merchant,
+    category: tx.category,
+    kind: tx.description,
+    note: tx.note,
+    items: tx.items.map((item) => item.name),
+  };
 }
 
 export function ActivityView() {
@@ -48,14 +47,11 @@ export function ActivityView() {
   const days = PERIODS.find((item) => item.id === period)?.days ?? 0;
   const from = days > 0 ? isoOf(dayNum(today) - days + 1) : "";
   const filtered = useMemo(() => {
-    const words = query.toLowerCase().split(/\s+/).filter(Boolean);
+    const words = searchWords(query);
     return rows.filter((row) => {
       if (category !== "all" && row.category !== category) return false;
       if (from && row.spentOn < from) return false;
-      if (words.length > 0) {
-        const hay = searchText(row);
-        if (!words.every((word) => hay.includes(word))) return false;
-      }
+      if (!matchesSearch(searchable(row), words)) return false;
       return true;
     });
   }, [rows, category, from, query]);

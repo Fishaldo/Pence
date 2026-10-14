@@ -58,6 +58,8 @@ const OWN_LINE_CUT = 0.3;
 /** Even a tight plan keeps this share of take-home for savings, unless the never-cut lines leave no room. */
 const STARTER = 0.03;
 const SAVING = new Set<CategoryId>(["savings", "investments"]);
+/** Categories that come out every pay once they start. */
+const RECURRING = new Set<CategoryId>(["housing", "bills", "subscriptions"]);
 const STEP = 500;
 
 function maxCut(line: { category: CategoryId | null; neverCut: boolean }): number {
@@ -105,15 +107,24 @@ export function usualByCategory(
   // Only pays with something logged count, so one pay of history is not averaged over three.
   const used = spans.slice(0, 3).filter((span) => source.some((tx) => tx.spentOn >= span.start && tx.spentOn <= span.end));
   const totals = new Map<CategoryId, number>();
-  for (const span of used) {
+  // How many of the used pays, newest first, reach back to the oldest one with this category in it.
+  const reach = new Map<CategoryId, number>();
+  used.forEach((span, index) => {
     for (const tx of source) {
       if (tx.spentOn < span.start || tx.spentOn > span.end || tx.category === "transfers") continue;
       totals.set(tx.category, (totals.get(tx.category) ?? 0) + tx.amountPence);
+      reach.set(tx.category, Math.max(reach.get(tx.category) ?? 0, index + 1));
     }
-  }
+  });
   const n = Math.max(1, used.length);
   const spending = new Map<CategoryId, number>();
-  for (const [category, total] of totals) if (!SAVING.has(category)) spending.set(category, total / n);
+  for (const [category, total] of totals) {
+    if (SAVING.has(category)) continue;
+    // Rent, bills and subscriptions come out every pay once they start: a bill that began two pays
+    // ago is £20 a pay, not £13.33 averaged over three. Other spending is averaged over every pay.
+    const over = RECURRING.has(category) ? (reach.get(category) ?? n) : n;
+    spending.set(category, total / over);
+  }
   return {
     spending: used.length > 0 ? spending : new Map(),
     savingsPence: (totals.get("savings") ?? 0) / n,
