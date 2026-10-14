@@ -111,7 +111,7 @@ await step("open Offers", async () => {
 
 await step("Plan: place picker", async () => {
   await page.goto(`${base}/plan`, { waitUntil: "domcontentloaded" });
-  await page.getByRole("heading", { name: "Plan a spend" }).waitFor();
+  await page.getByRole("button", { name: "Plan a spend", pressed: true }).waitFor();
   const where = page.getByLabel(/^Where/);
   await where.waitFor();
   const options = await where.locator("option").allInnerTexts();
@@ -357,7 +357,7 @@ await step("Back returns to where you came from", async () => {
 
 await step("Plan: quick questions for eating out", async () => {
   await page.goto(`${base}/plan`, { waitUntil: "domcontentloaded" });
-  await page.getByRole("heading", { name: "Plan a spend" }).waitFor();
+  await page.getByRole("button", { name: "Plan a spend", pressed: true }).waitFor();
   await page.locator("form .field button.control").first().click();
   await page.getByRole("radio", { name: "Dining", exact: true }).click();
   await page.getByText("Who's going?").waitFor();
