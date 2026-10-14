@@ -81,6 +81,8 @@ export function Shell({ children }: { children: ReactNode }) {
   const path = useRouterState({ select: (s) => s.location.pathname });
   const hash = useRouterState({ select: (s) => s.location.hash });
   const onBudget = path === "/plan" && hash === "budget";
+  // The Watchlist screen belongs to Offers, so Offers stays lit there.
+  const isActive = (to: string) => path === to || (to === "/offers" && path === "/watchlist");
   const { profile } = useLedger();
   const watches = useWatches();
   const income = profile.data?.monthlyIncomePence ?? 0;
@@ -96,7 +98,7 @@ export function Shell({ children }: { children: ReactNode }) {
           </Link>
           <nav className="mt-8 flex flex-1 flex-col gap-1" aria-label="Primary">
             {NAV.map((item) => {
-              const active = path === item.to && !(item.to === "/plan" && onBudget);
+              const active = isActive(item.to) && !(item.to === "/plan" && onBudget);
               const Icon = item.icon;
               return (
                 <Link
@@ -157,7 +159,7 @@ export function Shell({ children }: { children: ReactNode }) {
       >
         <ul className="mx-auto grid max-w-[560px] grid-cols-5 items-end px-2 pt-2 pb-[max(0.75rem,env(safe-area-inset-bottom))]">
           {NAV.map((item) => {
-            const active = path === item.to;
+            const active = isActive(item.to);
             const Icon = item.icon;
             const add = item.to === "/capture";
             return (

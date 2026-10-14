@@ -18,7 +18,7 @@ import { learnMyShops } from "@/server/for-you";
 import { useWatches } from "./data";
 import { DealAction } from "./deal-bits";
 import { PhoneAlerts } from "./phone-alerts-panel";
-import { errorText } from "./ui";
+import { errorText, PageHead } from "./ui";
 
 let lookedThisVisit = false;
 
@@ -56,7 +56,7 @@ export function WatchSummary({ className = "mt-4" }: { className?: string }) {
   const first = found[0];
   const cheapest = first.offers.find((offer) => offer.pricePence != null && !offer.monthly);
   return (
-    <Link to="/offers" hash="watchlist" className={`panel block border-forest p-4 ${className}`}>
+    <Link to="/watchlist" className={`panel block border-forest p-4 ${className}`}>
       <p className="text-sm font-bold text-forest">{first.shopOnly ? "Pence found a promotion" : "Pence found a price"}</p>
       <p className="mt-1 font-bold">{found.length > 1 ? `${first.what}, and ${found.length - 1} more` : first.what}</p>
       {cheapest?.pricePence != null && !first.shopOnly ? (
@@ -137,8 +137,9 @@ function SeenOffers({ item, busy, onTake }: { item: WatchItem; busy: boolean; on
 }
 
 /**
- * The Watchlist, shown in Offers: offers waiting for an answer first, then
- * everything being watched, then what was taken. Things are added from Plan.
+ * The Watchlist screen: offers waiting for an answer first, then everything
+ * being watched, then what was taken. Things are added from Plan. It is its
+ * own page at /watchlist, opened from Offers, Home, Plan and phone alerts.
  */
 export function Watchlist() {
   const client = useQueryClient();
@@ -231,20 +232,14 @@ export function Watchlist() {
   const waiting = items.filter((item) => item.status === "watching");
   const done = items.filter((item) => item.status === "accepted");
 
-  // Opened from a phone alert or the Home card: bring the Watchlist into view once it has loaded.
-  const loaded = watches.isSuccess;
-  useEffect(() => {
-    if (!loaded || typeof window === "undefined" || window.location.hash !== "#watchlist") return;
-    document.getElementById("watchlist")?.scrollIntoView({ block: "start" });
-  }, [loaded]);
-
   return (
-    <section id="watchlist" className="scroll-mt-4">
+    <section id="watchlist" aria-label="Watchlist">
+      <PageHead
+        back="/offers"
+        title="Watchlist"
+        sub="Things you want, with the price to beat. Pence checks every day and tells you when a deal turns up."
+      />
       <div className="flex flex-col gap-3">
-        <h2 className="section-title">Watchlist</h2>
-        <p className="text-sm leading-[1.45] text-muted">
-          Things you want, with the price to beat. Pence checks every day and tells you when a deal turns up.
-        </p>
         <Link to="/plan" className="btn btn-quiet">
           <Plus className="size-5" strokeWidth={2} aria-hidden="true" /> Add something to watch
         </Link>

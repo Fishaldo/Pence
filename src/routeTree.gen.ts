@@ -23,6 +23,7 @@ import { Route as OffersRouteImport } from './routes/offers'
 import { Route as PlanRouteImport } from './routes/plan'
 import { Route as RegularRouteImport } from './routes/regular'
 import { Route as SettingsRouteImport } from './routes/settings'
+import { Route as WatchlistRouteImport } from './routes/watchlist'
 import { Route as WeekRouteImport } from './routes/week'
 import { Route as ApiWatchCheckRouteImport } from './routes/api/watch-check'
 import { Route as ApiAuthSplatRouteImport } from './routes/api/auth/$'
@@ -97,6 +98,11 @@ const SettingsRoute = SettingsRouteImport.update({
   path: '/settings',
   getParentRoute: () => rootRouteImport,
 } as any)
+const WatchlistRoute = WatchlistRouteImport.update({
+  id: '/watchlist',
+  path: '/watchlist',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const WeekRoute = WeekRouteImport.update({
   id: '/week',
   path: '/week',
@@ -128,6 +134,7 @@ export interface FileRoutesByFullPath {
   '/plan': typeof PlanRoute
   '/regular': typeof RegularRoute
   '/settings': typeof SettingsRoute
+  '/watchlist': typeof WatchlistRoute
   '/week': typeof WeekRoute
   '/api/watch-check': typeof ApiWatchCheckRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
@@ -147,6 +154,7 @@ export interface FileRoutesByTo {
   '/plan': typeof PlanRoute
   '/regular': typeof RegularRoute
   '/settings': typeof SettingsRoute
+  '/watchlist': typeof WatchlistRoute
   '/week': typeof WeekRoute
   '/api/watch-check': typeof ApiWatchCheckRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
@@ -167,6 +175,7 @@ export interface FileRoutesById {
   '/plan': typeof PlanRoute
   '/regular': typeof RegularRoute
   '/settings': typeof SettingsRoute
+  '/watchlist': typeof WatchlistRoute
   '/week': typeof WeekRoute
   '/api/watch-check': typeof ApiWatchCheckRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
@@ -188,6 +197,7 @@ export interface FileRouteTypes {
     | '/plan'
     | '/regular'
     | '/settings'
+    | '/watchlist'
     | '/week'
     | '/api/watch-check'
     | '/api/auth/$'
@@ -207,6 +217,7 @@ export interface FileRouteTypes {
     | '/plan'
     | '/regular'
     | '/settings'
+    | '/watchlist'
     | '/week'
     | '/api/watch-check'
     | '/api/auth/$'
@@ -226,6 +237,7 @@ export interface FileRouteTypes {
     | '/plan'
     | '/regular'
     | '/settings'
+    | '/watchlist'
     | '/week'
     | '/api/watch-check'
     | '/api/auth/$'
@@ -246,6 +258,7 @@ export interface RootRouteChildren {
   PlanRoute: typeof PlanRoute
   RegularRoute: typeof RegularRoute
   SettingsRoute: typeof SettingsRoute
+  WatchlistRoute: typeof WatchlistRoute
   WeekRoute: typeof WeekRoute
   ApiWatchCheckRoute: typeof ApiWatchCheckRoute
   ApiAuthSplatRoute: typeof ApiAuthSplatRoute
@@ -351,6 +364,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof SettingsRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/watchlist': {
+      id: '/watchlist'
+      path: '/watchlist'
+      fullPath: '/watchlist'
+      preLoaderRoute: typeof WatchlistRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/week': {
       id: '/week'
       path: '/week'
@@ -390,6 +410,7 @@ const rootRouteChildren: RootRouteChildren = {
   PlanRoute: PlanRoute,
   RegularRoute: RegularRoute,
   SettingsRoute: SettingsRoute,
+  WatchlistRoute: WatchlistRoute,
   WeekRoute: WeekRoute,
   ApiWatchCheckRoute: ApiWatchCheckRoute,
   ApiAuthSplatRoute: ApiAuthSplatRoute,
