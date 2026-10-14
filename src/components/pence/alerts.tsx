@@ -2,7 +2,8 @@ import { useNavigate } from "@tanstack/react-router";
 import { categoryLabel, formatGBP } from "@/lib/core/model";
 import { dismissAlert } from "@/server/ledger";
 import { useLedger, useRefreshLedger } from "./data";
-import { errorText, PageHead } from "./ui";
+import { PageHead } from "./ui";
+import { errorText } from "./error-text";
 import { useState } from "react";
 
 export function AlertsView() {

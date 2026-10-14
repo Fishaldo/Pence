@@ -11,7 +11,8 @@ import { useLedger, useRegulars } from "./data";
 import { NeedsTap } from "./money-cards";
 import { billChecks, isBill, longToday, useThisPay } from "./this-pay";
 import { PhoneAlerts } from "./phone-alerts-panel";
-import { errorText, PageHead } from "./ui";
+import { PageHead } from "./ui";
+import { errorText } from "./error-text";
 
 const DAYS = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
 

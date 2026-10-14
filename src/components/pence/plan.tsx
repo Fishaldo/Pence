@@ -13,7 +13,8 @@ import { addWatch, checkWatchNow } from "@/server/watch";
 import { BudgetView } from "./budget";
 import { useLedger } from "./data";
 import { DealAction } from "./deal-bits";
-import { errorText, PageHead } from "./ui";
+import { PageHead } from "./ui";
+import { errorText } from "./error-text";
 
 function placeWords(town: string): string[] {
   return town

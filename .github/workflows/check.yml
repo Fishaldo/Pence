@@ -4,6 +4,8 @@ name: Check Pence
 # and as the built app) and walks through it in a phone-sized browser. The
 # logs and screenshots are pushed to the `ci-results` branch so they can be
 # read without signing in to GitHub. That branch can be deleted at any time.
+# Every step runs even when an earlier one fails, so the summary is complete;
+# then the check fails if any of them did.
 
 on:
   push:
@@ -57,7 +59,7 @@ jobs:
             echo "| --- | --- |"
           } > ci-out/summary.md
           npm ci --no-audit --no-fund > ci-out/install.log 2>&1; row install $?
-          node --test 'scripts/**/*.test.mjs' > ci-out/test-platform.log 2>&1; row "tests, app-builder scripts" $?
+          node scripts/platform-tests.mjs > ci-out/test-platform.log 2>&1; row "tests, app-builder scripts" $?
           node scripts/sync-core.mjs > ci-out/core.log 2>&1; row "logic is Briv's core, at the pinned commit" $?
           node --experimental-strip-types --test src/lib/app-data/app-data.test.ts src/lib/app-data/readiness-schedule.test.ts \
             src/lib/auth/gate-identity.test.ts src/lib/auth/sign-in-gate.test.ts \
@@ -107,6 +109,23 @@ jobs:
           node scripts/ci-walkthrough.mjs http://127.0.0.1:8081 ci-out/built > ci-out/walkthrough-built.log 2>&1
           echo "| walkthrough, built app | $(head -1 ci-out/walkthrough-built.log) |" >> ci-out/summary.md
           cp .grok/preview.log ci-out/preview-server.log 2>/dev/null || true
+
+      - name: Fail if any check failed
+        shell: bash
+        run: |
+          cat ci-out/summary.md
+          # A row that FAILED, a walkthrough that missed a step, or any console or page error fails the check.
+          if grep -q "FAILED" ci-out/summary.md; then echo "A check failed."; exit 1; fi
+          while read -r line; do
+            steps=$(echo "$line" | grep -oE "[0-9]+/[0-9]+ steps passed" | head -1)
+            [ -z "$steps" ] && continue
+            done_=${steps%%/*}; rest=${steps#*/}; all=${rest%% *}
+            [ "$done_" != "$all" ] && { echo "Walkthrough missed steps: $line"; exit 1; }
+            echo "$line" | grep -qE "(^|[^0-9])0 console errors" || { echo "Console errors: $line"; exit 1; }
+            echo "$line" | grep -qE "(^|[^0-9])0 page errors" || { echo "Page errors: $line"; exit 1; }
+          done < <(grep "walkthrough" ci-out/summary.md)
+          grep -q "walkthrough, dev server" ci-out/summary.md || { echo "The dev walkthrough did not run."; exit 1; }
+          grep -q "walkthrough, built app" ci-out/summary.md || { echo "The built-app walkthrough did not run."; exit 1; }
 
       - name: Save the results to the ci-results branch
         if: always()

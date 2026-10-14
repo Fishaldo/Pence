@@ -3,7 +3,7 @@ import { useState } from "react";
 import { nearbyAdvice, type NearbyOffer, type NearbyShop } from "@/server/nearby";
 import { useLedger } from "./data";
 import { DealAction } from "./deal-bits";
-import { errorText } from "./ui";
+import { errorText } from "./error-text";
 
 export function NearbyPanel() {
   const { places } = useLedger();

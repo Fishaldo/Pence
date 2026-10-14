@@ -8,7 +8,8 @@ import { categoryLabel, poundsToPence } from "@/lib/core/model";
 import { deleteMyData, exportMyData, saveWeeklyDay } from "@/server/money";
 import { addPlace, clearSamples, removePlace, savePhonePlace, saveProfile } from "@/server/ledger";
 import { useLedger, useRefreshLedger } from "./data";
-import { errorText, PageHead } from "./ui";
+import { PageHead } from "./ui";
+import { errorText } from "./error-text";
 
 export function SettingsView() {
   const { profile, txs, places } = useLedger();

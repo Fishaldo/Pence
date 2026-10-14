@@ -56,11 +56,6 @@ export function Money({
   return <span className={cn("tabular-nums", className)}>{formatGBP(pence)}</span>;
 }
 
-export function errorText(error: unknown, fallback: string): string {
-  if (error instanceof Error && error.message && !/cannot read propert/i.test(error.message)) return error.message;
-  return fallback;
-}
-
 const NAV = [
   { to: "/", label: "Home", icon: House },
   { to: "/plan", label: "Plan", icon: Search },

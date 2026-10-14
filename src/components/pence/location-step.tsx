@@ -3,7 +3,7 @@ import { useState } from "react";
 import { markLocationAsked } from "@/server/money";
 import { savePhonePlace } from "@/server/ledger";
 import { Check, MapPin } from "lucide-react";
-import { errorText } from "./ui";
+import { errorText } from "./error-text";
 
 /**
  * Asked once, right after the first sign-in: may Pence use this phone's

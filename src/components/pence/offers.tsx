@@ -9,7 +9,8 @@ import { setHabit, type PersonalDeal } from "@/server/for-you";
 import { useForYou, useForYouWide, useWatches } from "./data";
 import { DealAction } from "./deal-bits";
 import { goUrl } from "./deal-links";
-import { errorText, PageHead } from "./ui";
+import { PageHead } from "./ui";
+import { errorText } from "./error-text";
 
 const SCHEMES: { test: RegExp; id: string }[] = [
   { test: /tesco/, id: "clubcard" },

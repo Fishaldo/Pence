@@ -13,7 +13,8 @@ import { saveRegular } from "@/server/regular";
 import { useLedger, useRegulars } from "./data";
 import { DealAction } from "./deal-bits";
 import { billChecks, isBill } from "./this-pay";
-import { errorText, PageHead } from "./ui";
+import { PageHead } from "./ui";
+import { errorText } from "./error-text";
 
 function switchSearch(label: string): string {
   return `https://www.google.com/search?q=${encodeURIComponent(`how to switch ${label.toLowerCase()} provider UK`)}`;

@@ -17,7 +17,8 @@ import { descKey } from "@/lib/core/payee";
 import { deleteSpend, updateSpend } from "@/server/ledger";
 import { useLedger, useRefreshLedger } from "./data";
 import { ItemsEditor, type DraftItem } from "./items-editor";
-import { errorText, PageHead } from "./ui";
+import { PageHead } from "./ui";
+import { errorText } from "./error-text";
 
 const PERIODS = [
   { id: "1w", label: "1 week", days: 7 },

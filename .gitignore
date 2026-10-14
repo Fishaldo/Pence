@@ -1,0 +1,9 @@
+# Installed packages and build output: made fresh by each build, never kept in git.
+node_modules/
+.vercel/output/
+.output/
+dist/
+ci-out/
+# Local and preview logs.
+.grok/*.log
+*.log
