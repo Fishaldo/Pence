@@ -6,24 +6,50 @@ import { toast } from "sonner";
 import { shortDay } from "@/lib/core/habits";
 import { formatGBP, poundsToPence, todayISO, type Profile, type Tx } from "@/lib/core/model";
 import { looksLikePay, spentBetween, weekOf, type MoneyIn } from "@/lib/core/payday";
+import type { SpendStatus } from "@/lib/core/status";
 import { answerTap, confirmPay } from "@/server/money";
 import { useRegulars, useTaps } from "./data";
 import { billChecks, isBill, type ThisPay } from "./this-pay";
 import { errorText } from "./error-text";
 
+/** Status colours that read on the Home card in any look, light or dark (the same as Briv's ON_HERO). */
+const ON_HERO: Record<SpendStatus, { chip: string; ink: string; fill: string }> = {
+  steady: { chip: "#DDF3E6", ink: "#0F5132", fill: "#FFFFFF" },
+  watch: { chip: "#FCE7C2", ink: "#6A3E06", fill: "#F6C35B" },
+  over: { chip: "#FFD9D3", ink: "#7D1B14", fill: "#FF9A8A" },
+};
+
+/** "£96 less than this point last pay", coloured by how the pay is going. */
+export function PaceChip({ status, text }: { status: SpendStatus; text: string }) {
+  const tone = ON_HERO[status];
+  return (
+    <span
+      className="inline-flex items-center gap-2 self-start rounded-full px-3 py-2 text-[0.8125rem] font-bold"
+      style={{ background: tone.chip, color: tone.ink }}
+    >
+      <span aria-hidden="true" className="size-2 shrink-0 rounded-full" style={{ background: tone.ink }} />
+      {text}
+    </span>
+  );
+}
+
 /**
- * Home's green card: safe to spend until payday, after the bills still to come,
- * how much of take-home is spent, and the pace against last pay.
+ * Home's top card: safe to spend until payday, after the bills still to come,
+ * how much of take-home is spent, and the pace against last pay. The card is
+ * the brand colour while things are fine and turns red when over take-home;
+ * the chip and bar say steady, watch it, or over.
  */
 export function SafeCard({
   pay,
   hasPayday,
   pace,
+  status,
 }: {
   pay: ThisPay;
   hasPayday: boolean;
   /** "£96 less than this point last pay", or null when there is nothing to compare. */
   pace: string | null;
+  status: SpendStatus;
 }) {
   const { safe } = pay;
   const over = safe.safePence < 0;
@@ -31,15 +57,15 @@ export function SafeCard({
   const share = pay.takeHomePence > 0 ? Math.min(1, pay.spentPence / pay.takeHomePence) : 0;
   const days = `${safe.daysLeft} day${safe.daysLeft === 1 ? "" : "s"} to ${hasPayday ? "payday" : "the month end"}`;
   return (
-    <section className="hero flex flex-col gap-4" aria-label="Safe to spend">
+    <section className={`hero flex flex-col gap-4 ${status === "over" ? "bg-hero-over" : ""}`} aria-label="Safe to spend">
       <div className="flex flex-col gap-1">
-        <span className="text-sm font-semibold text-on-forest">
+        <span className="text-sm font-semibold text-on-hero-soft">
           {over ? `Over your take-home until ${until}` : `Safe to spend until ${until}`}
         </span>
         <span className="text-[2.75rem] leading-[1.1] font-extrabold tracking-[-0.03em] tabular-nums">
           {formatGBP(Math.abs(safe.safePence)).replace(/\.00$/, "")}
         </span>
-        <span className="text-sm leading-[1.45] text-on-forest">
+        <span className="text-sm leading-[1.45] text-on-hero-soft">
           {over
             ? "Spend only on food, getting to work, or a bill until then."
             : `${safe.billsPence > 0 ? "After bills still to come. " : ""}${days}, about ${formatGBP(safe.perDayPence)} a day.`}
@@ -51,15 +77,22 @@ export function SafeCard({
           role="img"
           aria-label={`${Math.round(share * 100)}% of take-home spent`}
         >
-          <div className="h-2 rounded-full bg-white" style={{ width: `${Math.max(2, share * 100)}%` }} />
+          <div className="h-2 rounded-full" style={{ width: `${Math.max(2, share * 100)}%`, background: ON_HERO[status].fill }} />
         </div>
-        <div className="flex justify-between text-[0.8125rem] font-semibold text-on-forest tabular-nums">
+        <div className="flex justify-between text-[0.8125rem] font-semibold text-on-hero-soft tabular-nums">
           <span>Spent {formatGBP(pay.spentPence).replace(/\.00$/, "")}</span>
           <span>Take-home {formatGBP(pay.takeHomePence).replace(/\.00$/, "")}</span>
         </div>
       </div>
-      {pace ? (
-        <span className="self-start rounded-full bg-white/15 px-3 py-2 text-[0.8125rem] font-bold">{pace}</span>
+      {pace || status === "over" ? (
+        <PaceChip
+          status={status}
+          text={
+            pay.takeHomePence > 0 && pay.spentPence > pay.takeHomePence
+              ? `${formatGBP(pay.spentPence - pay.takeHomePence).replace(/\.00$/, "")} over your take-home`
+              : (pace ?? "Bills still to come don't fit this pay")
+          }
+        />
       ) : null}
     </section>
   );
@@ -111,7 +144,7 @@ export function PaydayCard({ pay, profile }: { pay: ThisPay; profile: Profile })
   }
 
   return (
-    <section className="panel flex flex-col gap-1 border-forest p-4" aria-label="Payday">
+    <section className="panel flex flex-col gap-1 border-accent p-4" aria-label="Payday">
       <p className="text-[0.9375rem] font-extrabold">{profile.payday ? "Did your pay arrive?" : "New month"}</p>
       <p className="text-sm text-muted">
         {usual > 0 ? `Did ${formatGBP(usual)} land this time?` : "How much landed this time?"} Pay can change, so Pence asks every payday.
@@ -154,7 +187,7 @@ export function PaydayCard({ pay, profile }: { pay: ThisPay; profile: Profile })
           </button>
         </div>
       )}
-      {error ? <p className="mt-2 text-sm text-clay">{error}</p> : null}
+      {error ? <p className="mt-2 text-sm text-bad">{error}</p> : null}
     </section>
   );
 }
@@ -234,12 +267,12 @@ export function BillsCard() {
   const checks = billChecks(bills, today);
   if (checks.length === 0) return null;
   return (
-    <Link to="/bills" className="flex items-center gap-3.5 rounded-[1.125rem] bg-clay-soft p-4 text-ink">
+    <Link to="/bills" className="flex items-center gap-3.5 rounded-[1.125rem] bg-warn-tint p-4 text-ink">
       <span className="flex min-w-0 flex-1 flex-col gap-1">
         <span className="text-base font-extrabold">
           {checks.length} bill{checks.length === 1 ? "" : "s"} could cost less
         </span>
-        <span className="text-sm leading-[1.4] text-clay-ink">
+        <span className="text-sm leading-[1.4] text-warn-ink">
           {checks
             .slice(0, 2)
             .map((check) => `${check.item.name}: ${check.why.charAt(0).toLowerCase()}${check.why.slice(1)}`)
@@ -247,7 +280,7 @@ export function BillsCard() {
           .
         </span>
       </span>
-      <ChevronRight className="size-5 shrink-0 text-clay" strokeWidth={2} aria-hidden="true" />
+      <ChevronRight className="size-5 shrink-0 text-warn" strokeWidth={2} aria-hidden="true" />
     </Link>
   );
 }
@@ -265,7 +298,7 @@ export function WeekCard({ txs }: { txs: Tx[] }) {
           {total.spentPence > 0 ? `${formatGBP(total.spentPence)} since Monday` : "Nothing spent since Monday yet"}
         </span>
       </span>
-      <span className="shrink-0 text-sm font-bold text-forest">Check-in</span>
+      <span className="shrink-0 text-sm font-bold text-accent">Check-in</span>
     </Link>
   );
 }
@@ -295,7 +328,7 @@ export function PaySpotted({ rows, usualPence }: { rows: MoneyIn[]; usualPence: 
   }
 
   return (
-    <section className="panel border-forest p-4" aria-label="Pay spotted">
+    <section className="panel border-accent p-4" aria-label="Pay spotted">
       {done ? (
         <p className="text-sm">
           Saved: {formatGBP(pay.amountPence)} is your take-home for the pay from {shortDay(done)}.

@@ -121,7 +121,7 @@ export function BankView() {
         </ol>
         <span className="text-[0.8125rem] text-muted">
           A PDF or a screenshot instead? Use{" "}
-          <Link to="/capture" className="font-bold text-forest">
+          <Link to="/capture" className="font-bold text-accent">
             Photos, screenshots or PDF
           </Link>{" "}
           on Add.
@@ -190,8 +190,8 @@ export function BankView() {
           </button>
         </div>
       ) : null}
-      {error ? <p className="mt-3 text-sm text-clay">{error}</p> : null}
-      <section className="mt-6 flex flex-col gap-2 rounded-[1.25rem] bg-mist p-[1.125rem]" aria-label="What Pence reads">
+      {error ? <p className="mt-3 text-sm text-bad">{error}</p> : null}
+      <section className="mt-6 flex flex-col gap-2 rounded-[1.25rem] bg-accent-tint p-[1.125rem]" aria-label="What Pence reads">
         <h2 className="section-title">What Pence reads</h2>
         <ul className="flex list-disc flex-col gap-1 pl-5 text-sm leading-[1.45] text-ink-soft">
           <li>Shop, amount and date of each payment going out.</li>

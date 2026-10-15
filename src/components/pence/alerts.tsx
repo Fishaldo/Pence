@@ -67,7 +67,7 @@ export function AlertsView() {
           </li>
         ))}
       </ul>
-      {error ? <p className="mt-3 text-sm text-clay">{error}</p> : null}
+      {error ? <p className="mt-3 text-sm text-bad">{error}</p> : null}
     </div>
   );
 }

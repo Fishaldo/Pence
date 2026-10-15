@@ -42,7 +42,7 @@ export function Onboarding({ defaultName }: { defaultName: string }) {
   return (
     <main className="min-h-dvh bg-paper px-5 pt-[max(2rem,env(safe-area-inset-top))] pb-10 text-ink">
       <form onSubmit={submit} className="mx-auto flex w-full max-w-[560px] flex-col gap-5">
-        <span className="text-[0.8125rem] font-bold text-forest">Step 1 of 2</span>
+        <span className="text-[0.8125rem] font-bold text-accent">Step 1 of 2</span>
         <div className="-mt-3 flex flex-col gap-1.5">
           <h1 className="page-title">A little about you</h1>
           <p className="text-sm leading-[1.45] text-muted">So Pence can set your pay period. You can change this later.</p>
@@ -89,7 +89,7 @@ export function Onboarding({ defaultName }: { defaultName: string }) {
           <span className="field-label">Country</span>
           <span className="chip chip-on self-start">United Kingdom</span>
         </div>
-        {error ? <p className="text-sm text-clay">{error}</p> : null}
+        {error ? <p className="text-sm text-bad">{error}</p> : null}
         <button className="btn btn-primary mt-2" type="submit" disabled={busy}>
           {busy ? "Saving…" : "Continue"}
         </button>

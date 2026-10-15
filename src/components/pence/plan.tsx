@@ -502,7 +502,7 @@ export function PlanView({ embedded = false }: { embedded?: boolean }) {
             onChange={(event) => setPlace(event.target.value)}
           />
         </label>
-        {error ? <p className="text-sm text-clay">{error}</p> : null}
+        {error ? <p className="text-sm text-bad">{error}</p> : null}
         <button className="btn btn-primary" type="submit" disabled={busy}>
           {busy ? "Looking up deals…" : "Find deals"}
         </button>
@@ -514,7 +514,7 @@ export function PlanView({ embedded = false }: { embedded?: boolean }) {
         </p>
       </form>
       {watched ? (
-        <section className="panel mt-6 flex flex-col gap-1 border-forest p-4" aria-live="polite">
+        <section className="panel mt-6 flex flex-col gap-1 border-accent p-4" aria-live="polite">
           <p className="font-extrabold">{watched.existing ? "Already on your Watchlist" : "Added to your Watchlist"}</p>
           <p className="text-sm">{watched.label}</p>
           <p className="text-sm text-muted">Pence is looking now, then every day. Offers it finds show in Offers.</p>
@@ -564,7 +564,7 @@ export function PlanView({ embedded = false }: { embedded?: boolean }) {
       ) : null}
       {whatOpen ? (
         <div className="fixed inset-0 z-40 flex flex-col justify-end">
-          <button type="button" className="absolute inset-0 bg-[#6e7671]/80" aria-label="Close the list" onClick={closeWhat} />
+          <button type="button" className="absolute inset-0 bg-black/55" aria-label="Close the list" onClick={closeWhat} />
           <section
             role="dialog"
             aria-label="What are you planning?"
@@ -588,7 +588,7 @@ export function PlanView({ embedded = false }: { embedded?: boolean }) {
                     }}
                   >
                     <span>{label}</span>
-                    {kind === id ? <Check className="size-[22px] text-forest" strokeWidth={2.4} aria-hidden="true" /> : null}
+                    {kind === id ? <Check className="size-[22px] text-accent" strokeWidth={2.4} aria-hidden="true" /> : null}
                   </button>
                 ))}
               </div>

@@ -22,7 +22,7 @@ export function Mark({ className }: { className?: string }) {
   return (
     <span
       className={cn(
-        "grid size-10 place-items-center rounded-xl bg-forest text-[1.375rem] leading-none font-extrabold text-white",
+        "grid size-10 place-items-center rounded-xl bg-hero text-[1.375rem] leading-none font-extrabold text-on-hero",
         className,
       )}
       aria-hidden="true"
@@ -101,7 +101,7 @@ export function Shell({ children }: { children: ReactNode }) {
                   to={item.to}
                   className={cn(
                     "flex h-11 items-center gap-3 rounded-xl px-3 text-sm font-semibold",
-                    active ? "bg-mist font-extrabold text-forest" : "text-ink hover:bg-sand",
+                    active ? "bg-accent-tint font-extrabold text-accent" : "text-ink hover:bg-sand",
                   )}
                 >
                   <Icon className="size-5" strokeWidth={1.9} />
@@ -121,7 +121,7 @@ export function Shell({ children }: { children: ReactNode }) {
                 hash={itemHash}
                 className={cn(
                   "flex h-11 items-center gap-3 rounded-xl px-3 text-sm font-semibold",
-                  active ? "bg-mist font-extrabold text-forest" : "text-ink hover:bg-sand",
+                  active ? "bg-accent-tint font-extrabold text-accent" : "text-ink hover:bg-sand",
                 )}
               >
                 <Icon className="size-4" strokeWidth={1.75} />
@@ -164,19 +164,19 @@ export function Shell({ children }: { children: ReactNode }) {
                   aria-current={active ? "page" : undefined}
                   className={cn(
                     "flex min-h-[3.25rem] min-w-14 flex-col items-center justify-end gap-1 text-xs",
-                    active ? "font-extrabold text-forest" : add ? "font-bold text-ink" : "font-semibold text-muted",
+                    active ? "font-extrabold text-accent" : add ? "font-bold text-ink" : "font-semibold text-muted",
                   )}
                 >
                   <span
                     className={cn(
                       "relative grid place-items-center",
-                      add ? "-mt-[22px] size-[52px] rounded-full bg-forest text-white" : "size-6",
+                      add ? "-mt-[22px] size-[52px] rounded-full bg-action text-on-action" : "size-6",
                     )}
                   >
                     <Icon className={add ? "size-[26px]" : "size-6"} strokeWidth={add ? 2.2 : 1.9} />
                     {item.to === "/offers" && priceFound ? (
                       <span
-                        className="absolute -top-0.5 -right-1 size-2.5 rounded-full bg-clay ring-2 ring-card"
+                        className="absolute -top-0.5 -right-1 size-2.5 rounded-full bg-offer ring-2 ring-card"
                         aria-label="Pence found a price"
                       />
                     ) : null}

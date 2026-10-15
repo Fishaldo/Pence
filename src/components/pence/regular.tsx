@@ -171,13 +171,13 @@ function PaymentRow({ item }: { item: Regular }) {
         <span className="shrink-0 text-right">
           {amount ? <span className="block font-bold tabular-nums">{amount}</span> : null}
           {!item.stopped && !item.lapsed && item.freq !== "once" ? (
-            <span className={`block text-sm ${soon ? "font-bold text-clay" : "text-forest"}`}>{dueText(item)}</span>
+            <span className={`block text-sm ${soon ? "font-bold text-warn" : "text-accent"}`}>{dueText(item)}</span>
           ) : null}
         </span>
       </button>
 
       {item.rise && !item.stopped ? (
-        <p className="mt-2 rounded-md bg-clay-soft px-3 py-2 text-sm text-clay">
+        <p className="mt-2 rounded-md bg-warn-tint px-3 py-2 text-sm text-warn">
           Went up from {formatGBP(item.rise.fromPence)} to {formatGBP(item.rise.toPence)} on {shortDay(item.rise.on)}.{" "}
           <Link to="/bills" className="font-bold underline">
             Look for a better deal
@@ -186,7 +186,7 @@ function PaymentRow({ item }: { item: Regular }) {
       ) : null}
 
       {item.paidAfterStop && item.lastPaid ? (
-        <p className="mt-2 rounded-md bg-clay-soft px-3 py-2 text-sm text-clay">
+        <p className="mt-2 rounded-md bg-warn-tint px-3 py-2 text-sm text-warn">
           You said you cancelled this, but it was paid again on {shortDay(item.lastPaid)}. Check with them.
         </p>
       ) : null}
@@ -277,7 +277,7 @@ function PaymentRow({ item }: { item: Regular }) {
                     href={cancelSearch(item.name)}
                     target="_blank"
                     rel="noreferrer"
-                    className="mt-1 inline-flex min-h-11 items-center text-sm font-bold text-forest"
+                    className="mt-1 inline-flex min-h-11 items-center text-sm font-bold text-accent"
                   >
                     How to cancel {item.name}
                   </a>
@@ -339,15 +339,15 @@ export function RegularView() {
       {trials.map((item) => {
         const end = item.nextDue ?? "";
         return (
-          <section key={item.key} className="flex flex-col gap-2 rounded-[1.125rem] bg-clay-soft p-4" aria-label="Free trial ending">
-            <span className="text-xs font-extrabold tracking-[0.06em] text-clay uppercase">Free trial</span>
+          <section key={item.key} className="flex flex-col gap-2 rounded-[1.125rem] bg-warn-tint p-4" aria-label="Free trial ending">
+            <span className="text-xs font-extrabold tracking-[0.06em] text-warn uppercase">Free trial</span>
             <span className="text-base font-extrabold">
               {item.name} trial ends {end ? shortDay(end) : "soon"}
             </span>
-            <span className="text-sm leading-[1.45] text-clay-ink">
+            <span className="text-sm leading-[1.45] text-warn-ink">
               Cancel before then if you don’t want to keep it{item.amountPence > 0 ? `, or it costs ${formatGBP(item.amountPence)}` : ""}.
             </span>
-            <a href={cancelSearch(item.name)} target="_blank" rel="noreferrer" className="btn-pill self-start bg-clay">
+            <a href={cancelSearch(item.name)} target="_blank" rel="noreferrer" className="btn-pill self-start">
               How to cancel
             </a>
           </section>
@@ -355,7 +355,7 @@ export function RegularView() {
       })}
 
       {regulars.isError ? (
-        <p className="panel px-4 py-6 text-sm text-clay">{errorText(regulars.error, "Couldn’t load the list.")}</p>
+        <p className="panel px-4 py-6 text-sm text-bad">{errorText(regulars.error, "Couldn’t load the list.")}</p>
       ) : null}
 
       <Group title="Check this" items={warn} />
@@ -384,7 +384,7 @@ export function RegularView() {
       {!regulars.isPending && items.length === 0 ? (
         <p className="text-sm text-muted">
           Pence lists every payment filed as a subscription, and bills that come back each month.{" "}
-          <Link to="/bank" className="font-bold text-forest">
+          <Link to="/bank" className="font-bold text-accent">
             Upload a bank statement
           </Link>{" "}
           to find them.
@@ -418,7 +418,7 @@ export function ComingOut({ className = "mt-4" }: { className?: string }) {
               : "Add a free trial, and Pence reminds you before it ends"}
           </span>
         </span>
-        <span className="shrink-0 text-sm text-forest">Open</span>
+        <span className="shrink-0 text-sm text-accent">Open</span>
       </Link>
     );
   }
@@ -426,7 +426,7 @@ export function ComingOut({ className = "mt-4" }: { className?: string }) {
     <section className={className}>
       <div className="mb-2 flex items-baseline justify-between">
         <h2 className="section-title">Coming out soon</h2>
-        <Link to="/regular" className="text-sm text-forest">
+        <Link to="/regular" className="text-sm text-accent">
           All regular payments
         </Link>
       </div>
@@ -436,7 +436,7 @@ export function ComingOut({ className = "mt-4" }: { className?: string }) {
             <Link to="/regular" className="flex items-baseline justify-between gap-3 px-4 py-3">
               <span className="min-w-0">
                 <span className="block truncate font-bold">{item.name}</span>
-                <span className={`block text-sm ${item.paidAfterStop || (item.daysLeft ?? 9) <= 3 ? "text-clay" : "text-muted"}`}>
+                <span className={`block text-sm ${item.paidAfterStop || (item.daysLeft ?? 9) <= 3 ? "text-warn" : "text-muted"}`}>
                   {item.paidAfterStop
                     ? "Paid again after you cancelled"
                     : item.freq === "once"

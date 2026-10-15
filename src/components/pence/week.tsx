@@ -66,11 +66,11 @@ export function WeekView() {
       <PageHead close="/" date={longToday()} title="Your week" flush />
 
       <section className="hero flex flex-col gap-1.5" aria-label="This week">
-        <span className="text-sm font-semibold text-on-forest">Spent this week, since Monday</span>
+        <span className="text-sm font-semibold text-on-hero-soft">Spent this week, since Monday</span>
         <span className="text-[2.75rem] leading-[1.1] font-extrabold tracking-[-0.03em] tabular-nums">
           {formatGBP(now.spentPence).replace(/\.00$/, "")}
         </span>
-        <span className="text-sm font-semibold text-on-forest">
+        <span className="text-sm font-semibold text-on-hero-soft">
           {last.spentPence === 0 && now.spentPence === 0
             ? "Nothing logged this week or last."
             : Math.abs(diff) < 100
@@ -88,7 +88,7 @@ export function WeekView() {
             </p>
           ))}
           {up ? (
-            <p className="text-sm leading-[1.5] font-semibold text-clay">
+            <p className="text-sm leading-[1.5] font-semibold text-warn">
               {categoryLabel(up.id)} is up {formatGBP(up.change)} on last week.
             </p>
           ) : null}

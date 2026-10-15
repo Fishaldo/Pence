@@ -51,8 +51,8 @@ export function SamePayment({
                   {clash.inFile ? "Also in this list" : `From ${whereFrom(clash.existingSource, clash.existingHasReceipt)}`}
                 </span>
               </div>
-              <div className="flex flex-col gap-1 rounded-[1.125rem] border border-forest bg-mist p-3.5">
-                <span className="text-[0.6875rem] font-extrabold tracking-[0.08em] text-forest uppercase">New</span>
+              <div className="flex flex-col gap-1 rounded-[1.125rem] border border-accent bg-accent-tint p-3.5">
+                <span className="text-[0.6875rem] font-extrabold tracking-[0.08em] text-accent uppercase">New</span>
                 <span className="text-[0.9375rem] leading-snug font-extrabold">
                   {clash.existingMerchant} {formatGBP(clash.existingAmountPence)}
                 </span>

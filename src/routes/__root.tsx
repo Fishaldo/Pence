@@ -1,8 +1,9 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { createRootRoute, HeadContent, Outlet, Scripts } from "@tanstack/react-router";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Toaster } from "sonner";
 import { PreviewHostBridge } from "@/components/preview-host-bridge";
+import { APPEARANCE_SCRIPT, applyAppearance, followPhone } from "@/lib/appearance";
 import { AuthProvider } from "@/lib/auth/provider";
 import appCss from "../styles.css?url";
 
@@ -19,7 +20,7 @@ export const Route = createRootRoute({
         content:
           "Scan a receipt or paste a wallet alert. Pence sorts the spend, compares it with last month, and shows where to cut back.",
       },
-      { name: "theme-color", content: "#1e5b43" },
+      { name: "theme-color", content: "#f3f4f0" },
     ],
     links: [
       { rel: "icon", type: "image/svg+xml", href: "/favicon.svg" },
@@ -47,9 +48,15 @@ function RootComponent() {
       }),
   );
 
+  useEffect(() => {
+    applyAppearance();
+    return followPhone();
+  }, []);
+
   return (
     <html lang="en" className="antialiased" suppressHydrationWarning>
       <head>
+        <script dangerouslySetInnerHTML={{ __html: APPEARANCE_SCRIPT }} />
         <HeadContent />
       </head>
       <body className="bg-paper text-ink">

@@ -274,7 +274,7 @@ function SpendDialog({ tx, all, onClose }: { tx: Tx; all: Tx[]; onClose: () => v
   }
 
   return (
-    <div className="fixed inset-0 z-40 flex items-end justify-center bg-[#6e7671]/80 md:items-center md:p-3" role="presentation" onClick={onClose}>
+    <div className="fixed inset-0 z-40 flex items-end justify-center bg-black/55 md:items-center md:p-3" role="presentation" onClick={onClose}>
       <div
         role="dialog"
         aria-modal="true"
@@ -318,10 +318,10 @@ function SpendDialog({ tx, all, onClose }: { tx: Tx; all: Tx[]; onClose: () => v
             </select>
           </label>
           {changedPayee ? (
-            <label className="flex items-start gap-3 rounded-xl bg-mist px-3 py-3 text-sm">
+            <label className="flex items-start gap-3 rounded-xl bg-accent-tint px-3 py-3 text-sm">
               <input
                 type="checkbox"
-                className="mt-0.5 size-5 shrink-0 accent-[var(--color-forest)]"
+                className="mt-0.5 size-5 shrink-0 accent-[var(--color-action)]"
                 checked={applyToSame}
                 onChange={(event) => setApplyToSame(event.target.checked)}
               />
@@ -355,7 +355,7 @@ function SpendDialog({ tx, all, onClose }: { tx: Tx; all: Tx[]; onClose: () => v
           <p className="text-sm text-muted">
             {tx.hasReceipt ? "Read from a receipt. Pence keeps the details, not the photo." : "No receipt."}
           </p>
-          {error ? <p className="text-sm text-clay">{error}</p> : null}
+          {error ? <p className="text-sm text-bad">{error}</p> : null}
         </div>
         <div className="mt-4 flex flex-col gap-2">
           <button type="button" className="btn btn-primary" onClick={save} disabled={busy}>

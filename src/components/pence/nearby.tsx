@@ -60,7 +60,7 @@ export function NearbyPanel() {
           Places
         </Link>
       </div>
-      {error ? <p className="mt-2 text-sm text-clay">{error}</p> : null}
+      {error ? <p className="mt-2 text-sm text-bad">{error}</p> : null}
       {usual.length > 0 ? <p className="mt-3 text-sm">You already use {usual.join(", ")}.</p> : null}
       {nearby && nearby.length > 0 ? (
         <ul className="mt-3 space-y-2">

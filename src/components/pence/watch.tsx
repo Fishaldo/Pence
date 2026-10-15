@@ -57,8 +57,8 @@ export function WatchSummary({ className = "mt-4" }: { className?: string }) {
   const first = found[0];
   const cheapest = first.offers.find((offer) => offer.pricePence != null && !offer.monthly);
   return (
-    <Link to="/watchlist" className={`panel block border-forest p-4 ${className}`}>
-      <p className="text-sm font-bold text-forest">{first.shopOnly ? "Pence found a promotion" : "Pence found a price"}</p>
+    <Link to="/watchlist" className={`panel block border-accent p-4 ${className}`}>
+      <p className="text-sm font-bold text-accent">{first.shopOnly ? "Pence found a promotion" : "Pence found a price"}</p>
       <p className="mt-1 font-bold">{found.length > 1 ? `${first.what}, and ${found.length - 1} more` : first.what}</p>
       {cheapest?.pricePence != null && !first.shopOnly ? (
         <p className="text-sm text-muted">
@@ -66,7 +66,7 @@ export function WatchSummary({ className = "mt-4" }: { className?: string }) {
           {cheapest.merchant ? ` at ${cheapest.merchant}` : ""}
         </p>
       ) : null}
-      <p className="mt-2 text-sm font-bold text-forest">See it on your Watchlist</p>
+      <p className="mt-2 text-sm font-bold text-accent">See it on your Watchlist</p>
     </Link>
   );
 }
@@ -117,7 +117,7 @@ function SeenOffers({ item, busy, onTake }: { item: WatchItem; busy: boolean; on
             </div>
             <p className="mt-0.5 text-sm font-bold">{offer.title}</p>
             {offer.unlikely ? (
-              <p className="mt-0.5 text-sm text-clay">This price looks like an accessory or a monthly payment, not the item.</p>
+              <p className="mt-0.5 text-sm text-warn">This price looks like an accessory or a monthly payment, not the item.</p>
             ) : null}
             <div className="flex flex-wrap items-center gap-x-4">
               <DealAction deal={offer} />
@@ -129,7 +129,7 @@ function SeenOffers({ item, busy, onTake }: { item: WatchItem; busy: boolean; on
         ))}
       </ul>
       {list.length > shown ? (
-        <button type="button" className="min-h-11 text-sm font-bold text-forest" onClick={() => setShown((n) => n + 10)}>
+        <button type="button" className="min-h-11 text-sm font-bold text-accent" onClick={() => setShown((n) => n + 10)}>
           Show more
         </button>
       ) : null}
@@ -257,15 +257,15 @@ export function Watchlist() {
             Want something, or want to shop somewhere, but not at today’s price? Add it from Plan. Pence keeps looking every
             day and tells you when an offer turns up.
           </p>
-          <p className="mt-2 text-sm font-bold text-forest">Add to your Watchlist</p>
+          <p className="mt-2 text-sm font-bold text-accent">Add to your Watchlist</p>
         </Link>
       ) : null}
 
       {found.length > 0 ? (
         <ul className="mt-3 space-y-4">
           {found.map((item) => (
-            <li key={item.id} className="panel border-forest p-4">
-              <p className="text-sm font-bold text-forest">{item.shopOnly ? "Pence found a promotion" : "Pence found a price"}</p>
+            <li key={item.id} className="panel border-accent p-4">
+              <p className="text-sm font-bold text-accent">{item.shopOnly ? "Pence found a promotion" : "Pence found a price"}</p>
               <p className="mt-1 font-bold">{item.what}</p>
               <p className="text-sm text-muted">{limitText(item)}</p>
               <p className="mt-2 text-sm font-bold">{item.shopOnly ? "Is this one for you?" : "Is the price right for you?"}</p>
@@ -324,7 +324,7 @@ export function Watchlist() {
                     {" · "}
                     <button
                       type="button"
-                      className="font-bold text-forest underline underline-offset-2"
+                      className="font-bold text-accent underline underline-offset-2"
                       aria-expanded={openSeen === item.id}
                       onClick={() => setOpenSeen(openSeen === item.id ? "" : item.id)}
                     >
@@ -385,7 +385,7 @@ export function Watchlist() {
                 )}
                 <button
                   type="button"
-                  className={`chip ${stopping === item.id ? "border-clay text-clay" : ""}`}
+                  className={`chip ${stopping === item.id ? "border-warn text-warn" : ""}`}
                   disabled={working.includes(item.id)}
                   onClick={() => void remove(item)}
                 >

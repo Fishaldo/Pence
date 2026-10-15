@@ -52,9 +52,9 @@ export function LocationStep({ city }: { city: string }) {
   return (
     <main className="min-h-dvh bg-paper px-5 pt-[max(2rem,env(safe-area-inset-top))] pb-10 text-ink">
       <div className="mx-auto flex w-full max-w-[560px] flex-col gap-5">
-        <span className="text-[0.8125rem] font-bold text-forest">Step 2 of 2</span>
-        <span className="grid size-[84px] place-items-center rounded-full bg-mist" aria-hidden="true">
-          <MapPin className="size-9 text-forest" strokeWidth={1.9} />
+        <span className="text-[0.8125rem] font-bold text-accent">Step 2 of 2</span>
+        <span className="grid size-[84px] place-items-center rounded-full bg-accent-tint" aria-hidden="true">
+          <MapPin className="size-9 text-accent" strokeWidth={1.9} />
         </span>
         <div className="flex flex-col gap-2">
           <h1 className="page-title">Deals near you first</h1>
@@ -65,12 +65,12 @@ export function LocationStep({ city }: { city: string }) {
         <ul className="flex flex-col gap-2.5">
           {["Precise location finds shops on your street.", "Change it or turn it off any time in Settings."].map((line) => (
             <li key={line} className="flex items-center gap-2.5 text-[0.9375rem] font-bold">
-              <Check className="size-[18px] shrink-0 text-forest" strokeWidth={2.4} aria-hidden="true" />
+              <Check className="size-[18px] shrink-0 text-accent" strokeWidth={2.4} aria-hidden="true" />
               {line}
             </li>
           ))}
         </ul>
-        {error ? <p className="text-sm text-clay">{error}</p> : null}
+        {error ? <p className="text-sm text-bad">{error}</p> : null}
         <div className="mt-4 flex flex-col gap-2.5">
           <button type="button" className="btn btn-primary" disabled={busy} onClick={() => void allow()}>
             {busy ? "Finding you…" : "Allow location"}

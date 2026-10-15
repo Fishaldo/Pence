@@ -109,7 +109,7 @@ export function PhoneAlerts({ what = "when Pence finds an offer", onChange }: { 
             <div className="flex shrink-0 items-center gap-3">
               <button
                 type="button"
-                className="min-h-11 text-sm font-bold text-forest"
+                className="min-h-11 text-sm font-bold text-accent"
                 disabled={busy}
                 onClick={() => void sendTest()}
               >

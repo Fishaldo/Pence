@@ -1,15 +1,50 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Link } from "@tanstack/react-router";
 import { ChevronRight } from "lucide-react";
 import { toast } from "sonner";
 import { UserButton } from "@/lib/auth/gates";
 import { signOut } from "@/lib/auth/client";
+import { readAppearance, saveAppearance, type AppearanceChoice } from "@/lib/appearance";
 import { categoryLabel, poundsToPence } from "@/lib/core/model";
 import { deleteMyData, exportMyData, saveWeeklyDay } from "@/server/money";
 import { addPlace, clearSamples, removePlace, savePhonePlace, saveProfile } from "@/server/ledger";
 import { useLedger, useRefreshLedger } from "./data";
 import { PageHead } from "./ui";
 import { errorText } from "./error-text";
+
+const LOOKS: { id: AppearanceChoice; label: string }[] = [
+  { id: "system", label: "Match phone" },
+  { id: "light", label: "Light" },
+  { id: "dark", label: "Dark" },
+];
+
+/** Light, dark, or whatever the phone uses. Kept on this phone only. */
+function LookSetting() {
+  const [look, setLook] = useState<AppearanceChoice>("system");
+  useEffect(() => setLook(readAppearance()), []);
+  return (
+    <section aria-label="Look">
+      <h2 className="group-title">Look</h2>
+      <div className="flex gap-2" role="group" aria-label="Light or dark">
+        {LOOKS.map((item) => (
+          <button
+            key={item.id}
+            type="button"
+            className="chip flex-1 justify-center"
+            aria-pressed={look === item.id}
+            onClick={() => {
+              setLook(item.id);
+              saveAppearance(item.id);
+            }}
+          >
+            {item.label}
+          </button>
+        ))}
+      </div>
+      <p className="mt-2 text-[0.8125rem] text-muted">Kept on this phone only.</p>
+    </section>
+  );
+}
 
 export function SettingsView() {
   const { profile, txs, places } = useLedger();
@@ -267,7 +302,7 @@ export function SettingsView() {
             <span className="field-label">Home town</span>
             <input className="control" value={city} onChange={(e) => setCity(e.target.value)} />
           </label>
-          {error ? <p className="text-sm text-clay">{error}</p> : null}
+          {error ? <p className="text-sm text-bad">{error}</p> : null}
           <button className="btn btn-primary" type="submit" disabled={busy}>
             {busy ? "Saving…" : "Save"}
           </button>
@@ -330,7 +365,7 @@ export function SettingsView() {
             <input
               type="checkbox"
               role="switch"
-              className="size-6 shrink-0 accent-[#1e5b43]"
+              className="size-6 shrink-0 accent-[var(--color-action)]"
               checked={notify}
               onChange={(event) => void onNotify(event.target.checked)}
             />
@@ -356,6 +391,8 @@ export function SettingsView() {
           </label>
         </div>
       </section>
+
+      <LookSetting />
 
       <section aria-label="Money">
         <h2 className="group-title">Statements and bills</h2>
@@ -385,9 +422,9 @@ export function SettingsView() {
             Download spends as a spreadsheet
           </button>
           {confirmDelete ? (
-            <div className="flex flex-col gap-2 rounded-[1.125rem] bg-clay-soft p-4">
+            <div className="flex flex-col gap-2 rounded-[1.125rem] bg-warn-tint p-4">
               <p className="font-extrabold">Delete everything?</p>
-              <p className="text-sm text-clay-ink">
+              <p className="text-sm text-warn-ink">
                 Every spend, place, budget, bill and watch is removed now, and you are signed out. This can’t be undone.
               </p>
               <button type="button" className="btn btn-danger" disabled={busy} onClick={() => void deleteEverything()}>

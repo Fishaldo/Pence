@@ -216,10 +216,10 @@ export function BudgetView({ embedded = false }: { embedded?: boolean }) {
         <p className="mt-4 text-sm" aria-live="polite">
           {formatGBP(draftTotal)} planned
           {takeHome > 0 ? ` of ${formatGBP(takeHome)} take-home` : ""}.
-          {takeHome > 0 && draftTotal > takeHome ? <span className="text-clay"> That is more than you take home.</span> : null}
+          {takeHome > 0 && draftTotal > takeHome ? <span className="text-warn"> That is more than you take home.</span> : null}
           {takeHome > 0 && draftTotal < takeHome ? <span className="text-muted"> {formatGBP(takeHome - draftTotal)} spare.</span> : null}
         </p>
-        {error ? <p className="mt-2 text-sm text-clay">{error}</p> : null}
+        {error ? <p className="mt-2 text-sm text-bad">{error}</p> : null}
         <div className="mt-4 flex flex-col gap-2">
           <button type="button" className="btn btn-primary" disabled={busy} onClick={() => void save()}>
             {busy ? "Saving…" : "Save budget"}
@@ -250,8 +250,8 @@ export function BudgetView({ embedded = false }: { embedded?: boolean }) {
       {lines.length > 0 ? (
         <>
           {takeHome > 0 && planned > takeHome ? (
-            <section className="panel mb-4 flex flex-col gap-2 border-clay p-4" aria-label="Over your take-home">
-              <p className="text-sm font-bold text-clay">
+            <section className="panel mb-4 flex flex-col gap-2 border-warn p-4" aria-label="Over your take-home">
+              <p className="text-sm font-bold text-warn">
                 This budget is {formatGBP(planned - takeHome)} more than your {formatGBP(takeHome)} take-home.
               </p>
               <p className="text-sm text-muted">Pence can fit it: savings first, rent and bills kept, the lines that bend most trimmed most.</p>
@@ -280,11 +280,11 @@ export function BudgetView({ embedded = false }: { embedded?: boolean }) {
                         <span
                           style={{
                             width: `${Math.max(2, share * 100)}%`,
-                            ...(saving ? { background: "var(--color-saved)" } : progress.over ? { background: "var(--color-clay)" } : {}),
+                            ...(saving ? { background: "var(--color-saved)" } : progress.over ? { background: "var(--color-warn)" } : {}),
                           }}
                         />
                       </div>
-                      <p className={`mt-1 text-sm ${!saving && progress.over ? "text-clay" : "text-muted"}`}>
+                      <p className={`mt-1 text-sm ${!saving && progress.over ? "text-warn" : "text-muted"}`}>
                         {saving
                           ? progress.spentPence >= line.amountPence
                             ? `Done: ${formatGBP(progress.spentPence)} put away this pay`
@@ -310,7 +310,7 @@ export function BudgetView({ embedded = false }: { embedded?: boolean }) {
               </span>
             </div>
             {takeHome > 0 ? (
-              <span className={`text-[0.8125rem] ${planned > takeHome ? "font-semibold text-clay" : "text-muted"}`}>
+              <span className={`text-[0.8125rem] ${planned > takeHome ? "font-semibold text-warn" : "text-muted"}`}>
                 {planned <= takeHome
                   ? `${formatGBP(takeHome - planned)} spare for the unexpected.`
                   : `${formatGBP(planned - takeHome)} more than your take-home.`}
@@ -387,12 +387,12 @@ function PlanSummary({ plan }: { plan: BudgetPlan }) {
         </div>
       ) : null}
       {plan.fixedOver ? (
-        <p className="text-sm leading-[1.45] text-clay">
+        <p className="text-sm leading-[1.45] text-warn">
           Rent, bills and your other never-cut lines are more than your take-home on their own. Check the take-home in Settings, or untick Never cut on
           anything that can change.
         </p>
       ) : plan.tight ? (
-        <p className="text-sm leading-[1.45] text-clay">
+        <p className="text-sm leading-[1.45] text-warn">
           You usually spend {formatGBP(Math.round(usualSpend / 100) * 100)} a pay, more than your take-home. To fit, the lines that can bend go well below
           usual. Check your take-home in Settings is right, and tick Never cut on anything you can’t change.
         </p>

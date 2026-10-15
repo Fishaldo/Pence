@@ -19,12 +19,12 @@ export function CodeChip({ code }: { code: string }) {
 
   return (
     <div className="mt-2 flex items-center gap-2">
-      <span className="min-w-0 truncate rounded-md border border-dashed border-forest bg-mist px-3 py-2 font-mono text-sm tracking-wide text-forest-deep select-all">
+      <span className="min-w-0 truncate rounded-md border border-dashed border-accent bg-accent-tint px-3 py-2 font-mono text-sm tracking-wide text-accent select-all">
         {code}
       </span>
       <button
         type="button"
-        className="min-h-11 shrink-0 rounded-md bg-forest px-4 text-sm font-bold text-foam"
+        className="min-h-11 shrink-0 rounded-md bg-action px-4 text-sm font-bold text-on-action"
         onClick={() => void copy()}
       >
         {copied ? "Copied" : "Copy"}
@@ -40,7 +40,7 @@ export function DealAction({ deal }: { deal: Linkable }) {
       {deal.code ? <CodeChip code={deal.code} /> : null}
       <a
         href={goUrl(deal)}
-        className="mt-2 inline-flex min-h-11 items-center text-sm font-bold text-forest"
+        className="mt-2 inline-flex min-h-11 items-center text-sm font-bold text-accent"
         target="_blank"
         rel="noreferrer"
       >

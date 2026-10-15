@@ -89,8 +89,8 @@ function LoginPage() {
               "Real UK deals for the shops you use, local first",
             ].map((point) => (
               <li key={point} className="flex items-center gap-3 text-[0.9375rem] font-bold">
-                <span className="grid size-7 shrink-0 place-items-center rounded-full bg-mist" aria-hidden="true">
-                  <Check className="size-4 text-forest" strokeWidth={2.4} />
+                <span className="grid size-7 shrink-0 place-items-center rounded-full bg-accent-tint" aria-hidden="true">
+                  <Check className="size-4 text-accent" strokeWidth={2.4} />
                 </span>
                 {point}
               </li>
@@ -126,7 +126,7 @@ function LoginPage() {
               required
             />
           </label>
-          {error ? <p className="text-sm text-clay">{error}</p> : null}
+          {error ? <p className="text-sm text-bad">{error}</p> : null}
           <button className="btn btn-primary" type="submit" disabled={busy}>
             {busy ? "Please wait…" : mode === "create" ? "Create account" : "Sign in"}
           </button>

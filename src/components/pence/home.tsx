@@ -17,13 +17,14 @@ import {
   type PaySpan,
 } from "@/lib/core/model";
 import { FREQ_LABEL } from "@/lib/core/regular";
+import { spendStatus } from "@/lib/core/status";
 import type { PersonalDeal } from "@/server/for-you";
 import { hotDeals, type HotDeal } from "@/server/hotukdeals";
 import { seedSamples } from "@/server/ledger";
 import { useForYou, useLedger, useRefreshLedger, useRegulars } from "./data";
 import { CodeChip } from "./deal-bits";
 import { goUrl } from "./deal-links";
-import { BillsCard, NeedsTap, PaydayCard, PayTiles, SafeCard } from "./money-cards";
+import { BillsCard, NeedsTap, PaceChip, PayTiles, PaydayCard, SafeCard } from "./money-cards";
 import { longToday, useThisPay } from "./this-pay";
 import { SectionHead, SettingsButton } from "./ui";
 import { errorText } from "./error-text";
@@ -107,7 +108,7 @@ export function HomeView() {
     return (
       <div className="flex flex-col gap-4">
         <div className="h-14 w-48 animate-pulse rounded-xl bg-sand" />
-        <div className="h-52 animate-pulse rounded-[1.375rem] bg-mist" />
+        <div className="h-52 animate-pulse rounded-[1.375rem] bg-accent-tint" />
         <div className="h-24 animate-pulse rounded-[1.125rem] bg-sand" />
       </div>
     );
@@ -159,17 +160,33 @@ export function HomeView() {
       </header>
 
       {income > 0 ? (
-        <SafeCard pay={thisPay} hasPayday={payday != null} pace={pace} />
+        <SafeCard
+          pay={thisPay}
+          hasPayday={payday != null}
+          pace={pace}
+          status={spendStatus({
+            spent: thisPay.spentPence,
+            takeHome: thisPay.takeHomePence,
+            safe: thisPay.safe.safePence,
+            lastPaySameDay: sameDayLast.spent,
+            lastPaySpent: previous.spent,
+          })}
+        />
       ) : (
         <section className="hero flex flex-col gap-3" aria-label="Spent so far">
-          <span className="text-sm font-semibold text-on-forest">Spent so far this {payday ? "pay" : "month"}</span>
+          <span className="text-sm font-semibold text-on-hero-soft">Spent so far this {payday ? "pay" : "month"}</span>
           <span className="text-[2.75rem] leading-[1.1] font-extrabold tracking-[-0.03em] tabular-nums">
             {short(current.spent)}
           </span>
-          <Link to="/settings" className="text-sm font-semibold text-on-forest underline underline-offset-4">
+          <Link to="/settings" className="text-sm font-semibold text-on-hero-soft underline underline-offset-4">
             Add your take-home to see what is safe to spend
           </Link>
-          {pace ? <span className="self-start rounded-full bg-white/15 px-3 py-2 text-[0.8125rem] font-bold">{pace}</span> : null}
+          {pace ? (
+            <PaceChip
+              status={spendStatus({ spent: current.spent, takeHome: null, lastPaySameDay: sameDayLast.spent, lastPaySpent: previous.spent })}
+              text={pace}
+            />
+          ) : null}
         </section>
       )}
 
@@ -240,7 +257,7 @@ export function HomeView() {
           <ul className="flex flex-col gap-2.5">
             {picks.map((deal) => (
               <li key={deal.url} className="panel flex items-start gap-3 px-4 py-3.5">
-                <span aria-hidden="true" className="initial initial-amber">{initialOf(deal.merchant || deal.source)}</span>
+                <span aria-hidden="true" className="initial initial-offer">{initialOf(deal.merchant || deal.source)}</span>
                 <div className="flex min-w-0 flex-col gap-1">
                   <span className="text-[0.8125rem] font-semibold text-muted">
                     {deal.merchant || deal.source}
@@ -249,9 +266,9 @@ export function HomeView() {
                   <a href={goUrl(deal)} className="text-[0.9375rem] leading-snug font-extrabold" target="_blank" rel="noreferrer">
                     {deal.title}
                   </a>
-                  {deal.saving ? <span className="text-[0.8125rem] font-semibold text-forest">{deal.saving}</span> : null}
+                  {deal.saving ? <span className="text-[0.8125rem] font-semibold text-accent">{deal.saving}</span> : null}
                   {deal.check ? (
-                    <span className={`text-[0.8125rem] font-semibold ${deal.works ? "text-forest" : "text-clay"}`}>{deal.check}</span>
+                    <span className={`text-[0.8125rem] font-semibold ${deal.works ? "text-accent" : "text-warn"}`}>{deal.check}</span>
                   ) : null}
                   {deal.endsOn ? <span className="text-xs text-muted">Ends {shortDay(deal.endsOn)}</span> : null}
                   {deal.code ? <CodeChip code={deal.code} /> : null}
@@ -264,7 +281,7 @@ export function HomeView() {
           <ul className="flex flex-col gap-2.5">
             {trending.map((deal) => (
               <li key={deal.url} className="panel flex items-start gap-3 px-4 py-3.5">
-                <span aria-hidden="true" className="initial initial-amber">{initialOf(deal.merchant || deal.source)}</span>
+                <span aria-hidden="true" className="initial initial-offer">{initialOf(deal.merchant || deal.source)}</span>
                 <div className="flex min-w-0 flex-col gap-1">
                   <span className="text-[0.8125rem] font-semibold text-muted">{deal.merchant || deal.source}</span>
                   <a href={goUrl(deal)} className="text-[0.9375rem] leading-snug font-extrabold" target="_blank" rel="noreferrer">
@@ -363,14 +380,14 @@ function FirstDay({ name, trending }: { name: string; trending: HotDeal[] | null
           const Icon = way.icon;
           return (
             <Link key={way.label} to={way.to} className="btn btn-quiet justify-start gap-3">
-              <Icon className="size-5 text-forest" strokeWidth={1.9} aria-hidden="true" />
+              <Icon className="size-5 text-accent" strokeWidth={1.9} aria-hidden="true" />
               {way.label}
             </Link>
           );
         })}
       </section>
 
-      <section className="flex flex-col gap-3 rounded-[1.25rem] bg-mist p-[1.125rem]" aria-label="Sample month">
+      <section className="flex flex-col gap-3 rounded-[1.25rem] bg-accent-tint p-[1.125rem]" aria-label="Sample month">
         <div className="flex flex-col gap-1">
           <h2 className="section-title">See it with a sample month</h2>
           <p className="text-sm leading-[1.45] text-ink-soft">
@@ -380,7 +397,7 @@ function FirstDay({ name, trending }: { name: string; trending: HotDeal[] | null
         <button type="button" className="btn-pill self-start" onClick={loadSample} disabled={busy}>
           {busy ? "Adding…" : "Show a sample month"}
         </button>
-        {error ? <p className="text-sm text-clay">{error}</p> : null}
+        {error ? <p className="text-sm text-bad">{error}</p> : null}
       </section>
 
       <section aria-label="Popular now">

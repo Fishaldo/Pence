@@ -465,7 +465,7 @@ export function CaptureView() {
                 type="button"
                 aria-label={listening ? "Listening. Tap to stop" : "Tap and speak"}
                 aria-pressed={listening}
-                className={`grid size-[72px] shrink-0 place-items-center rounded-full text-white ${listening ? "bg-clay" : "bg-forest"}`}
+                className={`grid size-[72px] shrink-0 place-items-center rounded-full ${listening ? "bg-record text-white" : "bg-action text-on-action"}`}
                 onClick={() => (listening ? listener.current?.stop() : sayIt())}
               >
                 <Mic className="size-8" strokeWidth={1.9} />
@@ -494,7 +494,7 @@ export function CaptureView() {
                   className="flex min-h-[108px] flex-col items-start gap-2 rounded-[1.125rem] border border-line bg-card p-3.5 text-left"
                   onClick={way.run}
                 >
-                  <Icon className="size-6 text-forest" strokeWidth={1.9} aria-hidden="true" />
+                  <Icon className="size-6 text-accent" strokeWidth={1.9} aria-hidden="true" />
                   <span className="text-[0.9375rem] leading-snug font-extrabold">{way.label}</span>
                   <span className="text-[0.8125rem] leading-snug text-muted">{way.line}</span>
                 </button>
@@ -502,9 +502,9 @@ export function CaptureView() {
             })}
           </section>
 
-          <section className="flex flex-col gap-3 rounded-[1.25rem] bg-mist p-[1.125rem]" aria-label="Bank statement">
+          <section className="flex flex-col gap-3 rounded-[1.25rem] bg-accent-tint p-[1.125rem]" aria-label="Bank statement">
             <div className="flex items-start gap-3">
-              <Landmark className="mt-0.5 size-6 shrink-0 text-forest" strokeWidth={1.9} aria-hidden="true" />
+              <Landmark className="mt-0.5 size-6 shrink-0 text-accent" strokeWidth={1.9} aria-hidden="true" />
               <div className="flex flex-col gap-1">
                 <span className="text-base font-extrabold">Upload a bank statement</span>
                 <span className="text-sm leading-[1.45] text-ink-soft">
@@ -555,7 +555,7 @@ export function CaptureView() {
         <div className="panel px-5 py-10 text-center">
           <p className="text-xl font-extrabold">{phase.label}</p>
           <div className="mx-auto mt-4 h-1.5 w-40 overflow-hidden rounded-full bg-sand">
-            <div className="h-full w-1/2 animate-pulse bg-forest" />
+            <div className="h-full w-1/2 animate-pulse bg-action" />
           </div>
         </div>
       ) : null}
@@ -609,7 +609,7 @@ export function CaptureView() {
 
       {phase.kind === "wrong" ? (
         <div className="panel p-5" role="alert">
-          <p className="text-sm font-bold text-clay">Not a receipt</p>
+          <p className="text-sm font-bold text-warn">Not a receipt</p>
           <h2 className="mt-1 text-[1.75rem] font-extrabold">Wrong photo</h2>
           <p className="mt-3 text-sm text-ink">{phase.note}</p>
           <p className="mt-2 text-sm text-muted">Nothing was filed. Use a till receipt, a PDF, or a list of payments.</p>
@@ -694,7 +694,7 @@ export function CaptureView() {
         />
       ) : null}
 
-      {error ? <p className="mt-3 text-sm text-clay">{error}</p> : null}
+      {error ? <p className="mt-3 text-sm text-bad">{error}</p> : null}
     </div>
   );
 }

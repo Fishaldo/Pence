@@ -39,7 +39,12 @@ const browser = await chromium.launch({
   args: ["--no-sandbox", "--disable-dev-shm-usage"],
   ...(process.env.PENCE_CHROMIUM ? { executablePath: process.env.PENCE_CHROMIUM } : {}),
 });
-const context = await browser.newContext({ viewport: { width: 390, height: 844 }, deviceScaleFactor: 2 });
+// PENCE_SCHEME=dark walks through the app in dark mode.
+const context = await browser.newContext({
+  viewport: { width: 390, height: 844 },
+  deviceScaleFactor: 2,
+  colorScheme: process.env.PENCE_SCHEME === "dark" ? "dark" : "light",
+});
 const page = await context.newPage();
 page.setDefaultTimeout(30_000);
 page.on("console", (msg) => {

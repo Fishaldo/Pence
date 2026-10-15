@@ -68,7 +68,7 @@ function BillRow({ item, today, why, card = false }: { item: Regular; today: str
   return (
     <li className={card ? "panel px-4 py-3.5" : "px-4 py-3"}>
       <button type="button" className="flex w-full items-start gap-3 text-left" aria-expanded={open} onClick={() => setOpen((v) => !v)}>
-        {card ? <span aria-hidden="true" className="initial initial-amber">{(item.name.trim().charAt(0) || "·").toUpperCase()}</span> : null}
+        {card ? <span aria-hidden="true" className="initial initial-warn">{(item.name.trim().charAt(0) || "·").toUpperCase()}</span> : null}
         <span className="min-w-0 flex-1">
           {card ? <span className="block text-[0.8125rem] font-semibold text-muted">{kind.label}</span> : null}
           <span className="block truncate text-[0.9375rem] font-extrabold">{item.name}</span>
@@ -76,7 +76,7 @@ function BillRow({ item, today, why, card = false }: { item: Regular; today: str
             {card ? FREQ_LABEL[item.freq] : `${kind.label} · ${FREQ_LABEL[item.freq]}`}
             {item.contractEnd ? ` · contract ${item.contractEnd < today ? "ended" : "ends"} ${shortDay(item.contractEnd)}` : ""}
           </span>
-          {why ? <span className="mt-1 block text-[0.8125rem] font-bold text-clay">{why}</span> : null}
+          {why ? <span className="mt-1 block text-[0.8125rem] font-bold text-warn">{why}</span> : null}
         </span>
         <span className="shrink-0 text-right">
           {paying > 0 ? <span className="block text-[0.9375rem] font-extrabold tabular-nums">{formatGBP(paying)}</span> : null}
@@ -138,7 +138,7 @@ function BillRow({ item, today, why, card = false }: { item: Regular; today: str
                     <li key={deal.url} className="rounded-xl border border-line p-3">
                       <p className="text-sm text-muted">{deal.merchant || deal.source}</p>
                       <p className="mt-1 font-bold">{deal.title}</p>
-                      {cheaper ? <p className="mt-1 text-sm font-bold text-forest">{cheaper}</p> : null}
+                      {cheaper ? <p className="mt-1 text-sm font-bold text-accent">{cheaper}</p> : null}
                       <DealAction deal={deal} />
                     </li>
                   );
@@ -211,7 +211,7 @@ export function BillsView() {
                   <span className="truncate text-[0.9375rem] font-bold">{item.name}</span>
                   <span className="text-[0.8125rem] text-muted">Since {shortDay(item.rise?.on ?? today)}</span>
                 </span>
-                <span className="shrink-0 text-[0.9375rem] font-extrabold text-clay tabular-nums">
+                <span className="shrink-0 text-[0.9375rem] font-extrabold text-warn tabular-nums">
                   +{formatGBP((item.rise?.toPence ?? 0) - (item.rise?.fromPence ?? 0))}
                 </span>
               </div>
@@ -233,7 +233,7 @@ export function BillsView() {
 
       <p className="text-[0.8125rem] leading-[1.5] text-muted">
         Offers come from public deal pages. A price shows only when the page states it.{" "}
-        <Link to="/regular" className="font-bold text-forest">
+        <Link to="/regular" className="font-bold text-accent">
           All regular payments
         </Link>
       </p>

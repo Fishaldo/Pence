@@ -47,7 +47,7 @@ export function DealTerms({ deal }: { deal: PersonalDeal }) {
   return (
     <>
       {deal.check ? (
-        <p className={`mt-1 text-sm ${deal.works ? "text-forest" : "text-clay"}`}>{deal.check}</p>
+        <p className={`mt-1 text-sm ${deal.works ? "text-accent" : "text-warn"}`}>{deal.check}</p>
       ) : null}
       {deal.endsOn ? <p className="mt-1 text-sm text-muted">Ends {shortDay(deal.endsOn)}</p> : null}
     </>
@@ -59,7 +59,7 @@ export function DealCard({ deal, showReason = true }: { deal: PersonalDeal; show
   return (
     <li className="panel flex flex-col gap-2 px-4 py-3.5">
       <div className="flex items-center gap-2.5">
-        <span aria-hidden="true" className="initial initial-amber size-9 text-[0.9375rem]">{(shop.trim().charAt(0) || "·").toUpperCase()}</span>
+        <span aria-hidden="true" className="initial initial-offer size-9 text-[0.9375rem]">{(shop.trim().charAt(0) || "·").toUpperCase()}</span>
         <div className="flex min-w-0 flex-1 flex-col">
           <span className="truncate text-sm font-extrabold">{shop}</span>
           <span className="truncate text-xs text-muted">
@@ -72,9 +72,9 @@ export function DealCard({ deal, showReason = true }: { deal: PersonalDeal; show
         {deal.title}
       </a>
       {deal.detail ? <p className="text-sm text-ink-soft">{deal.detail}</p> : null}
-      {deal.saving ? <p className="text-[0.8125rem] font-semibold text-forest">{deal.saving}</p> : null}
+      {deal.saving ? <p className="text-[0.8125rem] font-semibold text-accent">{deal.saving}</p> : null}
       {deal.check ? (
-        <p className={`text-[0.8125rem] leading-snug font-semibold ${deal.works ? "text-forest" : "text-clay"}`}>{deal.check}</p>
+        <p className={`text-[0.8125rem] leading-snug font-semibold ${deal.works ? "text-accent" : "text-warn"}`}>{deal.check}</p>
       ) : null}
       {showReason && deal.reason ? <p className="text-[0.8125rem] text-muted">{deal.reason}</p> : null}
       {deal.endsOn ? <p className="text-xs text-muted">Ends {shortDay(deal.endsOn)}</p> : null}
@@ -361,7 +361,7 @@ export function OffersView() {
           {near.length > 0 ? (
             <section aria-label="Near you" className="flex flex-col gap-2.5">
               <h2 className="section-title flex items-center gap-1.5">
-                <MapPin className="size-[18px] text-forest" strokeWidth={2} aria-hidden="true" />
+                <MapPin className="size-[18px] text-accent" strokeWidth={2} aria-hidden="true" />
                 {city ? `Near ${city}` : "Near you"}
               </h2>
               <ul className="flex flex-col gap-2.5">
@@ -449,7 +449,7 @@ function WatchlistButton({ items }: { items: { status: string }[] }) {
       {items.length > 0 ? <span className="tabular-nums opacity-70">{items.length}</span> : null}
       {found ? (
         <span
-          className="absolute -top-0.5 -right-0.5 size-3 rounded-full bg-clay ring-2 ring-paper"
+          className="absolute -top-0.5 -right-0.5 size-3 rounded-full bg-offer ring-2 ring-paper"
           aria-label="Pence found a price"
         />
       ) : null}
@@ -498,7 +498,7 @@ function YourShops({
                   <span className="shrink-0 text-[0.9375rem] font-extrabold tabular-nums">{formatGBP(shop.totalPence)}</span>
                 </div>
                 {scheme ? (
-                  <a href={scheme.href} className="text-[0.8125rem] font-semibold text-forest" target="_blank" rel="noreferrer">
+                  <a href={scheme.href} className="text-[0.8125rem] font-semibold text-accent" target="_blank" rel="noreferrer">
                     {scheme.name}: {scheme.detail}
                   </a>
                 ) : null}

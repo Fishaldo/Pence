@@ -24,7 +24,7 @@ export function Review({
   return (
     <div className="flex flex-col gap-3">
       {draft.unsure ? (
-        <p className="rounded-md bg-clay-soft px-3 py-2 text-sm text-ink">
+        <p className="rounded-md bg-warn-tint px-3 py-2 text-sm text-ink">
           Check the shop, the total, the date, and the items before saving.
           {draft.category !== "other" ? "" : " The category stays Other unless you change it."}
         </p>

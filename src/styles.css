@@ -1,9 +1,15 @@
 @import "tailwindcss";
 
 /*
- * Pence's look, the same as the agreed screens for Briv.
- * Green is money you control, amber is offers, blue is savings and investments.
- * The token names are kept from before so every screen picks up the new values.
+ * Pence's colours, the same as Briv's, named by what they mean.
+ *
+ * Brand (hero, action, accent) says "this is Pence" and nothing about how the
+ * person is doing. Status colours say how they are doing: good, warn, bad,
+ * saved (put away) and offer (a deal). A deal never looks like a warning,
+ * and overspending never looks like "all good".
+ *
+ * Every colour has a dark value too. Dark follows the phone, or the choice
+ * in Settings (set on <html data-theme>).
  */
 @theme {
   --font-sans: "Manrope", ui-sans-serif, system-ui, sans-serif;
@@ -14,32 +20,97 @@
   --color-ink: #17211c;
   --color-ink-soft: #3c4842;
   --color-muted: #5a665f;
+  --color-placeholder: #8a948e;
   --color-line: #e2e5df;
   --color-line-strong: #c9d3cc;
   --color-sand: #eef0ec;
   --color-rule: #eef0ec;
-  --color-forest: #1e5b43;
-  --color-forest-deep: #15402f;
-  --color-foam: #ffffff;
-  --color-mist: #e3efe8;
-  --color-on-forest: #cfe3d8;
-  /* Offers and warnings. */
-  --color-clay: #a14a12;
-  --color-clay-soft: #fbebdd;
-  --color-clay-ink: #6b3a16;
+  --color-chosen: #17211c;
+  --color-on-chosen: #ffffff;
+
+  /* Brand. */
+  --color-hero: #1e5b43;
+  --color-hero-over: #8e1f17;
+  --color-on-hero: #ffffff;
+  --color-on-hero-soft: #cfe3d8;
+  --color-action: #1e5b43;
+  --color-action-press: #15402f;
+  --color-on-action: #ffffff;
+  --color-accent: #1e5b43;
+  --color-accent-tint: #e3efe8;
+
+  /* Status. */
+  --color-good: #1a7346;
+  --color-good-tint: #e1f2e8;
+  --color-warn: #93560a;
+  --color-warn-tint: #fbefd9;
+  --color-warn-ink: #6a3e06;
+  --color-bad: #b3261e;
+  --color-bad-tint: #fbe6e3;
+  --color-bad-ink: #7d1b14;
+  --color-saved: #2b5a8c;
+  --color-saved-soft: #e4ecf6;
+  --color-offer: #7b3fa0;
+  --color-offer-tint: #f2e8f8;
+  --color-offer-ink: #542a6e;
+  /* Recording: always a solid red with white on it. */
+  --color-record: #b3261e;
+
+  /* Chart shades. */
   --color-tone-2: #3d8b68;
   --color-tone-3: #8fbfa4;
   --color-tone-5: #c9d3cc;
   --color-tone-6: #3c4842;
-  /* Savings, investments and transfers: money moved, not spent. */
-  --color-saved: #2b5a8c;
-  --color-saved-soft: #e4ecf6;
-  --color-danger: #a12a1e;
 
   --radius-sm: 0.5rem;
   --radius-md: 0.875rem;
   --radius-lg: 1.125rem;
   --radius-xl: 0.75rem;
+}
+
+@custom-variant dark (&:where([data-theme="dark"], [data-theme="dark"] *));
+
+/* The dark values, set when <html data-theme="dark">. */
+:root[data-theme="dark"] {
+  color-scheme: dark;
+  --color-paper: #0e1311;
+  --color-card: #171e1b;
+  --color-ink: #ecf1ee;
+  --color-ink-soft: #c6cfca;
+  --color-muted: #9ba6a0;
+  --color-placeholder: #6c7872;
+  --color-line: #252e2a;
+  --color-line-strong: #3a4641;
+  --color-sand: #1e2623;
+  --color-rule: #1e2623;
+  --color-chosen: #ecf1ee;
+  --color-on-chosen: #0e1311;
+  --color-hero: #1b4a38;
+  --color-hero-over: #6e1a14;
+  --color-on-hero: #ffffff;
+  --color-on-hero-soft: #c3ddcf;
+  --color-action: #7fcca6;
+  --color-action-press: #9bd9ba;
+  --color-on-action: #0c1f17;
+  --color-accent: #86d2ac;
+  --color-accent-tint: #173328;
+  --color-good: #6fd3a0;
+  --color-good-tint: #163126;
+  --color-warn: #f0b65a;
+  --color-warn-tint: #33270f;
+  --color-warn-ink: #f6d49c;
+  --color-bad: #ff8e80;
+  --color-bad-tint: #3a1916;
+  --color-bad-ink: #ffc4bb;
+  --color-saved: #8db8ea;
+  --color-saved-soft: #162839;
+  --color-offer: #d5a8f0;
+  --color-offer-tint: #2b1d36;
+  --color-offer-ink: #ead2f8;
+  --color-tone-2: #5fb38c;
+  --color-tone-3: #3e7a5e;
+  --color-tone-5: #3a4641;
+  --color-tone-6: #c6cfca;
 }
 
 @layer base {
@@ -76,7 +147,7 @@
   }
 
   :focus-visible {
-    outline: 2px solid var(--color-forest);
+    outline: 2px solid var(--color-accent);
     outline-offset: 2px;
   }
 
@@ -125,7 +196,7 @@
     align-items: center;
     font-size: 0.875rem;
     font-weight: 700;
-    color: var(--color-forest);
+    color: var(--color-accent);
     white-space: nowrap;
   }
 
@@ -152,12 +223,12 @@
   }
 
   .btn-primary {
-    background: var(--color-forest);
-    color: #ffffff;
+    background: var(--color-action);
+    color: var(--color-on-action);
   }
 
   .btn-primary:hover:not(:disabled) {
-    background: var(--color-forest-deep);
+    background: var(--color-action-press);
   }
 
   .btn-quiet {
@@ -172,8 +243,8 @@
 
   .btn-danger {
     background: var(--color-card);
-    color: var(--color-danger);
-    border: 1px solid var(--color-danger);
+    color: var(--color-bad);
+    border: 1px solid var(--color-bad);
   }
 
   /* A small pill button, such as Connect or Copy. */
@@ -187,8 +258,8 @@
     padding-inline: 1.125rem;
     font-size: 0.875rem;
     font-weight: 700;
-    background: var(--color-forest);
-    color: #ffffff;
+    background: var(--color-action);
+    color: var(--color-on-action);
   }
 
   .chip {
@@ -209,9 +280,9 @@
   .chip[aria-pressed="true"],
   .chip[aria-current="page"],
   .chip-on {
-    border-color: var(--color-ink);
-    background: var(--color-ink);
-    color: #ffffff;
+    border-color: var(--color-chosen);
+    background: var(--color-chosen);
+    color: var(--color-on-chosen);
   }
 
   .chip:disabled {
@@ -239,15 +310,22 @@
     flex-shrink: 0;
     place-items: center;
     border-radius: 999px;
-    background: var(--color-mist);
-    color: var(--color-forest);
+    background: var(--color-accent-tint);
+    color: var(--color-accent);
     font-size: 0.9375rem;
     font-weight: 800;
   }
 
-  .initial-amber {
-    background: var(--color-clay-soft);
-    color: var(--color-clay);
+  /* A deal's shop. */
+  .initial-offer {
+    background: var(--color-offer-tint);
+    color: var(--color-offer);
+  }
+
+  /* A bill worth a look. */
+  .initial-warn {
+    background: var(--color-warn-tint);
+    color: var(--color-warn-ink);
   }
 
   .initial-blue {
@@ -262,14 +340,20 @@
     padding: 0.25rem 0.625rem;
     font-size: 0.75rem;
     font-weight: 700;
-    background: var(--color-mist);
-    color: var(--color-forest);
+    background: var(--color-accent-tint);
+    color: var(--color-accent);
     white-space: nowrap;
   }
 
   .badge-amber {
-    background: var(--color-clay-soft);
-    color: var(--color-clay);
+    background: var(--color-warn-tint);
+    color: var(--color-warn-ink);
+  }
+
+  /* A deal: never the warning colour. */
+  .badge-offer {
+    background: var(--color-offer-tint);
+    color: var(--color-offer-ink);
   }
 
   .field {
@@ -297,7 +381,7 @@
   }
 
   .control::placeholder {
-    color: #9aa39d;
+    color: var(--color-placeholder);
     font-weight: 500;
   }
 
@@ -330,11 +414,11 @@
     padding: 0.75rem 1rem;
   }
 
-  /* The green card at the top of Home. */
+  /* The card at the top of Home: the brand colour, red when over take-home. */
   .hero {
     border-radius: 1.375rem;
-    background: var(--color-forest);
-    color: #ffffff;
+    background: var(--color-hero);
+    color: var(--color-on-hero);
     padding: 1.375rem;
   }
 
@@ -361,7 +445,7 @@
     display: block;
     height: 100%;
     border-radius: 999px;
-    background: var(--color-forest);
+    background: var(--color-accent);
   }
 }
 

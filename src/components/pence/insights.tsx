@@ -23,8 +23,8 @@ import { MoneySentCard } from "./money-sent-card";
 import { NearbyPanel } from "./nearby";
 import { SectionHead } from "./ui";
 
-const THIS_PAY = "#1e5b43";
-const LAST_PAY = "#c9d3cc";
+const THIS_PAY = "var(--color-accent)";
+const LAST_PAY = "var(--color-line-strong)";
 
 /** Running total of spending for each day of a pay period, up to `through`. */
 function runningTotals(rows: Tx[], span: PaySpan, through: string): number[] {
@@ -52,7 +52,7 @@ function PayLines({ now, last, days }: { now: number[]; last: number[]; days: nu
   const path = (values: number[]) => values.map((v, i) => `${i === 0 ? "M" : "L"}${x(i).toFixed(1)},${y(v).toFixed(1)}`).join(" ");
   return (
     <svg viewBox={`0 0 ${width} ${height}`} className="h-36 w-full" role="img" aria-label="Spending through this pay and last pay">
-      <line x1="0" y1={height - 4} x2={width} y2={height - 4} stroke="#e2e5df" strokeWidth="1" />
+      <line x1="0" y1={height - 4} x2={width} y2={height - 4} stroke="var(--color-line)" strokeWidth="1" />
       {last.length > 1 ? <path d={path(last)} fill="none" stroke={LAST_PAY} strokeWidth="2.5" strokeDasharray="5 4" strokeLinecap="round" /> : null}
       {now.length > 1 ? <path d={path(now)} fill="none" stroke={THIS_PAY} strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" /> : null}
       {now.length > 0 ? <circle cx={x(now.length - 1)} cy={y(now[now.length - 1])} r="4" fill={THIS_PAY} /> : null}
@@ -122,7 +122,7 @@ export function InsightsView() {
     })
     .sort((a, b) => b.amounts[0] - a.amounts[0] || b.amounts[1] - a.amounts[1]);
   const whereTop = Math.max(...where.flatMap((row) => row.amounts), 1);
-  const whereColours = period === "three" ? [THIS_PAY, "#3d8b68", LAST_PAY] : [THIS_PAY, LAST_PAY];
+  const whereColours = period === "three" ? [THIS_PAY, "var(--color-tone-2)", LAST_PAY] : [THIS_PAY, LAST_PAY];
   const whereNames =
     period === "three" ? [span.short, prevSpan.short, olderSpan.short] : [mainLabel, otherLabel];
 
@@ -182,7 +182,7 @@ export function InsightsView() {
             <span style={{ width: `${(sameDay.spent / compareTop) * 100}%`, background: LAST_PAY }} />
           </div>
         </div>
-        <span className={`text-sm font-bold ${diff > 0 ? "text-clay" : "text-forest"}`}>
+        <span className={`text-sm font-bold ${diff > 0 ? "text-warn" : "text-accent"}`}>
           {previous.spent === 0
             ? `No last ${unit} to compare yet.`
             : Math.abs(diff) < 500
@@ -276,7 +276,7 @@ export function InsightsView() {
         <h2 className="section-title">Before your next spend</h2>
         {advice.map((card) => (
           <p key={card.id} className="text-sm leading-[1.5] text-ink-soft">
-            <strong className={card.tone === "warn" ? "text-clay" : "text-ink"}>{card.title}.</strong> {card.body}
+            <strong className={card.tone === "warn" ? "text-warn" : "text-ink"}>{card.title}.</strong> {card.body}
           </p>
         ))}
         <button
