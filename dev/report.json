@@ -1,0 +1,222 @@
+{
+  "base": "http://127.0.0.1:8080",
+  "steps": [
+    {
+      "name": "open the app",
+      "ok": true,
+      "ms": 2751,
+      "note": ""
+    },
+    {
+      "name": "create an account",
+      "ok": true,
+      "ms": 1528,
+      "note": ""
+    },
+    {
+      "name": "fill in pay and town",
+      "ok": true,
+      "ms": 1769,
+      "note": ""
+    },
+    {
+      "name": "load the sample month",
+      "ok": true,
+      "ms": 6834,
+      "note": ""
+    },
+    {
+      "name": "open Offers",
+      "ok": true,
+      "ms": 18751,
+      "note": "Offers\nWatchlist\n\nFrom the shops’ own pages. A price, code or end date shows only when the page states it.\n\nSearch offers\nFor you\nYour shops\nBills\nCheaper elsewhere\n\nWhere you spend most, and the cards or apps that can save you money there.\n\nU\nUber\n4 visits · Taxis & rides\n£61.00\nCheck the ride price first: The upfront price is the moment to switch to the bus or Metro. A membership fee is only worth it when it is smaller than the fees you already pay.\nT\nTesco\n2 visits · Food shop\n£134.60\nTesco Clubcard Prices: The yellow Clubcard label is a different price from the ordinary shelf ticket. Scan before you pay the big number.\nB\nBoots\n2 visits · Pharmacy\n£52.50\nBoots Advantage Card: Use it on toiletries and pharmacy items you already needed. A points multiple is not a reason to add a third basket.\nV\nVodafone\n2 visits · Phone & broadband\n£42.90\nN\nNetflix\n2 visits · Streaming & apps\n£25.98\nG\nGreggs\n2 visits · Lunch on the go\n£13.50\nO\nOctopus\n1 visit · Energy & water\n£68.00\nS\nSainsbury’s\n1 visit · Food shop\n£54.20\nNectar Prices: Member prices sit under the regular ticket, and points stack on top. Worth opening the Nectar app before a big Sainsbury’s shop.\nA\nAldi\n1 visit · Food shop\n£41.10"
+    },
+    {
+      "name": "Plan: place picker",
+      "ok": true,
+      "ms": 1276,
+      "note": "Your town · Birmingham | Use my location now | Type a place"
+    },
+    {
+      "name": "Plan: Watchlist needs an item or a shop",
+      "ok": true,
+      "ms": 438,
+      "note": ""
+    },
+    {
+      "name": "Plan: add an item to the Watchlist",
+      "ok": true,
+      "ms": 821,
+      "note": ""
+    },
+    {
+      "name": "Plan: add a shop to the Watchlist",
+      "ok": true,
+      "ms": 493,
+      "note": ""
+    },
+    {
+      "name": "Offers: the Watchlist is its own screen, with Back",
+      "ok": true,
+      "ms": 12222,
+      "note": "Watchlist\n\nThings you want, with the price to beat. Pence checks every day and tells you when a deal turns up.\n\nAdd something to watch\n\nPence found a promotion\n\nASDA\n\nAny promotion\n\nIs this one for you?\n\n£1.25\n\nASDA Groceries\n\nBahlsen PiCK UP! Minis Milk Chocolate Biscuit Bars 10 Pack\n\nGet it at ASDA GroceriesI’ll use this one\n\n£1.00\n\nASDA Groceries\n\nWerther's Original Butter Candies 135g\n\nGet it at ASDA GroceriesI’ll use this one\n\n£0.86\n\nASDA Groceries\n\nASDA Garden Gang Amazing Apples 6pk\n\nGet it at ASDA GroceriesI’ll use this one\n\n£1.00\n\nASDA Groceries\n\nThe Bakery At ASDA - 4 Chocolate Éclairs 4 Pack\n\nGet it at ASDA GroceriesI’ll use this one\n\n£0.82\n\nASDA Groceries\n\nASDA Fragrant & Crunchy Spring Onions 125g\n\nGet it at ASDA GroceriesI’ll use this one\n\nNot for you? Pence will keep watching for the next promotion.\n\nNot this one, keep watching\n\niPhone 17 Pro 256GB\n\nUp to £800.00 · Birmingham\n\nChecked just now · 20 offers seen\n\nLowest seen: £879.00 at giffgaff\n\nCheck now\nChange price\nStop watching\n\nPhone alerts are blocked for Pence. Allow notifications for Pence in your phone’s settings."
+    },
+    {
+      "name": "Watchlist: reopen every offer seen",
+      "ok": true,
+      "ms": 261,
+      "note": "10 offers can be taken"
+    },
+    {
+      "name": "Offers: cheaper elsewhere under your own shops",
+      "ok": true,
+      "ms": 7314,
+      "note": "30 cheaper places shown"
+    },
+    {
+      "name": "Activity: rename a payee for every payment like it",
+      "ok": true,
+      "ms": 2455,
+      "note": "all 4 Uber payments now read Uber rides"
+    },
+    {
+      "name": "Activity: add what was bought to a payment",
+      "ok": true,
+      "ms": 1405,
+      "note": "G Greggs Dining · 3 items · wallet, no receipt · sample £7.10"
+    },
+    {
+      "name": "Regular payments: the list",
+      "ok": true,
+      "ms": 1915,
+      "note": "Regular payments About £46.43 a month · 3 running Later Netflix Every month £12.99 Due Thu 5 Nov · in 21 days Spotify Every month £11.99 Due Thu 5 Nov · in 21 days Vodafone Every month £21.45 Due Tue 10 Nov · in 26 days Went up from £20.00 to £22.90 on Sat 10 Oct. Look for a better deal Add a payment or free trial Phone alerts are blocked for Pence. Allow notifications for Pence in your phone’s se"
+    },
+    {
+      "name": "Regular payments: add a free trial",
+      "ok": true,
+      "ms": 1712,
+      "note": ""
+    },
+    {
+      "name": "Regular payments: mark one as cancelled",
+      "ok": true,
+      "ms": 120,
+      "note": ""
+    },
+    {
+      "name": "Home: payments coming out soon",
+      "ok": true,
+      "ms": 1008,
+      "note": ""
+    },
+    {
+      "name": "open Hot deals",
+      "ok": true,
+      "ms": 9124,
+      "note": "Popular now in the UK\n\nDeals people are using right now, from public UK deal pages.\n\nCostco\nHisense 55A7STUK 55 Inch QLED 4K UHD Smart TV\n£429.99\n\nEnds Sun 18 Oct\n\nGet it at Costco\nAmazon\nAmazon Essentials Men's Cotton Canvas Barn Jacket - Colour Navy - Size Medium\n£13.54\nGet it at Amazon\nJust Eat\n50% Off Order - Minimum £15 Spend Max £10 Off (Selected Users / Areas / Delivery & Fees Apply)\n£15.00\n\nEnds Wed 21 Oct\n\nDKR93D\nCopy\nUse it at Just Eat\nJD Sports\nadidas Adizero Evo SL Woven Mens Running Shoes (Sizes 7 & 11) - Free Click and Collect - w/code\n£63.00\nHEY10\nCopy\nUse it at JD Sports\nASDA G"
+    },
+    {
+      "name": "open Insights",
+      "ok": true,
+      "ms": 3963,
+      "note": ""
+    },
+    {
+      "name": "Home: safe to spend and one-tap questions",
+      "ok": true,
+      "ms": 5698,
+      "note": "answered: £38.00 at Boots Tue 6 Oct What was it? One tap files it. Beauty & skincare Pharm"
+    },
+    {
+      "name": "Bills: list, price rises and a better deal",
+      "ok": true,
+      "ms": 7067,
+      "note": "Bills Bills each month £34.44 3 bills · 1% of your take-home 1 could cost less Could cost less V Mobile Vodafone Every month Up £2.90 since Sat 10 Oct £22.90 Tue 10 Nov Was £20.00, now £22.90 since Sat 10 Oct. When the contract or deal ends Save the date Pence reminds you before it ends, when out-of-contract prices usually go up. Look for a better deal How to switch O2 O2 SIM Only Deals - £7 PM / 10GB, £8PM / 40GB £10 PM / 75GB + Roaming - Unlimited calls text + esim Get it at O2 Lebara Lebara S"
+    },
+    {
+      "name": "Budget: on Plan, made from past pays, within take-home",
+      "ok": true,
+      "ms": 2954,
+      "note": "£717.50 planned of your £2,400.00 take-home Savings £240.00 Never cut: rent, bills and the like £102.50 Everyday spending £375.00 Spare £1,682.50 You haven’t been putting money away. This plan starts with £240.00 a pay."
+    },
+    {
+      "name": "Weekly check-in",
+      "ok": true,
+      "ms": 1970,
+      "note": ""
+    },
+    {
+      "name": "Activity: search with totals by period",
+      "ok": true,
+      "ms": 1865,
+      "note": "£61.00 4 spends matching “uber”, last 3 months."
+    },
+    {
+      "name": "Back returns to where you came from",
+      "ok": true,
+      "ms": 1501,
+      "note": "Offers → Bills → Back lands on Offers; Bills opened directly → Back lands on Home"
+    },
+    {
+      "name": "Plan: quick questions for eating out",
+      "ok": true,
+      "ms": 1662,
+      "note": ""
+    },
+    {
+      "name": "Plan: a detailed item picks its own What",
+      "ok": true,
+      "ms": 3902,
+      "note": "Deals found"
+    },
+    {
+      "name": "Add: paste a payment message",
+      "ok": true,
+      "ms": 1764,
+      "note": ""
+    },
+    {
+      "name": "Settings: your data",
+      "ok": true,
+      "ms": 1243,
+      "note": "pence-data-2026-10-15.json"
+    },
+    {
+      "name": "open Activity",
+      "ok": true,
+      "ms": 2865,
+      "note": ""
+    },
+    {
+      "name": "home on a computer screen",
+      "ok": true,
+      "ms": 5315,
+      "note": ""
+    },
+    {
+      "name": "phone width has no sideways scroll",
+      "ok": true,
+      "ms": 16173,
+      "note": ""
+    },
+    {
+      "name": "daily watch check route",
+      "ok": true,
+      "ms": 14,
+      "note": "{\"checked\":0,\"found\":0,\"reminders\":{\"users\":0,\"sent\":0}}"
+    },
+    {
+      "name": "service worker file is served",
+      "ok": true,
+      "ms": 4,
+      "note": ""
+    }
+  ],
+  "consoleErrors": [],
+  "pageErrors": [],
+  "failedRequests": [],
+  "watchCheck": {
+    "status": 200,
+    "body": "{\"checked\":0,\"found\":0,\"reminders\":{\"users\":0,\"sent\":0}}"
+  }
+}

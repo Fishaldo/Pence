@@ -1,0 +1,16 @@
+
+> db:migrate
+> node scripts/migrate.mjs
+
+[migrate] applied 0001_auth.sql
+[migrate] applied 0002_pence.sql
+[migrate] applied 0003_place.sql
+[migrate] applied 0004_places.sql
+[migrate] applied 0005_habits.sql
+[migrate] applied 0006_watch.sql
+[migrate] applied 0007_learn.sql
+[migrate] applied 0008_regular.sql
+[migrate] applied 0009_no_photos.sql
+[migrate] applied 0010_shop_kinds.sql
+[migrate] applied 0011_payday_bills.sql
+[migrate] done — 11 migration(s) applied.

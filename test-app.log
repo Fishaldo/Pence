@@ -1,0 +1,562 @@
+TAP version 13
+# (node:2825) ExperimentalWarning: The MockTimers API is an experimental feature and might change at any time
+# (Use `node --trace-warnings ...` to show where the warning was created)
+# Subtest: callTool failure memo
+    # Subtest: replays an identical failure within the memo window without refetching
+    ok 1 - replays an identical failure within the memo window without refetching
+      ---
+      duration_ms: 4.015907
+      type: 'test'
+      ...
+    # Subtest: keys by token identity so a reminted token shares the memo entry
+    ok 2 - keys by token identity so a reminted token shares the memo entry
+      ---
+      duration_ms: 0.981859
+      type: 'test'
+      ...
+    # Subtest: sweeps expired entries on write so unique keys do not accumulate
+    ok 3 - sweeps expired entries on write so unique keys do not accumulate
+      ---
+      duration_ms: 1.634121
+      type: 'test'
+      ...
+    # Subtest: never memoizes login-required 401s
+    ok 4 - never memoizes login-required 401s
+      ---
+      duration_ms: 0.911091
+      type: 'test'
+      ...
+    1..4
+ok 1 - callTool failure memo
+  ---
+  duration_ms: 8.375501
+  type: 'suite'
+  ...
+# Subtest: callTool in the workspace preview vs deployed
+    # Subtest: returns pending (no loginRequired) when the preview has no token yet
+    ok 1 - returns pending (no loginRequired) when the preview has no token yet
+      ---
+      duration_ms: 0.598912
+      type: 'test'
+      ...
+    # Subtest: returns a plain error (no sign-in CTA) when a deployed app has no token
+    ok 2 - returns a plain error (no sign-in CTA) when a deployed app has no token
+      ---
+      duration_ms: 0.423398
+      type: 'test'
+      ...
+    # Subtest: treats a gate 401 in the preview as pending and parks the rejected token
+    ok 3 - treats a gate 401 in the preview as pending and parks the rejected token
+      ---
+      duration_ms: 1.087858
+      type: 'test'
+      ...
+    # Subtest: keeps loginRequired for a gate 401 on a deployed app
+    ok 4 - keeps loginRequired for a gate 401 on a deployed app
+      ---
+      duration_ms: 0.675978
+      type: 'test'
+      ...
+    1..4
+ok 2 - callTool in the workspace preview vs deployed
+  ---
+  duration_ms: 3.125687
+  type: 'suite'
+  ...
+# Subtest: callTool
+    # Subtest: resolves ok:false for non-serializable args instead of rejecting
+    ok 1 - resolves ok:false for non-serializable args instead of rejecting
+      ---
+      duration_ms: 0.417679
+      type: 'test'
+      ...
+    1..1
+ok 3 - callTool
+  ---
+  duration_ms: 0.513934
+  type: 'suite'
+  ...
+# Subtest: isLoginRequired
+    # Subtest: is true only for login-required failures
+    ok 1 - is true only for login-required failures
+      ---
+      duration_ms: 0.161263
+      type: 'test'
+      ...
+    1..1
+ok 4 - isLoginRequired
+  ---
+  duration_ms: 0.233542
+  type: 'suite'
+  ...
+# Subtest: redirectToLoginIfRequired
+    # Subtest: no-ops when login is not required
+    ok 1 - no-ops when login is not required
+      ---
+      duration_ms: 0.188864
+      type: 'test'
+      ...
+    # Subtest: navigates to the server-built loginUrl in the browser
+    ok 2 - navigates to the server-built loginUrl in the browser
+      ---
+      duration_ms: 0.114152
+      type: 'test'
+      ...
+    # Subtest: opens a new tab instead of navigating when framed
+    ok 3 - opens a new tab instead of navigating when framed
+      ---
+      duration_ms: 0.134122
+      type: 'test'
+      ...
+    # Subtest: falls back to navigation when framed and the popup is blocked
+    ok 4 - falls back to navigation when framed and the popup is blocked
+      ---
+      duration_ms: 0.09295
+      type: 'test'
+      ...
+    # Subtest: returns false when the result has no loginUrl
+    ok 5 - returns false when the result has no loginUrl
+      ---
+      duration_ms: 0.083105
+      type: 'test'
+      ...
+    # Subtest: returns false on the server (no window)
+    ok 6 - returns false on the server (no window)
+      ---
+      duration_ms: 0.061663
+      type: 'test'
+      ...
+    1..6
+ok 5 - redirectToLoginIfRequired
+  ---
+  duration_ms: 0.825413
+  type: 'suite'
+  ...
+# Subtest: GoogleCalendarTools
+    # Subtest: does not expose a list_events name
+    ok 1 - does not expose a list_events name
+      ---
+      duration_ms: 0.081222
+      type: 'test'
+      ...
+    1..1
+ok 6 - GoogleCalendarTools
+  ---
+  duration_ms: 0.130497
+  type: 'suite'
+  ...
+# Subtest: classifyCallToolError
+    # Subtest: returns null for successful results
+    ok 1 - returns null for successful results
+      ---
+      duration_ms: 0.169956
+      type: 'test'
+      ...
+    # Subtest: classifies a pending preview token as pending before any other kind
+    ok 2 - classifies a pending preview token as pending before any other kind
+      ---
+      duration_ms: 0.109806
+      type: 'test'
+      ...
+    # Subtest: classifies a deployed missing token as error, not a login CTA
+    ok 3 - classifies a deployed missing token as error, not a login CTA
+      ---
+      duration_ms: 1.13557
+      type: 'test'
+      ...
+    # Subtest: classifies gate loginRequired without a missing-token message as login
+    ok 4 - classifies gate loginRequired without a missing-token message as login
+      ---
+      duration_ms: 0.111808
+      type: 'test'
+      ...
+    # Subtest: classifies not_connected and failed_precondition
+    ok 5 - classifies not_connected and failed_precondition
+      ---
+      duration_ms: 0.148984
+      type: 'test'
+      ...
+    # Subtest: classifies scope_denied without claiming a missing grant
+    ok 6 - classifies scope_denied without claiming a missing grant
+      ---
+      duration_ms: 0.147933
+      type: 'test'
+      ...
+    # Subtest: classifies access_denied
+    ok 7 - classifies access_denied
+      ---
+      duration_ms: 0.078488
+      type: 'test'
+      ...
+    # Subtest: falls back to a generic error with the raw message
+    ok 8 - falls back to a generic error with the raw message
+      ---
+      duration_ms: 0.094302
+      type: 'test'
+      ...
+    1..8
+ok 7 - classifyCallToolError
+  ---
+  duration_ms: 2.205571
+  type: 'suite'
+  ...
+# Subtest: readinessProbeDelayMs
+    # Subtest: backs off through the schedule and then holds the last delay
+    ok 1 - backs off through the schedule and then holds the last delay
+      ---
+      duration_ms: 1.061018
+      type: 'test'
+      ...
+    # Subtest: clamps a negative attempt to the first delay
+    ok 2 - clamps a negative attempt to the first delay
+      ---
+      duration_ms: 0.152199
+      type: 'test'
+      ...
+    1..2
+ok 8 - readinessProbeDelayMs
+  ---
+  duration_ms: 1.974634
+  type: 'suite'
+  ...
+# Subtest: readinessProbeExhausted
+    # Subtest: gives up only once the total wait budget has elapsed
+    ok 1 - gives up only once the total wait budget has elapsed
+      ---
+      duration_ms: 0.197908
+      type: 'test'
+      ...
+    1..1
+ok 9 - readinessProbeExhausted
+  ---
+  duration_ms: 0.300522
+  type: 'suite'
+  ...
+# Subtest: verifyGateIdentityToken
+    # Subtest: returns the identity for a valid token
+    ok 1 - returns the identity for a valid token
+      ---
+      duration_ms: 15.745889
+      type: 'test'
+      ...
+    # Subtest: omits optional claims as nulls
+    ok 2 - omits optional claims as nulls
+      ---
+      duration_ms: 8.472943
+      type: 'test'
+      ...
+    # Subtest: rejects a wrong audience
+    ok 3 - rejects a wrong audience
+      ---
+      duration_ms: 3.040708
+      type: 'test'
+      ...
+    # Subtest: rejects a wrong issuer
+    ok 4 - rejects a wrong issuer
+      ---
+      duration_ms: 4.274747
+      type: 'test'
+      ...
+    # Subtest: rejects an expired token
+    ok 5 - rejects an expired token
+      ---
+      duration_ms: 6.164192
+      type: 'test'
+      ...
+    # Subtest: rejects a token without exp
+    ok 6 - rejects a token without exp
+      ---
+      duration_ms: 1.541541
+      type: 'test'
+      ...
+    # Subtest: rejects a token signed by a different key with the same kid
+    ok 7 - rejects a token signed by a different key with the same kid
+      ---
+      duration_ms: 1.271505
+      type: 'test'
+      ...
+    # Subtest: refetches the JWKS when the kid rotates
+    ok 8 - refetches the JWKS when the kid rotates
+      ---
+      duration_ms: 2.431682
+      type: 'test'
+      ...
+    1..8
+ok 10 - verifyGateIdentityToken
+  ---
+  duration_ms: 44.287339
+  type: 'suite'
+  ...
+# Subtest: gateIdentityFromHeaders
+    # Subtest: verifies the header token end to end and fails closed without it
+    ok 1 - verifies the header token end to end and fails closed without it
+      ---
+      duration_ms: 17.035982
+      type: 'test'
+      ...
+    # Subtest: activates on a deployed-shaped request without GROK_GATE_ORIGIN
+    ok 2 - activates on a deployed-shaped request without GROK_GATE_ORIGIN
+      ---
+      duration_ms: 2.221535
+      type: 'test'
+      ...
+    # Subtest: verifies a preview-audience token with no gate env vars via the loopback default
+    ok 3 - verifies a preview-audience token with no gate env vars via the loopback default
+      ---
+      duration_ms: 1.493128
+      type: 'test'
+      ...
+    # Subtest: rejects a wrong-issuer token in the loopback default mode
+    ok 4 - rejects a wrong-issuer token in the loopback default mode
+      ---
+      duration_ms: 1.423683
+      type: 'test'
+      ...
+    # Subtest: verifies a preview-audience token when only GROK_GATE_ORIGIN is set
+    ok 5 - verifies a preview-audience token when only GROK_GATE_ORIGIN is set
+      ---
+      duration_ms: 1.347759
+      type: 'test'
+      ...
+    # Subtest: rejects a preview-audience token when GROK_PROJECT_ID is set
+    ok 6 - rejects a preview-audience token when GROK_PROJECT_ID is set
+      ---
+      duration_ms: 1.263753
+      type: 'test'
+      ...
+    # Subtest: rejects an app-audience token in preview mode
+    ok 7 - rejects an app-audience token in preview mode
+      ---
+      duration_ms: 1.245115
+      type: 'test'
+      ...
+    1..7
+ok 11 - gateIdentityFromHeaders
+  ---
+  duration_ms: 26.627293
+  type: 'suite'
+  ...
+# Subtest: gateIdentityEnabled
+    # Subtest: is enabled by default with no gate env vars
+    ok 1 - is enabled by default with no gate env vars
+      ---
+      duration_ms: 0.141393
+      type: 'test'
+      ...
+    # Subtest: is disabled when VITE_AUTH_ENABLED is false
+    ok 2 - is disabled when VITE_AUTH_ENABLED is false
+      ---
+      duration_ms: 0.114092
+      type: 'test'
+      ...
+    1..2
+ok 12 - gateIdentityEnabled
+  ---
+  duration_ms: 0.355766
+  type: 'suite'
+  ...
+# Subtest: gateTokenAudience
+    # Subtest: pins app:<id> when GROK_PROJECT_ID is set, even alongside GROK_GATE_ORIGIN
+    ok 1 - pins app:<id> when GROK_PROJECT_ID is set, even alongside GROK_GATE_ORIGIN
+      ---
+      duration_ms: 0.118619
+      type: 'test'
+      ...
+    # Subtest: pins preview when GROK_PROJECT_ID is unset
+    ok 2 - pins preview when GROK_PROJECT_ID is unset
+      ---
+      duration_ms: 0.098448
+      type: 'test'
+      ...
+    1..2
+ok 13 - gateTokenAudience
+  ---
+  duration_ms: 0.298689
+  type: 'suite'
+  ...
+# Subtest: gateIdentityUserInfo
+    # Subtest: falls back to a synthetic email and name for sub-only claims
+    ok 1 - falls back to a synthetic email and name for sub-only claims
+      ---
+      duration_ms: 0.147062
+      type: 'test'
+      ...
+    # Subtest: keeps real claims, lowercasing the email and marking it verified
+    ok 2 - keeps real claims, lowercasing the email and marking it verified
+      ---
+      duration_ms: 0.153752
+      type: 'test'
+      ...
+    1..2
+ok 14 - gateIdentityUserInfo
+  ---
+  duration_ms: 0.392381
+  type: 'suite'
+  ...
+# Subtest: sessionBoundToGateIdentity
+    # Subtest: keeps the session when it is bound to the same gate sub
+    ok 1 - keeps the session when it is bound to the same gate sub
+      ---
+      duration_ms: 0.181743
+      type: 'test'
+      ...
+    # Subtest: rotates when the session belongs to a different gate sub
+    ok 2 - rotates when the session belongs to a different gate sub
+      ---
+      duration_ms: 0.071918
+      type: 'test'
+      ...
+    # Subtest: rotates when the session user has no gate-bound account
+    ok 3 - rotates when the session user has no gate-bound account
+      ---
+      duration_ms: 0.064177
+      type: 'test'
+      ...
+    1..3
+ok 15 - sessionBoundToGateIdentity
+  ---
+  duration_ms: 0.41182
+  type: 'suite'
+  ...
+# Subtest: resolveSignInGateState
+    # Subtest: is pending while the session check is in flight, user or not
+    ok 1 - is pending while the session check is in flight, user or not
+      ---
+      duration_ms: 0.625472
+      type: 'test'
+      ...
+    # Subtest: is signed_in once a user is present
+    ok 2 - is signed_in once a user is present
+      ---
+      duration_ms: 0.112359
+      type: 'test'
+      ...
+    # Subtest: is signed_out only after the check resolved with no user
+    ok 3 - is signed_out only after the check resolved with no user
+      ---
+      duration_ms: 0.080541
+      type: 'test'
+      ...
+    1..3
+ok 16 - resolveSignInGateState
+  ---
+  duration_ms: 1.538066
+  type: 'suite'
+  ...
+# Subtest: round-ups
+    # Subtest: knows a round-up thread is not a deal
+    ok 1 - knows a round-up thread is not a deal
+      ---
+      duration_ms: 0.748147
+      type: 'test'
+      ...
+    1..1
+ok 17 - round-ups
+  ---
+  duration_ms: 1.545227
+  type: 'suite'
+  ...
+# Subtest: monthly prices
+    # Subtest: knows a time or a name is not a monthly price
+    ok 1 - knows a time or a name is not a monthly price
+      ---
+      duration_ms: 0.853245
+      type: 'test'
+      ...
+    1..1
+ok 18 - monthly prices
+  ---
+  duration_ms: 0.957301
+  type: 'suite'
+  ...
+# Subtest: reading HotUKDeals cards
+    # Subtest: takes the code, the shop link and the price, and drops expired deals
+    ok 1 - takes the code, the shop link and the price, and drops expired deals
+      ---
+      duration_ms: 0.994478
+      type: 'test'
+      ...
+    # Subtest: never treats a monthly contract as the price, and gives no shop link when there is no shop
+    ok 2 - never treats a monthly contract as the price, and gives no shop link when there is no shop
+      ---
+      duration_ms: 0.297388
+      type: 'test'
+      ...
+    # Subtest: still reads plain links when the cards carry no data
+    ok 3 - still reads plain links when the cards carry no data
+      ---
+      duration_ms: 0.343828
+      type: 'test'
+      ...
+    1..3
+ok 19 - reading HotUKDeals cards
+  ---
+  duration_ms: 1.831838
+  type: 'suite'
+  ...
+# Subtest: prices in titles
+    # Subtest: skips savings and monthly prices
+    ok 1 - skips savings and monthly prices
+      ---
+      duration_ms: 0.293903
+      type: 'test'
+      ...
+    1..1
+ok 20 - prices in titles
+  ---
+  duration_ms: 0.517299
+  type: 'suite'
+  ...
+# Subtest: deal pages and dates
+    # Subtest: reads the words of a deal post from its page
+    ok 1 - reads the words of a deal post from its page
+      ---
+      duration_ms: 1.193957
+      type: 'test'
+      ...
+    # Subtest: keeps the end date the board prints, drops deals past it, and marks in-store deals
+    ok 2 - keeps the end date the board prints, drops deals past it, and marks in-store deals
+      ---
+      duration_ms: 39.296526
+      type: 'test'
+      ...
+    1..2
+ok 21 - deal pages and dates
+  ---
+  duration_ms: 40.723093
+  type: 'suite'
+  ...
+# Subtest: deal pictures from the shop's own page
+    # Subtest: takes the link-preview picture, whichever way round the tag is written
+    ok 1 - takes the link-preview picture, whichever way round the tag is written
+      ---
+      duration_ms: 0.865974
+      type: 'test'
+      ...
+    # Subtest: turns a relative picture into a full address, and refuses one that is not https
+    ok 2 - turns a relative picture into a full address, and refuses one that is not https
+      ---
+      duration_ms: 0.2857
+      type: 'test'
+      ...
+    # Subtest: never reads a deal board, a click-through link or a private address
+    ok 3 - never reads a deal board, a click-through link or a private address
+      ---
+      duration_ms: 4.278112
+      type: 'test'
+      ...
+    1..3
+ok 22 - deal pictures from the shop's own page
+  ---
+  duration_ms: 6.28948
+  type: 'suite'
+  ...
+1..22
+# tests 66
+# suites 22
+# pass 66
+# fail 0
+# cancelled 0
+# skipped 0
+# todo 0
+# duration_ms 371.383786
