@@ -43,7 +43,11 @@ const context = await browser.newContext({ viewport: { width: 390, height: 844 }
 const page = await context.newPage();
 page.setDefaultTimeout(30_000);
 page.on("console", (msg) => {
-  if (msg.type() === "error") report.consoleErrors.push(`${page.url()} :: ${msg.text()}`.slice(0, 400));
+  if (msg.type() !== "error") return;
+  // A shop's own picture that won't load is the shop's doing, not Pence's: the card falls back to its tile.
+  const from = msg.location()?.url ?? "";
+  if (/^Failed to load resource/.test(msg.text()) && from && !from.startsWith(base)) return;
+  report.consoleErrors.push(`${page.url()} :: ${msg.text()} ${from}`.slice(0, 400));
 });
 page.on("pageerror", (err) => report.pageErrors.push(`${page.url()} :: ${String(err?.message || err)}`.slice(0, 400)));
 page.on("response", (res) => {
