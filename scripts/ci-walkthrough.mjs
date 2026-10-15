@@ -377,6 +377,26 @@ await step("Plan: quick questions for eating out", async () => {
   await shot("26-plan-questions");
 });
 
+await step("Plan: a detailed item picks its own What", async () => {
+  await page.goto(`${base}/plan`, { waitUntil: "domcontentloaded" });
+  await page.getByRole("button", { name: "Plan a spend", pressed: true }).waitFor();
+  await page.getByLabel(/^Item/).fill("Kitchen tap");
+  await page.getByText("DIY, tools and plumbing").waitFor();
+  await page.getByText("Picked from your item. Tap to change.").waitFor();
+  await page.getByLabel(/^Details/).fill("Monobloc mixer for high and low water pressure, with flexible connectors");
+  await page.getByLabel(/^Shop/).fill("Screwfix");
+  await page.getByText("Who's fitting it?").waitFor();
+  if (await page.getByText("Weekly shop or one thing?").count()) throw new Error("grocery questions shown for a tap");
+  await settle(500);
+  await shot("26b-plan-detailed-item");
+  await page.getByRole("button", { name: "Find deals" }).click();
+  await page.getByRole("button", { name: "Find deals" }).waitFor({ timeout: 90_000 });
+  const text = await page.locator("main").innerText();
+  if (/aborted|timeout|TypeError|fetch failed/i.test(text)) throw new Error("a system error was shown to the person");
+  await shot("26c-plan-detailed-item-searched");
+  return (text.match(/(The web search[^\n]*|Deals found)/) ?? [""])[0];
+});
+
 await step("Add: paste a payment message", async () => {
   await page.goto(`${base}/capture`, { waitUntil: "domcontentloaded" });
   await page.getByRole("heading", { name: "Add a spend" }).waitFor();

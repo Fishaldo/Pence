@@ -8,6 +8,7 @@ import { hotDeals, type HotDeal } from "@/server/hotukdeals";
 import { publicDeals } from "@/server/public-deals";
 import { mergeDeals } from "@/lib/core/deals";
 import { answerBrief, answerWords, questionsFor, type PlanAnswers } from "@/lib/core/plan-questions";
+import { planKindFor, planQueries } from "@/lib/core/plan-item";
 import { savePhonePlace } from "@/server/ledger";
 import { addWatch, checkWatchNow } from "@/server/watch";
 import { BudgetView } from "./budget";
@@ -42,6 +43,7 @@ const EXTRA: Partial<Record<string, string[]>> = {
   groceries: ["tesco", "asda", "aldi", "sainsburys", "morrisons", "lidl"],
   dining: ["meal deal", "takeaway"],
   pub: ["pub offer"],
+  diy: ["screwfix", "toolstation", "b&q", "wickes"],
 };
 
 const GROUPS: { label: string; kinds: [string, string][] }[] = [
@@ -66,6 +68,7 @@ const GROUPS: { label: string; kinds: [string, string][] }[] = [
       ["insurance", "Insurance"],
       ["repairs", "Home repairs"],
       ["furniture", "Furniture and appliances"],
+      ["diy", "DIY, tools and plumbing"],
       ["household", "Household"],
       ["garden", "Garden"],
     ],
@@ -156,6 +159,13 @@ export function PlanView({ embedded = false }: { embedded?: boolean }) {
   const [place, setPlace] = useState("");
   const [budget, setBudget] = useState("");
   const [items, setItems] = useState("");
+  // Size, type or must-haves, in their own words.
+  const [need, setNeed] = useState("");
+  // Set once they choose a What themselves; until then the item picks it.
+  const [kindChosen, setKindChosen] = useState(false);
+  const [kindGuessed, setKindGuessed] = useState(false);
+  // A search that ran slow: shown quietly under the deals, or as an error when there are none.
+  const [slow, setSlow] = useState("");
   const [country, setCountry] = useState("United Kingdom");
   const [city, setCity] = useState("");
   // Where: "home" (the town from setup), "place:<id>" (a saved place), or "manual".
@@ -258,6 +268,17 @@ export function PlanView({ embedded = false }: { embedded?: boolean }) {
     }
   }
 
+  /** Typing an item picks the What, until they choose one themselves: a kitchen tap is DIY, not groceries. */
+  function typeItem(value: string) {
+    setItems(value);
+    if (kindChosen) return;
+    const guess = planKindFor(value);
+    if (guess && GROUPS.some((group) => group.kinds.some(([id]) => id === guess))) {
+      setKind(guess);
+      setKindGuessed(true);
+    }
+  }
+
   async function addToWatchlist() {
     setError("");
     if (items.trim().length < 2 && place.trim().length < 2) {
@@ -296,6 +317,7 @@ export function PlanView({ embedded = false }: { embedded?: boolean }) {
     event.preventDefault();
     setBusy(true);
     setError("");
+    setSlow("");
     setOffers(null);
     setHot(null);
     setHotShown(15);
@@ -304,22 +326,15 @@ export function PlanView({ embedded = false }: { embedded?: boolean }) {
     const inBritain = /united kingdom|\buk\b|england|scotland|wales|britain/i.test(placeCountry);
     const extra = answerWords(kind, answers);
     if (inBritain) {
-      const focus = items.trim();
-      const category = BOARD[kind] || label;
-      const local = town.trim();
-      const base = focus || category;
-      const queries = [
-        local ? `${local} ${base}${extra ? ` ${extra}` : ""}` : "",
-        extra ? `${base} ${extra}` : "",
-        local ? `${local} ${base}` : "",
-        base,
-        focus ? `${local ? `${local} ` : ""}${category}` : "",
-        place.trim(),
-        ...(focus ? [] : (EXTRA[kind] ?? [])),
-      ]
-        .map((item) => item.replace(/\s+/g, " ").trim())
-        .filter((item, index, all) => item.length >= 2 && all.indexOf(item) === index)
-        .slice(0, 6);
+      const queries = planQueries({
+        item: items,
+        details: need,
+        shop: place,
+        town,
+        answers: extra,
+        category: BOARD[kind] || label,
+        extra: EXTRA[kind],
+      });
       void hotDeals({ data: { queries, limit: 80, related: true } })
         .then((found) => setHot((prev) => mergeDeals(found, prev ?? [], 80)))
         .catch(() => setHot((prev) => prev ?? []));
@@ -329,12 +344,12 @@ export function PlanView({ embedded = false }: { embedded?: boolean }) {
     }
     try {
       const result = await findOffers({
-        data: { kind, place, budget, country: placeCountry, city: town, when, items, details: answerBrief(kind, answers) },
+        data: { kind, place, budget, country: placeCountry, city: town, when, items, need, details: answerBrief(kind, answers) },
       });
       setOffers(result.offers);
       setNote(result.note);
     } catch (err) {
-      setError(errorText(err, "Couldn’t check offers just now."));
+      setSlow(errorText(err, "Couldn’t check offers just now."));
     } finally {
       setBusy(false);
     }
@@ -391,6 +406,33 @@ export function PlanView({ embedded = false }: { embedded?: boolean }) {
         <PageHead title="Plan a spend" sub="Before you buy: deals near you first, then across the UK." />
       )}
       <form onSubmit={(event) => void search(event)} className="flex flex-col gap-4" aria-label="What are you planning">
+        <label className="field">
+          <span className="field-label">
+            Item <span className="font-normal text-muted">(optional)</span>
+          </span>
+          <input
+            className="control"
+            value={items}
+            maxLength={160}
+            placeholder="Kitchen tap, sofa, iPhone 16"
+            onChange={(event) => typeItem(event.target.value)}
+          />
+        </label>
+        {items.trim() ? (
+          <label className="field">
+            <span className="field-label">
+              Details <span className="font-normal text-muted">(optional)</span>
+            </span>
+            <textarea
+              className="control min-h-[5.5rem] resize-none py-3 leading-snug [field-sizing:content]"
+              value={need}
+              maxLength={400}
+              rows={2}
+              placeholder="Size, type or must-haves. For example: monobloc mixer, works on high and low pressure"
+              onChange={(event) => setNeed(event.target.value)}
+            />
+          </label>
+        ) : null}
         <div className="field">
           <span className="field-label" id="what-label">
             What
@@ -405,6 +447,7 @@ export function PlanView({ embedded = false }: { embedded?: boolean }) {
             <span id="what-value">{whatLabel}</span>
             <ChevronDown className="size-5 text-muted" strokeWidth={2} aria-hidden="true" />
           </button>
+          {kindGuessed && !kindChosen ? <span className="text-[0.8125rem] text-muted">Picked from your item. Tap to change.</span> : null}
         </div>
         {questions.map((question) => (
           <fieldset key={question.id} className="flex flex-col gap-2">
@@ -424,17 +467,6 @@ export function PlanView({ embedded = false }: { embedded?: boolean }) {
             </div>
           </fieldset>
         ))}
-        <label className="field">
-          <span className="field-label">
-            Item <span className="font-normal text-muted">(optional)</span>
-          </span>
-          <input
-            className="control"
-            value={items}
-            placeholder="Latest iPhone"
-            onChange={(event) => setItems(event.target.value)}
-          />
-        </label>
         <label className="field">
           <span className="field-label">Where</span>
           <select
@@ -503,6 +535,7 @@ export function PlanView({ embedded = false }: { embedded?: boolean }) {
           />
         </label>
         {error ? <p className="text-sm text-clay">{error}</p> : null}
+        {slow && !busy && listed.length === 0 ? <p className="text-sm text-clay">{slow}</p> : null}
         <button className="btn btn-primary" type="submit" disabled={busy}>
           {busy ? "Looking up deals…" : "Find deals"}
         </button>
@@ -549,6 +582,9 @@ export function PlanView({ embedded = false }: { embedded?: boolean }) {
               More
             </button>
           ) : null}
+          {!busy && slow ? (
+            <p className="text-[0.8125rem] text-muted">The wider web search was slow, so these come from deal boards. Search again for more.</p>
+          ) : null}
           {!busy && note ? <p className="text-[0.8125rem] text-muted">{note}</p> : null}
         </section>
       ) : null}
@@ -584,6 +620,7 @@ export function PlanView({ embedded = false }: { embedded?: boolean }) {
                     className={`flex min-h-11 w-full items-center justify-between border-b border-rule text-left text-base ${kind === id ? "font-extrabold" : "font-semibold"}`}
                     onClick={() => {
                       setKind(id);
+                      setKindChosen(true);
                       closeWhat();
                     }}
                   >

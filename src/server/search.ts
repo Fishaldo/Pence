@@ -67,28 +67,43 @@ function lastText(body: Record<string, unknown>): string {
   return text;
 }
 
+/**
+ * One web search by the AI. Never throws: a search that runs past `timeoutMs`,
+ * a network drop or a refusal all come back as null, so a slow source can only
+ * leave a gap in the results, never an error on screen.
+ */
 export async function searchWebText(
   prompt: string,
   maxTokens = 1200,
+  timeoutMs = 45_000,
 ): Promise<{ text: string; sources: string[] } | null> {
   const apiKey = process.env.XAI_API_KEY;
   if (!apiKey) return null;
-  const res = await fetch("https://api.x.ai/v1/responses", {
-    method: "POST",
-    headers: {
-      Authorization: `Bearer ${apiKey}`,
-      "Content-Type": "application/json",
-    },
-    signal: AbortSignal.timeout(60_000),
-    body: JSON.stringify({
-      model: "grok-4.5",
-      input: [{ role: "user", content: prompt }],
-      tools: [{ type: "web_search" }],
-      max_output_tokens: maxTokens,
-    }),
-  });
-  if (!res.ok) return null;
-  const body = (await res.json()) as Record<string, unknown>;
+  let body: Record<string, unknown>;
+  try {
+    const res = await fetch("https://api.x.ai/v1/responses", {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${apiKey}`,
+        "Content-Type": "application/json",
+      },
+      signal: AbortSignal.timeout(timeoutMs),
+      body: JSON.stringify({
+        model: "grok-4.5",
+        input: [{ role: "user", content: prompt }],
+        tools: [{ type: "web_search" }],
+        max_output_tokens: maxTokens,
+      }),
+    });
+    if (!res.ok) {
+      console.warn(`web search refused: ${res.status}`);
+      return null;
+    }
+    body = (await res.json()) as Record<string, unknown>;
+  } catch (error) {
+    console.warn(`web search gave up: ${error instanceof Error ? error.name : "error"}`);
+    return null;
+  }
   const text = lastText(body);
   if (!text) return null;
   return { text, sources: collectSources(body) };
