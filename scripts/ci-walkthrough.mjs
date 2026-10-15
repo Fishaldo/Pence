@@ -399,6 +399,10 @@ await step("Plan: a detailed item picks its own What", async () => {
   await settle(500);
   await shot("26b-plan-detailed-item");
   await page.getByRole("button", { name: "Find deals" }).click();
+  // Straight away the screen moves to where the deals will appear, and says it is looking.
+  await page.getByRole("region", { name: "Results" }).waitFor();
+  await page.waitForTimeout(700);
+  await page.screenshot({ path: join(out, "26c0-plan-searching.png") });
   await page.getByRole("button", { name: "Find deals" }).waitFor({ timeout: 90_000 });
   const text = await page.locator("main").innerText();
   if (/aborted|timeout|TypeError|fetch failed/i.test(text)) throw new Error("a system error was shown to the person");

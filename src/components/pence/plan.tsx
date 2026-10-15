@@ -1,7 +1,7 @@
 import { Link, useNavigate, useRouterState } from "@tanstack/react-router";
 import { Check, ChevronDown } from "lucide-react";
 import { useQueryClient } from "@tanstack/react-query";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 import { findOffers, type Offer } from "@/server/plan";
 import { hotDeals, type HotDeal } from "@/server/hotukdeals";
@@ -166,6 +166,12 @@ export function PlanView({ embedded = false }: { embedded?: boolean }) {
   const [kindGuessed, setKindGuessed] = useState(false);
   // A search that ran slow: shown quietly under the deals, or as an error when there are none.
   const [slow, setSlow] = useState("");
+  // How many web searches are still out, so the list can say it is still looking.
+  const [webPending, setWebPending] = useState(0);
+  // Bumped on each tap, so the screen moves down to where the deals will appear.
+  const [started, setStarted] = useState(0);
+  const runId = useRef(0);
+  const resultsRef = useRef<HTMLElement | null>(null);
   const [country, setCountry] = useState("United Kingdom");
   const [city, setCity] = useState("");
   // Where: "home" (the town from setup), "place:<id>" (a saved place), or "manual".
@@ -319,16 +325,21 @@ export function PlanView({ embedded = false }: { embedded?: boolean }) {
 
   async function search(event: React.FormEvent) {
     event.preventDefault();
-    setBusy(true);
+    // Each tap is one run; answers from an earlier run that come back late are dropped.
+    const run = ++runId.current;
+    const live = () => run === runId.current;
     setError("");
     setSlow("");
     setOffers(null);
     setHot(null);
     setHotShown(15);
+    setStarted((count) => count + 1);
     const label = GROUPS.flatMap((group) => group.kinds).find(([id]) => id === kind)?.[1] ?? "";
     setWatched(null);
     const inBritain = /united kingdom|\buk\b|england|scotland|wales|britain/i.test(placeCountry);
     const extra = answerWords(kind, answers);
+    // Every source shows its deals the moment it is back; nothing waits for the slowest.
+    const jobs: Promise<unknown>[] = [];
     if (inBritain) {
       const queries = planQueries({
         item: items,
@@ -339,25 +350,43 @@ export function PlanView({ embedded = false }: { embedded?: boolean }) {
         category: BOARD[kind] || label,
         extra: EXTRA[kind],
       });
-      void hotDeals({ data: { queries, limit: 80, related: true } })
-        .then((found) => setHot((prev) => mergeDeals(found, prev ?? [], 80)))
-        .catch(() => setHot((prev) => prev ?? []));
-      void publicDeals({ data: { queries: queries.slice(0, 4), limit: 24, strict: true } })
-        .then((found) => setHot((prev) => mergeDeals(prev ?? [], found, 80)))
-        .catch(() => setHot((prev) => prev ?? []));
+      jobs.push(
+        hotDeals({ data: { queries, limit: 80, related: true } })
+          .then((found) => live() && setHot((prev) => mergeDeals(found, prev ?? [], 80)))
+          .catch(() => live() && setHot((prev) => prev ?? [])),
+        publicDeals({ data: { queries: queries.slice(0, 4), limit: 24, strict: true } })
+          .then((found) => live() && setHot((prev) => mergeDeals(prev ?? [], found, 80)))
+          .catch(() => live() && setHot((prev) => prev ?? [])),
+      );
     }
-    try {
-      const result = await findOffers({
-        data: { kind, place, budget, country: placeCountry, city: town, when, items, need, details: answerBrief(kind, answers) },
-      });
-      setOffers(result.offers);
-      setNote(result.note);
-    } catch (err) {
-      setSlow(errorText(err, "Couldn’t check offers just now."));
-    } finally {
-      setBusy(false);
-    }
+    const brief = { kind, place, budget, country: placeCountry, city: town, when, items, need, details: answerBrief(kind, answers) };
+    let failed = 0;
+    let lastError: unknown = null;
+    const parts = ([0, 1] as const).map((part) =>
+      findOffers({ data: { ...brief, part } })
+        .then((result) => {
+          if (!live()) return;
+          setOffers((prev) => [...(prev ?? []), ...result.offers.filter((offer) => !(prev ?? []).some((seen) => seen.url === offer.url))]);
+          if (result.note) setNote((prev) => prev || result.note);
+        })
+        .catch((err) => {
+          failed += 1;
+          lastError = err;
+        }),
+    );
+    setWebPending(2);
+    for (const part of parts) void part.finally(() => live() && setWebPending((count) => Math.max(0, count - 1)));
+    setBusy(true);
+    await Promise.all([...jobs, ...parts]);
+    if (!live()) return;
+    if (failed === 2) setSlow(errorText(lastError, "Couldn’t check offers just now."));
+    setOffers((prev) => prev ?? []);
+    setBusy(false);
   }
+
+  useEffect(() => {
+    if (started > 0) resultsRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+  }, [started]);
 
   const near = placeWords(town);
   const listed = [
@@ -543,8 +572,8 @@ export function PlanView({ embedded = false }: { embedded?: boolean }) {
         </label>
         {error ? <p className="text-sm text-clay">{error}</p> : null}
         {slow && !busy && listed.length === 0 ? <p className="text-sm text-clay">{slow}</p> : null}
-        <button className="btn btn-primary" type="submit" disabled={busy}>
-          {busy ? "Looking up deals…" : "Find deals"}
+        <button className="btn btn-primary" type="submit" disabled={busy && listed.length === 0}>
+          {busy && listed.length === 0 ? "Looking up deals…" : "Find deals"}
         </button>
         <button type="button" className="btn btn-quiet" disabled={watching} onClick={() => void addToWatchlist()}>
           {watching ? "Adding…" : "Add to Watchlist"}
@@ -563,9 +592,33 @@ export function PlanView({ embedded = false }: { embedded?: boolean }) {
           </Link>
         </section>
       ) : null}
-      {listed.length > 0 ? (
-        <section className="mt-6 flex flex-col gap-2.5" aria-label="Results">
-          <h2 className="section-title">Deals found</h2>
+      {listed.length > 0 || busy ? (
+        <section ref={resultsRef} className="mt-6 flex scroll-mt-4 flex-col gap-2.5" aria-label="Results" aria-busy={busy}>
+          <h2 className="section-title">{listed.length > 0 ? `Deals found · ${listed.length}` : "Looking for deals…"}</h2>
+          {busy ? (
+            <p className="flex items-center gap-2 text-[0.8125rem] text-muted" aria-live="polite">
+              <span className="size-3.5 shrink-0 animate-spin rounded-full border-2 border-line-strong border-t-forest" aria-hidden="true" />
+              {listed.length === 0
+                ? "Checking deal boards and shop websites. The first deals usually show in a few seconds."
+                : webPending > 0
+                  ? "Still checking shop websites. More deals will appear here."
+                  : "Nearly done."}
+            </p>
+          ) : null}
+          {busy && listed.length === 0 ? (
+            <ul className="flex flex-col gap-3" aria-hidden="true">
+              {[0, 1, 2].map((n) => (
+                <li key={n} className="panel flex gap-3.5 p-3.5">
+                  <span className="size-[5.5rem] shrink-0 animate-pulse rounded-2xl bg-sand" />
+                  <span className="flex flex-1 flex-col gap-2 pt-1">
+                    <span className="h-3 w-1/3 animate-pulse rounded bg-sand" />
+                    <span className="h-4 w-full animate-pulse rounded bg-sand" />
+                    <span className="h-4 w-2/3 animate-pulse rounded bg-sand" />
+                  </span>
+                </li>
+              ))}
+            </ul>
+          ) : null}
           {shownNear.length > 0 ? (
             <>
               <p className="mt-1 text-[0.6875rem] font-extrabold tracking-[0.08em] text-muted uppercase">Near {town}</p>
