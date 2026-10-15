@@ -394,6 +394,7 @@ await step("Plan: a detailed item picks its own What", async () => {
   await page.getByText("DIY, tools and plumbing").waitFor();
   await page.getByLabel(/^Details/).fill("Monobloc mixer for high and low water pressure, with flexible connectors");
   await page.getByLabel(/^Shop/).fill("Screwfix");
+  await page.getByLabel(/^Budget/).fill("30");
   await page.getByText("Who's fitting it?").waitFor();
   if (await page.getByText("Weekly shop or one thing?").count()) throw new Error("grocery questions shown for a tap");
   await settle(500);
@@ -406,6 +407,10 @@ await step("Plan: a detailed item picks its own What", async () => {
   await page.getByRole("button", { name: "Find deals" }).waitFor({ timeout: 90_000 });
   const text = await page.locator("main").innerText();
   if (/aborted|timeout|TypeError|fetch failed/i.test(text)) throw new Error("a system error was shown to the person");
+  // Nothing over the £30 budget is listed among the deals that fit.
+  const prices = await page.locator('section[aria-label="Results"] li span.tabular-nums').allInnerTexts();
+  const dear = prices.map((p) => Number(p.replace(/[^0-9.]/g, ""))).filter((p) => p > 30);
+  if (dear.length) throw new Error(`over-budget prices listed: ${dear.join(", ")}`);
   await shot("26c-plan-detailed-item-searched");
   return (text.match(/(The web search[^\n]*|Deals found)/) ?? [""])[0];
 });
