@@ -668,3 +668,22 @@ export function planQueries(input: PlanQueryInput): string[] {
     )
     .slice(0, 6);
 }
+
+export type Priced = { pricePence?: number | null; monthly?: boolean };
+
+/**
+ * Deals split by a budget: those at or under it, and those over it. A deal
+ * with no price printed, or a price per month, can't be judged, so it stays
+ * with the ones that fit. With no budget, everything fits. Order is kept.
+ */
+export function splitByBudget<T extends Priced>(deals: T[], budgetPence: number | null | undefined): { within: T[]; over: T[] } {
+  if (!budgetPence || budgetPence <= 0) return { within: deals, over: [] };
+  const within: T[] = [];
+  const over: T[] = [];
+  for (const deal of deals) {
+    const price = deal.pricePence ?? 0;
+    if (price > budgetPence && !deal.monthly) over.push(deal);
+    else within.push(deal);
+  }
+  return { within, over };
+}

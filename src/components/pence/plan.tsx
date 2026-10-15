@@ -8,7 +8,8 @@ import { hotDeals, type HotDeal } from "@/server/hotukdeals";
 import { publicDeals } from "@/server/public-deals";
 import { mergeDeals } from "@/lib/core/deals";
 import { answerBrief, answerWords, questionsFor, type PlanAnswers } from "@/lib/core/plan-questions";
-import { planKindFor, planQueries } from "@/lib/core/plan-item";
+import { planKindFor, planQueries, splitByBudget } from "@/lib/core/plan-item";
+import { formatGBP, poundsToPence } from "@/lib/core/model";
 import { savePhonePlace } from "@/server/ledger";
 import { addWatch, checkWatchNow } from "@/server/watch";
 import { BudgetView } from "./budget";
@@ -170,6 +171,7 @@ export function PlanView({ embedded = false }: { embedded?: boolean }) {
   const [webPending, setWebPending] = useState(0);
   // Bumped on each tap, so the screen moves down to where the deals will appear.
   const [started, setStarted] = useState(0);
+  const [showOver, setShowOver] = useState(false);
   const runId = useRef(0);
   const resultsRef = useRef<HTMLElement | null>(null);
   const [country, setCountry] = useState("United Kingdom");
@@ -334,6 +336,7 @@ export function PlanView({ embedded = false }: { embedded?: boolean }) {
     setHot(null);
     setHotShown(15);
     setStarted((count) => count + 1);
+    setShowOver(false);
     const label = GROUPS.flatMap((group) => group.kinds).find(([id]) => id === kind)?.[1] ?? "";
     setWatched(null);
     const inBritain = /united kingdom|\buk\b|england|scotland|wales|britain/i.test(placeCountry);
@@ -401,7 +404,7 @@ export function PlanView({ embedded = false }: { embedded?: boolean }) {
       merchant: /^(stay|food|getting there|getting around|things to do|groceries|voucher)$/i.test(offer.facet) ? "" : offer.facet,
       code: offer.code,
       shopHost: "",
-      pricePence: null,
+      pricePence: offer.pricePence ?? null,
       monthly: false,
       endsOn: "",
       text: `${offer.title} ${offer.detail} ${offer.facet}`,
@@ -423,8 +426,12 @@ export function PlanView({ embedded = false }: { embedded?: boolean }) {
     })),
   ];
 
-  const nearRows = near.length > 0 ? listed.filter((row) => mentionsPlace(row.text, near)) : [];
-  const ukRows = listed.filter((row) => !nearRows.includes(row));
+  // Deals over the budget are kept apart, below the ones that fit.
+  const budgetPence = budget.trim() ? poundsToPence(budget) : null;
+  const { within, over } = splitByBudget(listed, budgetPence);
+  const budgetText = budgetPence ? formatGBP(budgetPence).replace(/\.00$/, "") : "";
+  const nearRows = near.length > 0 ? within.filter((row) => mentionsPlace(row.text, near)) : [];
+  const ukRows = within.filter((row) => !nearRows.includes(row));
   const shownNear = nearRows.slice(0, hotShown);
   const shownUk = ukRows.slice(0, Math.max(0, hotShown - shownNear.length));
 
@@ -594,7 +601,7 @@ export function PlanView({ embedded = false }: { embedded?: boolean }) {
       ) : null}
       {listed.length > 0 || busy ? (
         <section ref={resultsRef} className="mt-6 flex scroll-mt-4 flex-col gap-2.5" aria-label="Results" aria-busy={busy}>
-          <h2 className="section-title">{listed.length > 0 ? `Deals found · ${listed.length}` : "Looking for deals…"}</h2>
+          <h2 className="section-title">{listed.length > 0 ? `Deals found · ${within.length}` : "Looking for deals…"}</h2>
           {busy ? (
             <p className="flex items-center gap-2 text-[0.8125rem] text-muted" aria-live="polite">
               <span className="size-3.5 shrink-0 animate-spin rounded-full border-2 border-line-strong border-t-forest" aria-hidden="true" />
@@ -631,10 +638,25 @@ export function PlanView({ embedded = false }: { embedded?: boolean }) {
               <ul className="flex flex-col gap-3">{shownUk.map(dealItem)}</ul>
             </>
           ) : null}
-          {listed.length > hotShown ? (
+          {within.length > hotShown ? (
             <button type="button" className="btn btn-quiet" onClick={() => setHotShown((count) => count + 15)}>
               More
             </button>
+          ) : null}
+          {budgetPence && within.length === 0 && over.length > 0 && !busy ? (
+            <p className="panel p-4 text-sm">{`Nothing found for ${budgetText} or less yet. Add it to your Watchlist and Pence keeps looking.`}</p>
+          ) : null}
+          {budgetPence && over.length > 0 ? (
+            showOver ? (
+              <>
+                <p className="mt-2 text-[0.6875rem] font-extrabold tracking-[0.08em] text-muted uppercase">{`Over your ${budgetText} budget`}</p>
+                <ul className="flex flex-col gap-3">{over.slice(0, 30).map(dealItem)}</ul>
+              </>
+            ) : (
+              <button type="button" className="btn btn-quiet" onClick={() => setShowOver(true)}>
+                {`Show ${over.length} over your ${budgetText} budget`}
+              </button>
+            )
           ) : null}
           {!busy && slow ? (
             <p className="text-[0.8125rem] text-muted">The wider web search didn’t finish, so these come from deal boards. Search again for more.</p>
