@@ -4,7 +4,7 @@ import { mergeDeals } from "@/lib/core/deals";
 import { hotDeals, type HotDeal } from "@/server/hotukdeals";
 import { publicDeals } from "@/server/public-deals";
 import { useLedger } from "./data";
-import { DealAction } from "./deal-bits";
+import { DealCard } from "./deal-bits";
 import { PageHead } from "./ui";
 
 export function HotView() {
@@ -48,11 +48,7 @@ export function HotView() {
       {deals && deals.length > 0 ? (
         <ul className="space-y-3">
           {deals.slice(0, shown).map((deal) => (
-            <li key={deal.url} className="panel p-4">
-              <p className="text-sm text-muted">{deal.merchant || deal.source}</p>
-              <p className="mt-1 font-bold">{deal.title}</p>
-              <DealAction deal={deal} />
-            </li>
+            <DealCard key={deal.url} deal={deal} />
           ))}
         </ul>
       ) : null}

@@ -6,7 +6,10 @@ export type HotDeal = {
   /** The shop's own page for this deal, when the board gives one. People go here, not to the board. */
   shopUrl?: string;
   merchant?: string;
-  /** A discount code, only when the board prints one. */
+  /** The shop's web address, such as "tkmaxx.com", for its logo. */
+  shopHost?: string;
+  /** A picture of the deal from the shop's own page, when there is one. */
+  image?: string;
   code?: string;
   /** The price on the board, in pence, or null when none is given. */
   pricePence?: number | null;
@@ -29,7 +32,7 @@ export type HotDeal = {
  */
 
 const MONTHLY =
-  /(?:\/\s?(?:m|mo|mth|month)\b|\bper (?:month|mth)\b|\ba (?:month|mth)\b|\bp\/?m\b|\bpcm\b|£\s?\d+(?:\.\d{1,2})?\s?p\/?m\b|\bmonthly\b|\bx\s?(?:12|18|24|30|36)\b)/i;
+  /(?:\/\s?(?:m|mo|mth|month)\b|\bper (?:month|mth)\b|\ba (?:month|mth)\b|\d\s?p\/m\b|\bpcm\b|£\s?\d+(?:\.\d{1,2})?\s?p\/?m\b|\bmonthly\b|\bx\s?(?:12|18|24|30|36)\b)/i;
 
 /** True when a price in this text is a monthly payment, not the price of the thing. */
 export function isMonthly(text: string): boolean {
@@ -147,6 +150,7 @@ export function readThreads(html: string, limit: number): HotDeal[] {
       source: "HotUKDeals",
       shopUrl,
       merchant: merchant.trim().slice(0, 60),
+      shopHost: hasShop ? String(thread.linkHost).trim().toLowerCase().replace(/^www\./, "").slice(0, 80) : "",
       code: cleanCode(thread.voucherCode),
       pricePence: !monthly && Number.isFinite(price) && price > 0 ? Math.round(price * 100) : titlePrice(title),
       monthly,

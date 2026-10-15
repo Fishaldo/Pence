@@ -13,7 +13,7 @@ import { savePhonePlace } from "@/server/ledger";
 import { addWatch, checkWatchNow } from "@/server/watch";
 import { BudgetView } from "./budget";
 import { useLedger } from "./data";
-import { DealAction } from "./deal-bits";
+import { DealCard } from "./deal-bits";
 import { PageHead } from "./ui";
 import { errorText } from "./error-text";
 
@@ -364,8 +364,13 @@ export function PlanView({ embedded = false }: { embedded?: boolean }) {
       detail: offer.detail,
       url: offer.url,
       shopUrl: "",
-      merchant: "",
+      // The search names the shop as the facet for a product ("Screwfix"); other facets are kinds, not shops.
+      merchant: /^(stay|food|getting there|getting around|things to do|groceries|voucher)$/i.test(offer.facet) ? "" : offer.facet,
       code: offer.code,
+      shopHost: "",
+      pricePence: null,
+      monthly: false,
+      endsOn: "",
       text: `${offer.title} ${offer.detail} ${offer.facet}`,
     })),
     ...(hot ?? []).map((deal) => ({
@@ -377,7 +382,11 @@ export function PlanView({ embedded = false }: { embedded?: boolean }) {
       shopUrl: deal.shopUrl ?? "",
       merchant: deal.merchant ?? "",
       code: deal.code ?? "",
-      text: `${deal.title} ${deal.source}`,
+      shopHost: deal.shopHost ?? "",
+      pricePence: deal.pricePence ?? null,
+      monthly: deal.monthly ?? false,
+      endsOn: deal.endsOn ?? "",
+      text: `${deal.title} ${deal.merchant ?? ""}`,
     })),
   ];
 
@@ -386,17 +395,7 @@ export function PlanView({ embedded = false }: { embedded?: boolean }) {
   const shownNear = nearRows.slice(0, hotShown);
   const shownUk = ukRows.slice(0, Math.max(0, hotShown - shownNear.length));
 
-  const dealItem = (row: (typeof listed)[number]) => {
-    const shop = row.merchant || row.source;
-    return (
-      <li key={row.key} className="flex flex-col gap-1.5 px-4 py-3.5">
-        {shop ? <span className="text-[0.8125rem] font-semibold text-muted">{shop}</span> : null}
-        <span className="text-[0.9375rem] leading-snug font-extrabold">{row.title}</span>
-        {row.detail ? <span className="text-sm text-ink-soft">{row.detail}</span> : null}
-        <DealAction deal={row} />
-      </li>
-    );
-  };
+  const dealItem = (row: (typeof listed)[number]) => <DealCard key={row.key} deal={row} />;
 
   return (
     <div>
@@ -559,31 +558,25 @@ export function PlanView({ embedded = false }: { embedded?: boolean }) {
       {listed.length > 0 ? (
         <section className="mt-6 flex flex-col gap-2.5" aria-label="Results">
           <h2 className="section-title">Deals found</h2>
-          <div className="panel overflow-hidden">
-            {shownNear.length > 0 ? (
-              <>
-                <p className="bg-paper px-4 py-2 text-[0.6875rem] font-extrabold tracking-[0.08em] text-muted uppercase">
-                  Near {town}
-                </p>
-                <ul className="divide-y divide-line">{shownNear.map(dealItem)}</ul>
-              </>
-            ) : null}
-            {shownUk.length > 0 ? (
-              <>
-                <p className="bg-paper px-4 py-2 text-[0.6875rem] font-extrabold tracking-[0.08em] text-muted uppercase">
-                  Across the UK
-                </p>
-                <ul className="divide-y divide-line">{shownUk.map(dealItem)}</ul>
-              </>
-            ) : null}
-          </div>
+          {shownNear.length > 0 ? (
+            <>
+              <p className="mt-1 text-[0.6875rem] font-extrabold tracking-[0.08em] text-muted uppercase">Near {town}</p>
+              <ul className="flex flex-col gap-3">{shownNear.map(dealItem)}</ul>
+            </>
+          ) : null}
+          {shownUk.length > 0 ? (
+            <>
+              <p className="mt-2 text-[0.6875rem] font-extrabold tracking-[0.08em] text-muted uppercase">Across the UK</p>
+              <ul className="flex flex-col gap-3">{shownUk.map(dealItem)}</ul>
+            </>
+          ) : null}
           {listed.length > hotShown ? (
             <button type="button" className="btn btn-quiet" onClick={() => setHotShown((count) => count + 15)}>
               More
             </button>
           ) : null}
           {!busy && slow ? (
-            <p className="text-[0.8125rem] text-muted">The wider web search was slow, so these come from deal boards. Search again for more.</p>
+            <p className="text-[0.8125rem] text-muted">The wider web search didn’t finish, so these come from deal boards. Search again for more.</p>
           ) : null}
           {!busy && note ? <p className="text-[0.8125rem] text-muted">{note}</p> : null}
         </section>

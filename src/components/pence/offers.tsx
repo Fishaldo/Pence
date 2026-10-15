@@ -7,8 +7,7 @@ import { formatGBP, PROGRAMMES } from "@/lib/core/model";
 import { habitLine, interestDef, interestOfKey, shortDay, type TasteProfile, type Upcoming } from "@/lib/core/habits";
 import { setHabit, type PersonalDeal } from "@/server/for-you";
 import { useForYou, useForYouWide, useWatches } from "./data";
-import { DealAction } from "./deal-bits";
-import { goUrl } from "./deal-links";
+import { DealCard as SharedDealCard } from "./deal-bits";
 import { PageHead } from "./ui";
 import { errorText } from "./error-text";
 
@@ -55,31 +54,17 @@ export function DealTerms({ deal }: { deal: PersonalDeal }) {
 }
 
 export function DealCard({ deal, showReason = true }: { deal: PersonalDeal; showReason?: boolean }) {
-  const shop = deal.merchant || deal.source;
   return (
-    <li className="panel flex flex-col gap-2 px-4 py-3.5">
-      <div className="flex items-center gap-2.5">
-        <span aria-hidden="true" className="initial initial-amber size-9 text-[0.9375rem]">{(shop.trim().charAt(0) || "·").toUpperCase()}</span>
-        <div className="flex min-w-0 flex-1 flex-col">
-          <span className="truncate text-sm font-extrabold">{shop}</span>
-          <span className="truncate text-xs text-muted">
-            {deal.local ? "Near you" : deal.elsewhere ? "Could cost less than your usual" : deal.source && deal.source !== shop ? `From ${deal.source}` : "Across the UK"}
-          </span>
-        </div>
-        {deal.yours ? <span className="badge">Your shop</span> : null}
-      </div>
-      <a href={goUrl(deal)} className="text-base leading-[1.35] font-extrabold" target="_blank" rel="noreferrer">
-        {deal.title}
-      </a>
-      {deal.detail ? <p className="text-sm text-ink-soft">{deal.detail}</p> : null}
+    <SharedDealCard deal={deal} badge={deal.yours ? <span className="badge">Your shop</span> : null}>
+      <p className="text-xs font-semibold text-muted">
+        {deal.local ? "Near you" : deal.elsewhere ? "Could cost less than your usual" : "Across the UK"}
+      </p>
       {deal.saving ? <p className="text-[0.8125rem] font-semibold text-forest">{deal.saving}</p> : null}
       {deal.check ? (
         <p className={`text-[0.8125rem] leading-snug font-semibold ${deal.works ? "text-forest" : "text-clay"}`}>{deal.check}</p>
       ) : null}
       {showReason && deal.reason ? <p className="text-[0.8125rem] text-muted">{deal.reason}</p> : null}
-      {deal.endsOn ? <p className="text-xs text-muted">Ends {shortDay(deal.endsOn)}</p> : null}
-      <DealAction deal={deal} />
-    </li>
+    </SharedDealCard>
   );
 }
 

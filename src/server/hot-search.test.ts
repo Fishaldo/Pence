@@ -15,6 +15,15 @@ function card(thread: Record<string, unknown>): string {
     <div class="js-vue3" data-vue3='${attr(button)}'></div></article>`;
 }
 
+describe("monthly prices", () => {
+  it("knows a time or a name is not a monthly price", () => {
+    assert.equal(isMonthly("Afnan 9 PM Night Out Extrait De Parfum 100ml"), false);
+    assert.equal(isMonthly("iPhone 17 £35pm on EE"), true);
+    assert.equal(isMonthly("SIM only 30GB 10 p/m"), true);
+    assert.equal(isMonthly("Broadband £22.99 a month"), true);
+  });
+});
+
 describe("reading HotUKDeals cards", () => {
   const html = [
     card({
@@ -54,6 +63,7 @@ describe("reading HotUKDeals cards", () => {
     assert.equal(dior.code, "SCENT15");
     assert.equal(dior.shopUrl, "https://www.hotukdeals.com/visit/search/4512345");
     assert.equal(dior.merchant, "Boots");
+    assert.equal(dior.shopHost, "boots.com");
     assert.equal(dior.pricePence, 6900);
     assert.equal(dior.url, "https://www.hotukdeals.com/deals/dior-sauvage-edt-100ml-4512345");
   });
