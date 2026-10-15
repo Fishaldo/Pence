@@ -383,6 +383,11 @@ await step("Plan: a detailed item picks its own What", async () => {
   await page.getByLabel(/^Item/).fill("Kitchen tap");
   await page.getByText("DIY, tools and plumbing").waitFor();
   await page.getByText("Picked from your item. Tap to change.").waitFor();
+  // A new item replaces the old guess.
+  await page.getByLabel(/^Item/).fill("Fuel");
+  await page.getByText("Fuel and transport").waitFor();
+  await page.getByLabel(/^Item/).fill("Kitchen tap");
+  await page.getByText("DIY, tools and plumbing").waitFor();
   await page.getByLabel(/^Details/).fill("Monobloc mixer for high and low water pressure, with flexible connectors");
   await page.getByLabel(/^Shop/).fill("Screwfix");
   await page.getByText("Who's fitting it?").waitFor();

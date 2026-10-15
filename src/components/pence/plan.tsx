@@ -276,6 +276,10 @@ export function PlanView({ embedded = false }: { embedded?: boolean }) {
     if (guess && GROUPS.some((group) => group.kinds.some(([id]) => id === guess))) {
       setKind(guess);
       setKindGuessed(true);
+    } else if (kindGuessed) {
+      // The last guess was for another item: don't keep it. An item with no match is "Something else".
+      setKind(value.trim() ? "other" : "groceries");
+      setKindGuessed(Boolean(value.trim()));
     }
   }
 
@@ -446,7 +450,11 @@ export function PlanView({ embedded = false }: { embedded?: boolean }) {
             <span id="what-value">{whatLabel}</span>
             <ChevronDown className="size-5 text-muted" strokeWidth={2} aria-hidden="true" />
           </button>
-          {kindGuessed && !kindChosen ? <span className="text-[0.8125rem] text-muted">Picked from your item. Tap to change.</span> : null}
+          {kindGuessed && !kindChosen ? (
+            <span className="text-[0.8125rem] text-muted">
+              {kind === "other" ? "Not sure what this is. Tap to choose." : "Picked from your item. Tap to change."}
+            </span>
+          ) : null}
         </div>
         {questions.map((question) => (
           <fieldset key={question.id} className="flex flex-col gap-2">
