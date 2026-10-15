@@ -151,6 +151,14 @@ export const PLAN_QUESTIONS: Record<string, PlanQuestion[]> = {
   driving: [{ id: "level", label: "Where are you up to?", choices: [{ label: "First lessons", words: "beginner" }, { label: "Test soon", words: "intensive" }] }],
   household: HOME_BUY,
   furniture: HOME_BUY,
+  diy: [
+    { id: "fit", label: "Who's fitting it?", choices: [{ label: "I'll fit it" }, { label: "I need it fitted", words: "fitting service" }] },
+    {
+      id: "get",
+      label: "Getting it",
+      choices: [{ label: "Delivered", words: "delivery" }, { label: "Click and collect", words: "click and collect" }, { label: "In store" }],
+    },
+  ],
   repairs: [
     {
       id: "what",
