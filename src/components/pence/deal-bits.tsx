@@ -129,7 +129,16 @@ function Thumb({ shop, host, picture }: { shop: string; host: string; picture: s
     <div className="grid size-[5.5rem] shrink-0 place-items-center rounded-2xl" style={{ backgroundColor: look.colour }} aria-hidden="true">
       {host && !logoBroken ? (
         <span className="grid size-14 place-items-center rounded-xl bg-white shadow-sm">
-          <img src={`/api/shop-logo/${host}`} alt="" loading="lazy" className="size-9 object-contain" onError={() => setLogoBroken(true)} />
+          <img
+            src={`/api/shop-logo/${host}`}
+            alt=""
+            loading="lazy"
+            className="size-9 object-contain"
+            onLoad={(event) => {
+              if (event.currentTarget.naturalWidth <= 1) setLogoBroken(true);
+            }}
+            onError={() => setLogoBroken(true)}
+          />
         </span>
       ) : (
         <span className="text-[1.75rem] font-extrabold text-white">{look.initial}</span>
