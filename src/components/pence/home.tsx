@@ -21,8 +21,8 @@ import type { PersonalDeal } from "@/server/for-you";
 import { hotDeals, type HotDeal } from "@/server/hotukdeals";
 import { seedSamples } from "@/server/ledger";
 import { useForYou, useLedger, useRefreshLedger, useRegulars } from "./data";
-import { CodeChip } from "./deal-bits";
-import { goUrl } from "./deal-links";
+import { DealCard } from "./deal-bits";
+import { DealCard as OfferCard } from "./offers";
 import { BillsCard, NeedsTap, PaydayCard, PayTiles, SafeCard } from "./money-cards";
 import { longToday, useThisPay } from "./this-pay";
 import { SectionHead, SettingsButton } from "./ui";
@@ -239,40 +239,14 @@ export function HomeView() {
         {picks.length > 0 ? (
           <ul className="flex flex-col gap-2.5">
             {picks.map((deal) => (
-              <li key={deal.url} className="panel flex items-start gap-3 px-4 py-3.5">
-                <span aria-hidden="true" className="initial initial-amber">{initialOf(deal.merchant || deal.source)}</span>
-                <div className="flex min-w-0 flex-col gap-1">
-                  <span className="text-[0.8125rem] font-semibold text-muted">
-                    {deal.merchant || deal.source}
-                    {deal.local ? " · near you" : deal.yours ? " · your shop" : ""}
-                  </span>
-                  <a href={goUrl(deal)} className="text-[0.9375rem] leading-snug font-extrabold" target="_blank" rel="noreferrer">
-                    {deal.title}
-                  </a>
-                  {deal.saving ? <span className="text-[0.8125rem] font-semibold text-forest">{deal.saving}</span> : null}
-                  {deal.check ? (
-                    <span className={`text-[0.8125rem] font-semibold ${deal.works ? "text-forest" : "text-clay"}`}>{deal.check}</span>
-                  ) : null}
-                  {deal.endsOn ? <span className="text-xs text-muted">Ends {shortDay(deal.endsOn)}</span> : null}
-                  {deal.code ? <CodeChip code={deal.code} /> : null}
-                </div>
-              </li>
+              <OfferCard key={deal.url} deal={deal} showReason={false} />
             ))}
           </ul>
         ) : null}
         {needTrending && trending && trending.length > 0 ? (
           <ul className="flex flex-col gap-2.5">
             {trending.map((deal) => (
-              <li key={deal.url} className="panel flex items-start gap-3 px-4 py-3.5">
-                <span aria-hidden="true" className="initial initial-amber">{initialOf(deal.merchant || deal.source)}</span>
-                <div className="flex min-w-0 flex-col gap-1">
-                  <span className="text-[0.8125rem] font-semibold text-muted">{deal.merchant || deal.source}</span>
-                  <a href={goUrl(deal)} className="text-[0.9375rem] leading-snug font-extrabold" target="_blank" rel="noreferrer">
-                    {deal.title}
-                  </a>
-                  {deal.code ? <CodeChip code={deal.code} /> : null}
-                </div>
-              </li>
+              <DealCard key={deal.url} deal={deal} />
             ))}
           </ul>
         ) : null}
@@ -389,13 +363,7 @@ function FirstDay({ name, trending }: { name: string; trending: HotDeal[] | null
         {trending && trending.length > 0 ? (
           <ul className="flex flex-col gap-2.5">
             {trending.map((deal) => (
-              <li key={deal.url} className="panel flex flex-col gap-1 px-4 py-3.5">
-                <span className="text-[0.8125rem] font-semibold text-muted">{deal.merchant || deal.source}</span>
-                <a href={goUrl(deal)} className="text-[0.9375rem] leading-snug font-extrabold" target="_blank" rel="noreferrer">
-                  {deal.title}
-                </a>
-                {deal.code ? <CodeChip code={deal.code} /> : null}
-              </li>
+              <DealCard key={deal.url} deal={deal} />
             ))}
           </ul>
         ) : null}

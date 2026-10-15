@@ -27,6 +27,7 @@ import { Route as WatchlistRouteImport } from './routes/watchlist'
 import { Route as WeekRouteImport } from './routes/week'
 import { Route as ApiWatchCheckRouteImport } from './routes/api/watch-check'
 import { Route as ApiAuthSplatRouteImport } from './routes/api/auth/$'
+import { Route as ApiShopLogoHostRouteImport } from './routes/api/shop-logo.$host'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
@@ -118,6 +119,11 @@ const ApiAuthSplatRoute = ApiAuthSplatRouteImport.update({
   path: '/api/auth/$',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiShopLogoHostRoute = ApiShopLogoHostRouteImport.update({
+  id: '/api/shop-logo/$host',
+  path: '/api/shop-logo/$host',
+  getParentRoute: () => rootRouteImport,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
@@ -138,6 +144,7 @@ export interface FileRoutesByFullPath {
   '/week': typeof WeekRoute
   '/api/watch-check': typeof ApiWatchCheckRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
+  '/api/shop-logo/$host': typeof ApiShopLogoHostRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
@@ -158,6 +165,7 @@ export interface FileRoutesByTo {
   '/week': typeof WeekRoute
   '/api/watch-check': typeof ApiWatchCheckRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
+  '/api/shop-logo/$host': typeof ApiShopLogoHostRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -179,6 +187,7 @@ export interface FileRoutesById {
   '/week': typeof WeekRoute
   '/api/watch-check': typeof ApiWatchCheckRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
+  '/api/shop-logo/$host': typeof ApiShopLogoHostRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -201,6 +210,7 @@ export interface FileRouteTypes {
     | '/week'
     | '/api/watch-check'
     | '/api/auth/$'
+    | '/api/shop-logo/$host'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
@@ -221,6 +231,7 @@ export interface FileRouteTypes {
     | '/week'
     | '/api/watch-check'
     | '/api/auth/$'
+    | '/api/shop-logo/$host'
   id:
     | '__root__'
     | '/'
@@ -241,6 +252,7 @@ export interface FileRouteTypes {
     | '/week'
     | '/api/watch-check'
     | '/api/auth/$'
+    | '/api/shop-logo/$host'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -262,6 +274,7 @@ export interface RootRouteChildren {
   WeekRoute: typeof WeekRoute
   ApiWatchCheckRoute: typeof ApiWatchCheckRoute
   ApiAuthSplatRoute: typeof ApiAuthSplatRoute
+  ApiShopLogoHostRoute: typeof ApiShopLogoHostRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -392,6 +405,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiAuthSplatRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/shop-logo/$host': {
+      id: '/api/shop-logo/$host'
+      path: '/api/shop-logo/$host'
+      fullPath: '/api/shop-logo/$host'
+      preLoaderRoute: typeof ApiShopLogoHostRouteImport
+      parentRoute: typeof rootRouteImport
+    }
   }
 }
 
@@ -414,6 +434,7 @@ const rootRouteChildren: RootRouteChildren = {
   WeekRoute: WeekRoute,
   ApiWatchCheckRoute: ApiWatchCheckRoute,
   ApiAuthSplatRoute: ApiAuthSplatRoute,
+  ApiShopLogoHostRoute: ApiShopLogoHostRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
