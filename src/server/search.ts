@@ -75,13 +75,12 @@ function lastText(body: Record<string, unknown>): string {
 export async function searchWebText(
   prompt: string,
   maxTokens = 1200,
-  timeoutMs = 45_000,
+  timeoutMs = 30_000,
 ): Promise<{ text: string; sources: string[] } | null> {
   const apiKey = process.env.XAI_API_KEY;
   if (!apiKey) return null;
-  let body: Record<string, unknown>;
-  try {
-    const res = await fetch("https://api.x.ai/v1/responses", {
+  const ask = (withEffort: boolean) =>
+    fetch("https://api.x.ai/v1/responses", {
       method: "POST",
       headers: {
         Authorization: `Bearer ${apiKey}`,
@@ -89,12 +88,19 @@ export async function searchWebText(
       },
       signal: AbortSignal.timeout(timeoutMs),
       body: JSON.stringify({
-        model: "grok-4.5",
+        model: process.env.XAI_MODEL || "grok-4.5",
         input: [{ role: "user", content: prompt }],
         tools: [{ type: "web_search" }],
+        // Finding and listing deals needs searching, not deep thought: the default ("high") is far slower.
+        ...(withEffort ? { reasoning: { effort: process.env.XAI_REASONING || "low" } } : {}),
         max_output_tokens: maxTokens,
       }),
     });
+  let body: Record<string, unknown>;
+  try {
+    let res = await ask(true);
+    // A model that doesn't take the effort setting says so with a 400: ask again without it.
+    if (res.status === 400) res = await ask(false);
     if (!res.ok) {
       console.warn(`web search refused: ${res.status}`);
       return null;

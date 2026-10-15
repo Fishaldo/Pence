@@ -202,7 +202,7 @@ function readOffers(text: string, sources: string[]): { offers: Offer[]; note: s
 }
 
 async function searchWeb(prompt: string): Promise<{ offers: Offer[]; note: string } | null> {
-  const found = await searchWebText(prompt, 1500, 45_000);
+  const found = await searchWebText(prompt, 1500, 30_000);
   if (!found) return null;
   try {
     return readOffers(found.text, found.sources);
@@ -273,12 +273,14 @@ export const findOffers = createServerFn({ method: "POST" })
     if (country.length < 2) throw new Error("Add the country.");
     if (budgetRaw && !budgetPence) throw new Error("Enter a budget, like 20 or 20.00, or leave it blank.");
     if (whenRaw && !validDate(whenRaw)) throw new Error("That date doesn’t look right.");
-    return { kind, place, country, city, when: whenRaw, budgetPence, items, need, details };
+    // Which of the two searches to run, so the screen can show each as soon as it is back. Absent: both.
+    const part = row.part === 0 || row.part === 1 ? row.part : null;
+    return { kind, place, country, city, when: whenRaw, budgetPence, items, need, details, part };
   })
   .handler(async ({ context, data }): Promise<PlanResult> => {
     const today = new Date().toISOString().slice(0, 10);
     const pounds = data.budgetPence ? (data.budgetPence / 100).toFixed(2) : "";
-    const fingerprint = `plan8:${today}:${data.when}:${data.kind}:${slug(data.country)}:${slug(data.city)}:${slug(data.place)}:${data.budgetPence ?? 0}:${slug(data.items)}:${hash(data.need)}:${hash(data.details)}`;
+    const fingerprint = `plan9:${data.part ?? "both"}:${today}:${data.when}:${data.kind}:${slug(data.country)}:${slug(data.city)}:${slug(data.place)}:${data.budgetPence ?? 0}:${slug(data.items)}:${hash(data.need)}:${hash(data.details)}`;
     const sql = await getSql();
     const cached = await sql<{ body: string }>`
       select body from advice_cache
@@ -321,7 +323,8 @@ What to cover: nationwide UK deals for the same thing: chains, online offers, vo
 ${RULES(10)}`,
         ];
     if (!process.env.XAI_API_KEY) throw new Error("The web search isn’t set up on this copy of Pence.");
-    const results = await Promise.all(prompts.map((prompt) => searchWeb(prompt)));
+    const chosen = data.part == null ? prompts : [prompts[data.part]];
+    const results = await Promise.all(chosen.map((prompt) => searchWeb(prompt)));
     if (results.every((result) => result == null)) {
       throw new Error("The web search took too long. Try again in a moment.");
     }
