@@ -1,6 +1,6 @@
 import { describe, it } from "node:test";
 import assert from "node:assert/strict";
-import { isMonthly, readDealText, readHot, titlePrice } from "./hot-search.ts";
+import { isMonthly, readDealText, readHot, ROUNDUP, titlePrice } from "./hot-search.ts";
 
 /** A card as HotUKDeals sends it: JSON in single-quoted data-vue3 attributes, entity-encoded. */
 function card(thread: Record<string, unknown>): string {
@@ -14,6 +14,14 @@ function card(thread: Record<string, unknown>): string {
     <a href="https://www.hotukdeals.com/deals/${thread.titleSlug}-${thread.threadId}" class="thread-link">${thread.title}</a>
     <div class="js-vue3" data-vue3='${attr(button)}'></div></article>`;
 }
+
+describe("round-ups", () => {
+  it("knows a round-up thread is not a deal", () => {
+    assert.ok(ROUNDUP.test("Supermarket Spirits Megathread - Round Up Of Best Deals & Offers"));
+    assert.ok(ROUNDUP.test("A round-up of the best Supermarket Whisky Deals"));
+    assert.ok(!ROUNDUP.test("Grohe Bau Curve Kitchen Mono Mixer Tap Chrome £69.99 at Screwfix"));
+  });
+});
 
 describe("monthly prices", () => {
   it("knows a time or a name is not a monthly price", () => {

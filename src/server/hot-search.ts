@@ -81,6 +81,9 @@ function findThread(value: unknown, depth = 0): Record<string, unknown> | null {
  * goes through HotUKDeals straight on to the shop. That button link is used as
  * the shop link, so people land on the shop, not on the deal board.
  */
+/** Titles of board threads that gather many deals or chat, rather than one deal. */
+export const ROUNDUP = /\bmega ?thread\b|\bround[- ]?up\b|\bdiscussion\b|\bweekly thread\b|\bbest deals (?:thread|list)\b/i;
+
 export function readThreads(html: string, limit: number): HotDeal[] {
   const threads: Record<string, unknown>[] = [];
   const buttons = new Map<string, string>();
@@ -109,6 +112,8 @@ export function readThreads(html: string, limit: number): HotDeal[] {
   const seen = new Set<string>();
   for (const thread of threads) {
     if (thread.isExpired === true) continue;
+    // A round-up or discussion thread is not a deal you can get: skip it.
+    if (ROUNDUP.test(String(thread.title ?? ""))) continue;
     const id = String(thread.threadId);
     const title = decode(String(thread.title)).replace(/\s+/g, " ").trim().slice(0, 140);
     const slug = typeof thread.titleSlug === "string" ? thread.titleSlug : "";
